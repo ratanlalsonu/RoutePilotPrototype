@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Custom Scrollbar for Command Center */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090e1a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Custom Leaflet Map styling */
+.leaflet-container {
+  background: #090e1a !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* Real Dark Mode Tile Styling for OpenStreetMap */
+.leaflet-dark-mode .leaflet-tile-pane {
+  filter: brightness(0.65) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35) !important;
+}
+
+.leaflet-dark-mode .leaflet-tile {
+  filter: brightness(0.65) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35) !important;
+}
+
+.leaflet-dark-mode .leaflet-container {
+  background: #070b14 !important;
+}
+
+.leaflet-bar {
+  border: 1px solid #1e293b !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.leaflet-bar a {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid #1e293b !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
+}
+
+.leaflet-popup-tip {
+  background: #0f172a !important;
+}
+
+/* Hazard pulse animations */
+@keyframes hazard-pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
+}
+
+.hazard-pulse-circle {
+  animation: hazard-pulse 2s infinite ease-in-out;
+  transform-origin: center;
+}
+
+@keyframes vehicle-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8), 0 0 24px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(59, 130, 246, 1), 0 0 32px rgba(59, 130, 246, 0.6);
+  }
+}
+
+.vehicle-marker-glow {
+  animation: vehicle-glow 1.5s infinite ease-in-out;
+}

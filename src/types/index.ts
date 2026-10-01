@@ -1,0 +1,163 @@
+export type VehicleType = 'car' | 'bike' | 'van' | 'bus' | 'truck';
+
+export type HazardType =
+  | 'Road Construction'
+  | 'Road Blockage'
+  | 'Bridge Damage'
+  | 'High Water Level'
+  | 'Structural Vibration'
+  | 'Excessive Tilt'
+  | 'Excessive Displacement'
+  | 'Excessive Strain'
+  | 'Accident'
+  | 'Other';
+
+export type HazardSeverity = 'SAFE' | 'WARNING' | 'CRITICAL' | 'BLOCKED';
+
+export type HazardSource = 'ADMIN' | 'LIVE_HARDWARE' | 'VIRTUAL_TEST';
+
+export interface Hazard {
+  hazardId: string;
+  type: HazardType;
+  severity: HazardSeverity;
+  latitude: number;
+  longitude: number;
+  locationName: string;
+  roadName: string;
+  affectedRadius: number; // in meters (e.g. 100m - 300m)
+  description: string;
+  source: HazardSource;
+  status: 'ACTIVE' | 'RESOLVED' | 'DELETED';
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface SensorNode {
+  id: string;
+  name: string;
+  location: string;
+  type: 'Bridge North' | 'Bridge South' | 'City Road' | 'River Bank' | 'Old Bridge' | 'Highway';
+  status: 'Online' | 'Offline';
+  lat: number;
+  lng: number;
+  battery: number;
+  lastReading: {
+    vibrationMmS?: number;
+    waterLevelM?: number;
+    tiltDegrees?: number;
+    strainMicrostrain?: number;
+    updatedAt: string;
+  };
+}
+
+export interface RouteOption {
+  id: string;
+  name: string; // e.g. "Route B", "Route C", "Route D"
+  color: string;
+  distanceKm: number;
+  durationMinutes: number;
+  coordinates: [number, number][]; // [lat, lng]
+  viaRoads: string[];
+  isRecommended?: boolean;
+  maneuver?: {
+    instruction: string;
+    distanceMeters: number;
+    icon?: string;
+  };
+}
+
+export type RouteDiversionState =
+  | 'IDLE'
+  | 'ROUTE_ACTIVE'
+  | 'HAZARD_DETECTED'
+  | 'WAITING_FOR_USER_CONFIRMATION'
+  | 'CALCULATING_ALTERNATIVES'
+  | 'ALTERNATIVES_DISPLAYED'
+  | 'DRIVER_ENTERING_ALTERNATIVE'
+  | 'NEW_ROUTE_ACTIVE'
+  | 'OFF_ROUTE'
+  | 'ARRIVED'
+  | 'JOURNEY_ENDED';
+
+export interface Journey {
+  journeyId: string;
+  driverId: string;
+  driverName: string;
+  vehicleType: VehicleType;
+  origin: {
+    name: string;
+    lat: number;
+    lng: number;
+  };
+  destination: {
+    name: string;
+    lat: number;
+    lng: number;
+  };
+  currentLocation: {
+    lat: number;
+    lng: number;
+    heading: number; // degrees 0-360
+    pointIndex: number;
+  };
+  currentSpeedKmh: number;
+  activeRouteId: string;
+  activeRoute: RouteOption | null;
+  alternativeRoutes: RouteOption[];
+  diversionState: RouteDiversionState;
+  detectedHazard: Hazard | null;
+  handledHazardIds: string[];
+  diversionCount: number;
+  hazardsEncounteredCount: number;
+  totalDistanceKm: number;
+  remainingDistanceKm: number;
+  remainingDurationMinutes: number;
+  progressPercent: number;
+  eta: string;
+  status: 'IDLE' | 'ON_ROUTE' | 'DIVERTED' | 'ARRIVED';
+  isNavigating: boolean;
+  isSimulating: boolean;
+  simulationSpeed: number; // multiplier e.g. 1x, 2x, 4x
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface RouteEvent {
+  id: string;
+  time: string;
+  event: string;
+  driver: string;
+  status: 'Success' | 'Triggered' | 'In Progress' | 'Active' | 'Warning' | 'Info';
+  details?: string;
+}
+
+export interface RoadStatusItem {
+  roadName: string;
+  status: 'Open' | 'Warning' | 'Restricted' | 'Blocked';
+  affectedByHazardId?: string;
+  hazardType?: string;
+}
+
+export interface SystemHealth {
+  mapService: 'Online' | 'Offline';
+  routingService: 'Online' | 'Offline';
+  database: 'Connected' | 'Offline';
+  realtimeSync: 'Online' | 'Offline';
+  sensorNetwork: '5 / 6 Online' | 'Online' | 'Offline';
+  apiServer: 'Online' | 'Offline';
+}
+
+export interface AppSettings {
+  language: 'en' | 'hi';
+  voiceEnabled: boolean;
+  sensorMode: 'VIRTUAL' | 'HARDWARE';
+  esp32Endpoint: string;
+  esp32DeviceId: string;
+  esp32Connected: boolean;
+  googleMapsApiKey?: string;
+  routingApiKey?: string;
+  routeCommitThresholdMeters: number;
+  minimumProgressMeters: number;
+  mapProvider: 'OpenStreetMap' | 'CartoDark';
+  mapTheme: 'dark' | 'standard';
+}
