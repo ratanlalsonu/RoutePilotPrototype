@@ -31,7 +31,7 @@ export function App() {
   };
 
   return (
-    <div className="w-full h-full min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans select-none">
+    <div className="w-full h-full min-h-screen bg-[#0D1117] text-slate-100 flex flex-col font-sans select-none">
       {activeMode === 'admin' ? (
         <AdminDashboard state={state} onSwitchMode={handleSwitchMode} />
       ) : (

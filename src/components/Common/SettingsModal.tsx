@@ -46,9 +46,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
   return (
     <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#0f172a] border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-[#131d33]">
+        <div className="px-6 py-4 border-b border-[#30363D] flex items-center justify-between bg-[#0D1117]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -62,7 +62,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#21262D] transition"
           >
             ✕
           </button>
@@ -71,7 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
         {/* Body */}
         <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-4 text-xs">
           {/* API Key Section */}
-          <div className="bg-[#141e33] p-3.5 rounded-xl border border-slate-700/80 space-y-2">
+          <div className="bg-[#21262D] p-3.5 rounded-xl border border-[#30363D] space-y-2">
             <div className="flex items-center justify-between">
               <label className="font-semibold text-slate-200">Map &amp; Routing Engine</label>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -90,10 +90,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               <button
                 type="button"
                 onClick={() => setLanguage('en')}
-                className={`py-2 px-3 rounded-xl border font-bold transition ${
+                className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   language === 'en'
-                    ? 'bg-blue-600/30 border-blue-500 text-blue-300'
-                    : 'bg-[#141e33] border-slate-800 text-slate-400 hover:text-white'
+                    ? 'bg-[#66ffff] border-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/20'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
                 English
@@ -101,10 +101,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               <button
                 type="button"
                 onClick={() => setLanguage('hi')}
-                className={`py-2 px-3 rounded-xl border font-bold transition ${
+                className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   language === 'hi'
-                    ? 'bg-blue-600/30 border-blue-500 text-blue-300'
-                    : 'bg-[#141e33] border-slate-800 text-slate-400 hover:text-white'
+                    ? 'bg-[#66ffff] border-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/20'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
                 हिन्दी (Hindi)
@@ -113,7 +113,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           </div>
 
           {/* Voice Alerts Toggle */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-[#141e33] border border-slate-800">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-[#21262D] border border-[#30363D]">
             <div>
               <div className="font-semibold text-slate-200">Text-to-Speech Voice Alerts</div>
               <div className="text-[10px] text-slate-400">Spoken warnings when hazards are detected</div>
@@ -136,7 +136,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 className={`py-2 px-3 rounded-xl border font-bold transition ${
                   sensorMode === 'HARDWARE'
                     ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300'
-                    : 'bg-[#141e33] border-slate-800 text-slate-400 hover:text-white'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
                 External Hardware (ESP32)
@@ -147,7 +147,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 className={`py-2 px-3 rounded-xl border font-bold transition ${
                   sensorMode === 'VIRTUAL'
                     ? 'bg-amber-600/30 border-amber-500 text-amber-300'
-                    : 'bg-[#141e33] border-slate-800 text-slate-400 hover:text-white'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
                 Virtual Test Mode
@@ -164,13 +164,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 value={esp32Endpoint}
                 onChange={(e) => setEsp32Endpoint(e.target.value)}
                 placeholder="http://192.168.1.100:80/api/sensor"
-                className="w-full bg-[#141e33] border border-slate-700 rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
               />
             </div>
           )}
 
           {/* Clean Zero Dummy Baseline button */}
-          <div className="pt-2 border-t border-slate-800">
+          <div className="pt-2 border-t border-[#30363D]">
             <button
               type="button"
               onClick={handlePurgeAllDummyData}
@@ -182,17 +182,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           </div>
 
           {/* Actions */}
-          <div className="pt-3 border-t border-slate-800 flex gap-3">
+          <div className="pt-3 border-t border-[#30363D] flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition cursor-pointer"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-[#21262D] hover:bg-[#30363D] text-slate-300 font-semibold transition border border-[#30363D] cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-[#66ffff] hover:bg-[#80ffff] text-slate-950 font-bold transition shadow-lg shadow-[#66ffff]/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               {isSaved ? <span>✓ Saved!</span> : <span>Save Configuration</span>}
             </button>

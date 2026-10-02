@@ -18,7 +18,7 @@ export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) =>
   return (
     <div className="p-4 space-y-4 text-xs">
       {/* Header */}
-      <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl shadow-lg">
+      <div className="bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow-lg">
         <h2 className="text-base font-extrabold text-white flex items-center gap-2">
           <span>System Diagnostics &amp; Infrastructure Logs</span>
           <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold">
@@ -38,7 +38,7 @@ export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) =>
           { name: 'BroadcastChannel Sync', val: systemHealth.realtimeSync, detail: '0ms latency inter-tab' },
           { name: 'Database / Storage', val: systemHealth.database, detail: 'LocalStorage + Broadcast' },
         ].map((item, idx) => (
-          <div key={idx} className="bg-[#0f172a] border border-slate-800 p-3 rounded-xl shadow space-y-1">
+          <div key={idx} className="bg-[#161B22] border border-[#30363D] p-3 rounded-xl shadow space-y-1">
             <div className="text-[10px] text-slate-400 uppercase font-semibold">{item.name}</div>
             <div className="text-sm font-bold text-emerald-400 flex items-center gap-1.5 font-mono">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -50,8 +50,8 @@ export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) =>
       </div>
 
       {/* Terminal Output */}
-      <div className="bg-[#050811] border border-slate-800 rounded-2xl p-4 font-mono text-xs shadow-2xl space-y-2">
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2 text-slate-400 text-[11px]">
+      <div className="bg-[#0D1117] border border-[#30363D] rounded-2xl p-4 font-mono text-xs shadow-2xl space-y-2">
+        <div className="flex items-center justify-between border-b border-[#30363D] pb-2 text-slate-400 text-[11px]">
           <span>RoutePilot Service Daemon Output</span>
           <span>STDOUT / STDERR</span>
         </div>

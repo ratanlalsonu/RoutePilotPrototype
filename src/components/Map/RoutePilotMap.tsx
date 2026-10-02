@@ -11,8 +11,9 @@ interface RoutePilotMapProps {
   onMapClickForHazard?: (lat: number, lng: number) => void;
   onResolveHazard?: (hazardId: string) => void;
   onCommitRoute?: (routeId: string) => void;
-  theme?: 'dark' | 'standard';
+  theme?: 'standard' | 'satellite';
   onToggleTheme?: () => void;
+  onChangeTheme?: (theme: 'standard' | 'satellite') => void;
 }
 
 export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
@@ -26,39 +27,56 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
   onCommitRoute,
   theme,
   onToggleTheme,
+  onChangeTheme,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
-  
-  // Default to dark mode to match RoutePilot Command Center aesthetic
-  const [mapStyle, setMapStyle] = useState<'osm_standard' | 'osm_dark'>(() => {
-    if (theme) return theme === 'dark' ? 'osm_dark' : 'osm_standard';
+  const osmLayerRef = useRef<L.TileLayer | null>(null);
+  const satelliteLayerRef = useRef<L.LayerGroup | null>(null);
+
+  const [mapStyle, setMapStyle] = useState<'standard' | 'satellite'>(() => {
+    if (theme === 'satellite') return 'satellite';
+    if (theme === 'standard') return 'standard';
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('routepilot_map_theme');
-      if (saved) return saved === 'dark' ? 'osm_dark' : 'osm_standard';
+      if (saved === 'satellite') return 'satellite';
     }
-    return 'osm_dark';
+    return 'standard';
   });
 
   // Keep state synced if theme prop updates
   useEffect(() => {
-    if (theme) {
-      setMapStyle(theme === 'dark' ? 'osm_dark' : 'osm_standard');
+    if (theme === 'satellite' || theme === 'standard') {
+      setMapStyle(theme);
     }
   }, [theme]);
 
-  // Apply or remove dark mode CSS class on map container
+  // Switch between Standard OpenStreetMap and Satellite Mode layers
   useEffect(() => {
-    if (!mapContainerRef.current) return;
-    if (mapStyle === 'osm_dark') {
-      mapContainerRef.current.classList.add('leaflet-dark-mode');
-    } else {
+    if (mapContainerRef.current) {
       mapContainerRef.current.classList.remove('leaflet-dark-mode');
+    }
+    const map = mapRef.current;
+    if (map && osmLayerRef.current && satelliteLayerRef.current) {
+      if (mapStyle === 'satellite') {
+        if (map.hasLayer(osmLayerRef.current)) {
+          map.removeLayer(osmLayerRef.current);
+        }
+        if (!map.hasLayer(satelliteLayerRef.current)) {
+          satelliteLayerRef.current.addTo(map);
+        }
+      } else {
+        if (map.hasLayer(satelliteLayerRef.current)) {
+          map.removeLayer(satelliteLayerRef.current);
+        }
+        if (!map.hasLayer(osmLayerRef.current)) {
+          osmLayerRef.current.addTo(map);
+        }
+      }
     }
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('routepilot_map_theme', mapStyle === 'osm_dark' ? 'dark' : 'standard');
+        localStorage.setItem('routepilot_map_theme', mapStyle);
       } catch {}
     }
   }, [mapStyle]);
@@ -74,15 +92,11 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
   const destMarkerRef = useRef<L.Marker | null>(null);
   const tempMarkerRef = useRef<L.Marker | null>(null);
 
-  // Initialize Leaflet Map with Real OpenStreetMap
+  // Initialize Leaflet Map with Standard OpenStreetMap & Satellite Hybrid Layers
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Apply dark class immediately before tiles render
-    const currentIsDark = (theme ? theme === 'dark' : (typeof window !== 'undefined' && localStorage.getItem('routepilot_map_theme') !== 'standard'));
-    if (currentIsDark) {
-      mapContainerRef.current.classList.add('leaflet-dark-mode');
-    }
+    mapContainerRef.current.classList.remove('leaflet-dark-mode');
 
     // Center on Jhansi, Uttar Pradesh
     const map = L.map(mapContainerRef.current, {
@@ -92,13 +106,52 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
       attributionControl: false,
     });
 
-    // Real OpenStreetMap standard tile layer (styled via CSS in dark mode)
+    // 1. Standard OpenStreetMap tile layer
     const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
-    }).addTo(map);
+      zIndex: 1,
+    });
 
-    tileLayerRef.current = osmLayer;
+    // 2. High-Resolution Satellite Imagery + Hybrid Road & Place Labels
+    const satImagery = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        zIndex: 1,
+      }
+    );
+    const satRoads = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        opacity: 0.85,
+        zIndex: 2,
+      }
+    );
+    const satLabels = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        opacity: 0.95,
+        zIndex: 3,
+      }
+    );
+    const satelliteGroup = L.layerGroup([satImagery, satRoads, satLabels]);
+
+    osmLayerRef.current = osmLayer;
+    satelliteLayerRef.current = satelliteGroup;
+
+    const initialStyle =
+      theme === 'satellite' ||
+      (!theme && typeof window !== 'undefined' && localStorage.getItem('routepilot_map_theme') === 'satellite')
+        ? 'satellite'
+        : 'standard';
+
+    if (initialStyle === 'satellite') {
+      satelliteGroup.addTo(map);
+    } else {
+      osmLayer.addTo(map);
+    }
 
     // Feature groups
     altRoutesGroupRef.current = L.featureGroup().addTo(map);
@@ -115,9 +168,21 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
 
   // Handle Map Tile Layer Switch
   const toggleMapStyle = () => {
-    const nextStyle = mapStyle === 'osm_standard' ? 'osm_dark' : 'osm_standard';
+    const nextStyle = mapStyle === 'satellite' ? 'standard' : 'satellite';
     setMapStyle(nextStyle);
-    if (onToggleTheme) {
+    if (onChangeTheme) {
+      onChangeTheme(nextStyle);
+    } else if (onToggleTheme) {
+      onToggleTheme();
+    }
+  };
+
+  const selectMapStyle = (targetStyle: 'standard' | 'satellite') => {
+    const nextStyle = mapStyle === targetStyle && targetStyle === 'satellite' ? 'standard' : targetStyle;
+    setMapStyle(nextStyle);
+    if (onChangeTheme) {
+      onChangeTheme(nextStyle);
+    } else if (onToggleTheme && nextStyle !== mapStyle) {
       onToggleTheme();
     }
   };
@@ -183,7 +248,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
               <div class="w-7 h-7 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center shadow-md">
                 <div class="w-2.5 h-2.5 rounded-full bg-white"></div>
               </div>
-              <div class="px-2 py-0.5 mt-1 bg-slate-900/90 text-blue-300 text-[10px] font-semibold rounded border border-blue-500/40 shadow whitespace-nowrap">
+              <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-blue-300 text-[10px] font-semibold rounded border border-blue-500/40 shadow whitespace-nowrap">
                 ${journey.origin.name}
               </div>
             </div>
@@ -209,7 +274,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
               <div class="w-8 h-8 rounded-full bg-red-600 border-2 border-white flex items-center justify-center shadow-xl text-white">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
               </div>
-              <div class="px-2 py-0.5 mt-1 bg-slate-900/90 text-red-300 text-[11px] font-bold rounded border border-red-500/40 shadow-lg whitespace-nowrap">
+              <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-red-300 text-[11px] font-bold rounded border border-red-500/40 shadow-lg whitespace-nowrap">
                 ${journey.destination.name}
               </div>
             </div>
@@ -305,7 +370,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
           className: 'alt-route-label',
           html: `
             <div class="px-2.5 py-1 rounded-md text-xs font-bold border shadow-xl flex items-center gap-1.5 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap"
-                 style="background-color: #0f172a; border-color: ${route.color}; color: ${route.color};">
+                 style="background-color: #161B22; border-color: ${route.color}; color: ${route.color};">
               <span class="w-2 h-2 rounded-full" style="background-color: ${route.color};"></span>
               <span>${route.name}</span>
               <span class="text-slate-300 font-normal">• ${route.distanceKm} km • ${route.durationMinutes} min</span>
@@ -412,7 +477,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <div class="px-2 py-0.5 mt-1 bg-slate-950/95 border ${isCritical ? 'border-red-500/60 text-red-200' : 'border-amber-500/60 text-amber-200'} text-[11px] font-bold rounded shadow-lg whitespace-nowrap">
+            <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/60 text-red-200' : 'border-amber-500/60 text-amber-200'} text-[11px] font-bold rounded shadow-lg whitespace-nowrap">
               ${hazard.type}
             </div>
           </div>
@@ -485,7 +550,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
                 <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/>
               </svg>
             </div>
-            <div class="px-1 py-0.5 mt-0.5 bg-slate-900/90 text-[9px] font-mono text-emerald-300 rounded border border-emerald-500/30 whitespace-nowrap">
+            <div class="px-1 py-0.5 mt-0.5 bg-[#161B22]/95 text-[9px] font-mono text-emerald-300 rounded border border-emerald-500/30 whitespace-nowrap">
               ${node.id}
             </div>
           </div>
@@ -529,7 +594,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
   const handleZoomOut = () => mapRef.current?.zoomOut();
 
   return (
-    <div className="relative w-full h-full bg-[#080d19] overflow-hidden select-none">
+    <div className="relative w-full h-full bg-[#0D1117] overflow-hidden select-none">
       {/* Map DOM Container */}
       <div
         ref={mapContainerRef}
@@ -546,13 +611,27 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
         </div>
       )}
 
-      {/* Top Map Theme Switcher Pill */}
-      <div className="absolute top-3 right-3 z-[990]">
+      {/* Top Map Mode Switcher Pill (Standard Map vs Satellite Mode) */}
+      <div className="absolute top-3 right-3 z-[990] flex items-center bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl p-1 shadow-xl gap-1">
         <button
-          onClick={toggleMapStyle}
-          className="px-3 py-1.5 rounded-xl bg-[#0c1322]/90 backdrop-blur-md border border-slate-700/80 hover:bg-slate-800 text-xs font-semibold text-slate-200 shadow-xl flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+          onClick={() => selectMapStyle('standard')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
+            mapStyle === 'standard'
+              ? 'bg-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/30'
+              : 'text-slate-300 hover:text-white hover:bg-[#21262D]'
+          }`}
         >
-          <span>{mapStyle === 'osm_dark' ? '☀️ Standard OSM' : '🌙 Dark Mode Map'}</span>
+          <span>🗺️ Standard Map</span>
+        </button>
+        <button
+          onClick={() => selectMapStyle('satellite')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
+            mapStyle === 'satellite'
+              ? 'bg-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/30'
+              : 'text-slate-300 hover:text-white hover:bg-[#21262D]'
+          }`}
+        >
+          <span>🛰️ Satellite Mode</span>
         </button>
       </div>
 
@@ -561,51 +640,69 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
         <button
           onClick={handleZoomIn}
           title="Zoom In"
-          className="w-9 h-9 rounded-lg bg-[#0e1628]/90 border border-slate-700/80 hover:bg-slate-800 text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         </button>
         <button
           onClick={handleZoomOut}
           title="Zoom Out"
-          className="w-9 h-9 rounded-lg bg-[#0e1628]/90 border border-slate-700/80 hover:bg-slate-800 text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
         </button>
         <button
           onClick={handleCenterVehicle}
           title="Center on Driver"
-          className="w-9 h-9 rounded-lg bg-[#0e1628]/90 border border-slate-700/80 hover:bg-slate-800 text-blue-400 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-[#66ffff] flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
         </button>
         <button
           onClick={toggleMapStyle}
-          title={mapStyle === 'osm_dark' ? 'Switch to Standard OpenStreetMap' : 'Switch to Dark Mode Map'}
-          className={`w-9 h-9 rounded-lg border text-amber-400 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer ${
-            mapStyle === 'osm_dark' ? 'bg-amber-500/20 border-amber-500/40' : 'bg-[#0e1628]/90 border-slate-700/80 hover:bg-slate-800'
+          title={mapStyle === 'satellite' ? 'Switch to Standard OpenStreetMap' : 'Switch to Satellite Mode'}
+          className={`w-9 h-9 rounded-lg border flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer ${
+            mapStyle === 'satellite'
+              ? 'bg-[#66ffff] border-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/20'
+              : 'bg-[#161B22]/90 border-[#30363D] hover:bg-[#21262D] text-amber-400'
           }`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </button>
       </div>
 
-      {/* Visible OpenStreetMap Attribution matching user requirement */}
-      <div className="absolute right-4 bottom-4 z-[990] bg-[#0c1322]/90 backdrop-blur-xs text-[11px] text-slate-300 px-3 py-1 rounded-lg border border-slate-700/80 flex items-center gap-1.5 shadow-lg select-none">
-        <span>©</span>
-        <a
-          href="https://www.openstreetmap.org/copyright"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 font-semibold hover:underline"
-        >
-          OpenStreetMap
-        </a>
-        <span>contributors</span>
+      {/* Visible Map Attribution */}
+      <div className="absolute right-4 bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-xs text-[11px] text-slate-300 px-3 py-1 rounded-lg border border-[#30363D] flex items-center gap-1.5 shadow-lg select-none">
+        {mapStyle === 'satellite' ? (
+          <>
+            <span>🛰️ Satellite © Esri • ©</span>
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 font-semibold hover:underline"
+            >
+              OpenStreetMap
+            </a>
+          </>
+        ) : (
+          <>
+            <span>©</span>
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 font-semibold hover:underline"
+            >
+              OpenStreetMap
+            </a>
+            <span>contributors</span>
+          </>
+        )}
       </div>
 
       {/* Map Legend Overlay (Bottom Left) matching screenshot */}
-      <div className="absolute left-4 bottom-4 z-[990] bg-[#0c1322]/90 backdrop-blur-md border border-slate-800/80 rounded-xl p-3 shadow-2xl text-[11px] text-slate-300">
+      <div className="absolute left-4 bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] rounded-xl p-3 shadow-2xl text-[11px] text-slate-300">
         <div className="font-semibold text-slate-200 mb-1.5 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
           <span>Map Legend</span>

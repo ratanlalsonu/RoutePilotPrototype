@@ -13,6 +13,7 @@ import {
   calculatePolylineDistanceKm,
   calculateAlternativeRoutes,
   fetchOSRMRoute,
+  generateSyntheticSteps,
 } from './routingService';
 import {
   hazardAffectsRoute,
@@ -105,6 +106,9 @@ function getInitialState(): RoutePilotState {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.hazards && parsed.journey) {
+          if (parsed.appSettings && parsed.appSettings.mapTheme !== 'satellite') {
+            parsed.appSettings.mapTheme = 'standard';
+          }
           return parsed;
         }
       }
@@ -118,7 +122,8 @@ function getInitialState(): RoutePilotState {
     (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
     '';
 
-  const storedMapTheme = (typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null) as 'dark' | 'standard' || 'dark';
+  const rawStoredTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null;
+  const storedMapTheme: 'standard' | 'satellite' = rawStoredTheme === 'satellite' ? 'satellite' : 'standard';
 
   return {
     hazards: INITIAL_HAZARDS,
@@ -144,7 +149,7 @@ function getInitialState(): RoutePilotState {
       googleMapsApiKey: storedApiKey,
       routeCommitThresholdMeters: 60,
       minimumProgressMeters: 25,
-      mapProvider: 'CartoDark',
+      mapProvider: 'OpenStreetMap',
       mapTheme: storedMapTheme,
     },
     activeMode: 'admin',
@@ -232,9 +237,9 @@ class RealtimeSyncManager {
     this.notify();
   }
 
-  public toggleMapTheme(): 'dark' | 'standard' {
-    const nextTheme: 'dark' | 'standard' =
-      this.state.appSettings.mapTheme === 'dark' ? 'standard' : 'dark';
+  public toggleMapTheme(): 'standard' | 'satellite' {
+    const nextTheme: 'standard' | 'satellite' =
+      this.state.appSettings.mapTheme === 'satellite' ? 'standard' : 'satellite';
     this.state.appSettings.mapTheme = nextTheme;
     if (typeof window !== 'undefined') {
       try {
@@ -245,7 +250,7 @@ class RealtimeSyncManager {
     return nextTheme;
   }
 
-  public setMapTheme(theme: 'dark' | 'standard') {
+  public setMapTheme(theme: 'standard' | 'satellite') {
     this.state.appSettings.mapTheme = theme;
     if (typeof window !== 'undefined') {
       try {
@@ -568,6 +573,9 @@ class RealtimeSyncManager {
   private startSimulationLoop() {
     if (this.simulationTimer) clearInterval(this.simulationTimer);
 
+    const speed = this.state.journey.simulationSpeed || 1;
+    const intervalMs = Math.max(350, Math.round(2800 / speed));
+
     this.simulationTimer = setInterval(() => {
       if (this.state.journey.isNavigating && this.state.journey.isSimulating) {
         // Only advance if not waiting for user confirmation
@@ -578,7 +586,13 @@ class RealtimeSyncManager {
           this.advanceVehicle(1);
         }
       }
-    }, 2800);
+    }, intervalMs);
+  }
+
+  public setSimulationSpeed(speed: number) {
+    this.state.journey.simulationSpeed = speed;
+    this.startSimulationLoop();
+    this.notify();
   }
 
   public setSimulating(isSimulating: boolean) {
@@ -608,12 +622,73 @@ class RealtimeSyncManager {
         status: 'In Progress',
         details: `En route to ${this.state.journey.destination.name}`,
       });
+      VoiceService.speak(
+        `Navigation started to ${this.state.journey.destination.name}. Drive safely.`,
+        `यात्रा शुरू हुई। ${this.state.journey.destination.name} की ओर सुरक्षित ड्राइव करें।`
+      );
     } else {
       this.state.journey.isNavigating = false;
       this.state.journey.currentSpeedKmh = 0;
       this.state.journey.isSimulating = false;
+      VoiceService.speak('Navigation paused.', 'यात्रा रोक दी गई है।');
     }
     this.notify();
+  }
+
+  public stopNavigation() {
+    this.state.journey.isNavigating = false;
+    this.state.journey.isSimulating = false;
+    this.state.journey.currentSpeedKmh = 0;
+    this.state.journey.status = 'IDLE';
+    this.state.journey.progressPercent = 0;
+    this.state.journey.currentLocation.pointIndex = 0;
+    if (this.state.journey.activeRoute && this.state.journey.activeRoute.coordinates.length > 0) {
+      this.state.journey.currentLocation.lat = this.state.journey.activeRoute.coordinates[0][0];
+      this.state.journey.currentLocation.lng = this.state.journey.activeRoute.coordinates[0][1];
+    }
+    this.notify();
+  }
+
+  public reportHazardFromDriver(data: {
+    type: Hazard['type'];
+    severity: Hazard['severity'];
+    description: string;
+    roadName?: string;
+  }): Hazard {
+    const j = this.state.journey;
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const hazardId = `H${String(this.state.hazards.length + 1).padStart(3, '0')}`;
+    const roadName = data.roadName || j.activeRoute?.viaRoads[0] || 'Active Corridor';
+    const locationName = `Reported near ${j.currentLocation.lat.toFixed(4)}, ${j.currentLocation.lng.toFixed(4)}`;
+
+    const newHazard: Hazard = {
+      hazardId,
+      type: data.type,
+      severity: data.severity,
+      latitude: j.currentLocation.lat,
+      longitude: j.currentLocation.lng,
+      locationName,
+      roadName,
+      affectedRadius: 200,
+      description: data.description || 'Reported live by driver',
+      source: 'DRIVER',
+      status: 'ACTIVE',
+      createdAt: nowTime,
+    };
+
+    this.state.hazards = [newHazard, ...this.state.hazards];
+    this.addRouteEvent({
+      time: nowTime,
+      event: `Driver reported hazard: ${data.type}`,
+      driver: j.driverId,
+      status: 'Triggered',
+      details: `${data.description} at ${roadName}`,
+    });
+
+    this.updateRoadStatusForHazard(newHazard);
+    this.checkHazardAgainstActiveRoute(newHazard);
+    this.notify();
+    return newHazard;
   }
 
   public setVehicleType(vehicleType: Journey['vehicleType']) {
@@ -635,49 +710,73 @@ class RealtimeSyncManager {
     // Live OSRM calculation for the selected destination
     const osrm = await fetchOSRMRoute(origin.lat, origin.lng, dest.lat, dest.lng);
 
-    if (osrm && osrm.coordinates.length > 1) {
-      const activeRoute: RouteOption = {
-        id: `route_${Date.now()}`,
-        name: `OSRM Route to ${dest.name}`,
-        color: '#2563eb',
-        distanceKm: osrm.distanceKm,
-        durationMinutes: osrm.durationMin,
-        coordinates: osrm.coordinates,
-        viaRoads: ['Live Road Network'],
-        isRecommended: true,
-        maneuver: {
-          instruction: `Head toward ${dest.name}`,
-          distanceMeters: 350,
-        },
-      };
+    let coordinates: [number, number][] = osrm?.coordinates || [];
+    let distanceKm: number = osrm?.distanceKm || 0;
+    let durationMin: number = osrm?.durationMin || 0;
+    let steps = osrm?.steps;
 
-      this.state.journey.activeRoute = activeRoute;
-      this.state.journey.activeRouteId = activeRoute.id;
-      this.state.journey.totalDistanceKm = osrm.distanceKm;
-      this.state.journey.remainingDistanceKm = osrm.distanceKm;
-      this.state.journey.remainingDurationMinutes = osrm.durationMin;
-
-      const etaDate = new Date(Date.now() + osrm.durationMin * 60000);
-      this.state.journey.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      // Place vehicle at start of the calculated route
-      if (osrm.coordinates.length > 0) {
-        this.state.journey.currentLocation = {
-          lat: osrm.coordinates[0][0],
-          lng: osrm.coordinates[0][1],
-          heading: 0,
-          pointIndex: 0,
-        };
+    if (!coordinates || coordinates.length < 2) {
+      // Reliable fallback interpolation
+      const pts: [number, number][] = [];
+      const numPts = 14;
+      for (let i = 0; i <= numPts; i++) {
+        const frac = i / numPts;
+        const lat = origin.lat + (dest.lat - origin.lat) * frac;
+        const lng = origin.lng + (dest.lng - origin.lng) * frac;
+        pts.push([parseFloat(lat.toFixed(5)), parseFloat(lng.toFixed(5))]);
       }
-
-      this.addRouteEvent({
-        time: nowTime,
-        event: `OSRM Route Calculated to ${dest.name}`,
-        driver: this.state.journey.driverId,
-        status: 'Success',
-        details: `Real distance: ${osrm.distanceKm} km, Duration: ${osrm.durationMin} min`,
-      });
+      coordinates = pts;
+      distanceKm = calculatePolylineDistanceKm(pts);
+      durationMin = Math.max(2, Math.round(distanceKm * 2.1));
+      steps = generateSyntheticSteps('Active Route', ['City Arterial Corridor'], distanceKm, dest.name);
     }
+
+    if (!steps || steps.length === 0) {
+      steps = generateSyntheticSteps('Active Route', ['Live Road Network'], distanceKm, dest.name);
+    }
+
+    const activeRoute: RouteOption = {
+      id: `route_${Date.now()}`,
+      name: `Route to ${dest.name}`,
+      color: '#2563eb',
+      distanceKm,
+      durationMinutes: durationMin,
+      coordinates,
+      viaRoads: ['Live Road Network'],
+      isRecommended: true,
+      maneuver: {
+        instruction: `Head toward ${dest.name}`,
+        distanceMeters: Math.round(distanceKm * 180),
+      },
+      steps,
+    };
+
+    this.state.journey.activeRoute = activeRoute;
+    this.state.journey.activeRouteId = activeRoute.id;
+    this.state.journey.totalDistanceKm = distanceKm;
+    this.state.journey.remainingDistanceKm = distanceKm;
+    this.state.journey.remainingDurationMinutes = durationMin;
+
+    const etaDate = new Date(Date.now() + durationMin * 60000);
+    this.state.journey.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Place vehicle at start of the calculated route
+    if (coordinates.length > 0) {
+      this.state.journey.currentLocation = {
+        lat: coordinates[0][0],
+        lng: coordinates[0][1],
+        heading: 0,
+        pointIndex: 0,
+      };
+    }
+
+    this.addRouteEvent({
+      time: nowTime,
+      event: `Route Configured to ${dest.name}`,
+      driver: this.state.journey.driverId,
+      status: 'Success',
+      details: `Distance: ${distanceKm} km, Duration: ${durationMin} min`,
+    });
 
     this.notify();
   }

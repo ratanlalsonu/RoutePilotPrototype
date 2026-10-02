@@ -97,9 +97,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#070b14] text-slate-100 overflow-hidden font-sans">
+    <div className="flex flex-col h-screen w-screen bg-[#0D1117] text-slate-100 overflow-hidden font-sans">
       {/* Header matching screenshot Image 2 */}
-      <header className="h-14 border-b border-slate-800/80 bg-[#0c1322] px-4 flex items-center justify-between z-20 shrink-0">
+      <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-4 flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center gap-3">
           {/* Logo */}
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
@@ -121,16 +121,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         </div>
 
         {/* Center Mode Switch */}
-        <div className="flex items-center bg-[#080d19] p-1 rounded-xl border border-slate-800">
+        <div className="flex items-center bg-[#0D1117] p-1 rounded-xl border border-[#30363D]">
           <button
             onClick={() => onSwitchMode('admin')}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow-md shadow-blue-600/30"
+            className="px-4 py-1.5 rounded-lg text-xs font-bold transition bg-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/30"
           >
             Admin Mode
           </button>
           <button
             onClick={() => onSwitchMode('driver')}
-            className="px-4 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white hover:bg-slate-800/50"
+            className="px-4 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white hover:bg-[#21262D]"
           >
             Driver Mode
           </button>
@@ -151,12 +151,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           <div className="relative">
             <button
               onClick={() => setNotificationOpen(!notificationOpen)}
-              className="p-2 rounded-lg bg-[#141e33] border border-slate-700/80 hover:bg-slate-700 text-slate-300 relative transition cursor-pointer"
+              className="p-2 rounded-lg bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 relative transition cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-[#0c1322]">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-[#161B22]">
                 {activeHazardsCount}
               </span>
             </button>
@@ -171,20 +171,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
             </div>
           </div>
 
-          {/* Map Dark Mode Toggle */}
+          {/* Map Satellite Mode Toggle */}
           <button
             onClick={() => realtimeSync.toggleMapTheme()}
-            title={`Map Theme: ${state.appSettings.mapTheme === 'dark' ? 'Dark Mode' : 'Standard OSM'} (Click to toggle)`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141e33] border border-slate-700/80 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition cursor-pointer"
+            title={`Map Mode: ${state.appSettings.mapTheme === 'satellite' ? 'Satellite Mode' : 'Standard Map'} (Click to switch)`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+              state.appSettings.mapTheme === 'satellite'
+                ? 'bg-[#66ffff] text-slate-950 font-bold border-[#66ffff] shadow-md shadow-[#66ffff]/30'
+                : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-200'
+            }`}
           >
-            <span>{state.appSettings.mapTheme === 'dark' ? '🌙 Dark Map' : '☀️ Light Map'}</span>
+            <span>{state.appSettings.mapTheme === 'satellite' ? '🛰️ Satellite Mode (Active)' : '🛰️ Satellite Mode'}</span>
           </button>
 
           {/* Settings Icon */}
           <button
             onClick={() => setIsSettingsOpen(true)}
             title="RoutePilot Settings & API Key"
-            className="p-2 rounded-lg bg-[#141e33] border border-slate-700/80 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+            className="p-2 rounded-lg bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 transition cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -196,7 +200,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       {/* Main Container */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar matching screenshot Image 2 */}
-        <aside className="w-56 bg-[#0c1322] border-r border-slate-800/80 flex flex-col justify-between shrink-0 hidden md:flex">
+        <aside className="w-56 bg-[#161B22] border-r border-[#30363D] flex flex-col justify-between shrink-0 hidden md:flex">
           <nav className="p-3 space-y-1">
             {[
               { id: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -221,8 +225,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   activeTab === item.id
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#141e33]'
+                    ? 'bg-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
                 }`}
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -233,7 +237,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
             ))}
           </nav>
 
-          <div className="p-3 border-t border-slate-800">
+          <div className="p-3 border-t border-[#30363D]">
             <button
               onClick={() => realtimeSync.resetDemo()}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition cursor-pointer"
@@ -247,7 +251,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 flex flex-col overflow-y-auto bg-[#080d19]">
+        <main className="flex-1 flex flex-col overflow-y-auto bg-[#0D1117]">
           {activeTab === 'Dashboard' && (
             <DashboardView
               state={state}
@@ -268,9 +272,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           )}
 
           {activeTab === 'Live Map' && (
-            <div className="flex-1 flex flex-col h-full bg-[#080d19] overflow-hidden min-h-[550px]">
+            <div className="flex-1 flex flex-col h-full bg-[#0D1117] overflow-hidden min-h-[550px]">
               {/* Map Bar: Controls & Quick Actions */}
-              <div className="px-4 py-3 border-b border-slate-800 bg-[#0d1424] flex flex-wrap items-center justify-between gap-2 shrink-0 z-10">
+              <div className="px-4 py-3 border-b border-[#30363D] bg-[#161B22] flex flex-wrap items-center justify-between gap-2 shrink-0 z-10">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span className="font-bold text-sm text-white">Full-Screen Interactive Map & Road Routing</span>
@@ -293,7 +297,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   <button
                     onClick={handleQuickHazardOnRoute}
                     title="Creates Hazard on active route (triggers alert)"
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#162238] border border-slate-700 hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
                   >
                     ⚠ Hazard on Driver Route
                   </button>
@@ -301,7 +305,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   <button
                     onClick={handleQuickHazardAwayFromRoute}
                     title="Creates hazard far away (proves rule 13: NO driver alert)"
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#162238] border border-slate-700 hover:border-slate-500 text-slate-300 transition cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-slate-500 text-slate-300 transition cursor-pointer"
                   >
                     Hazard Away (No Alert)
                   </button>
@@ -309,7 +313,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   <button
                     onClick={handleQuickSecondHazardAhead}
                     title="Creates second hazard ahead on diverted route (tests repeated diversion!)"
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#162238] border border-slate-700 hover:border-amber-500 text-amber-300 transition cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-amber-500 text-amber-300 transition cursor-pointer"
                   >
                     ⚠ 2nd Hazard Ahead
                   </button>
@@ -317,7 +321,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   <button
                     onClick={() => realtimeSync.resetDemo()}
                     title="Reset demo state"
-                    className="p-1.5 rounded-xl bg-[#162238] border border-slate-700 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+                    className="p-1.5 rounded-xl bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 transition cursor-pointer"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                   </button>
@@ -337,6 +341,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   onCommitRoute={(id) => realtimeSync.commitToAlternateRoute(id)}
                   theme={state.appSettings.mapTheme}
                   onToggleTheme={() => realtimeSync.toggleMapTheme()}
+                  onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
                 />
               </div>
             </div>

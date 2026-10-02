@@ -33,7 +33,7 @@ export const RoadStatusTab: React.FC<RoadStatusTabProps> = ({ roadStatuses, haza
   return (
     <div className="p-4 space-y-4 text-xs">
       {/* Header */}
-      <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl shadow-lg">
+      <div className="bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow-lg">
         <h2 className="text-base font-extrabold text-white flex items-center gap-2">
           <span>Corridor Traffic &amp; Road Restriction Manager</span>
           <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-mono font-bold">
@@ -46,11 +46,11 @@ export const RoadStatusTab: React.FC<RoadStatusTabProps> = ({ roadStatuses, haza
       </div>
 
       {/* Roads Table */}
-      <div className="bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 bg-[#0d1424] text-[11px] text-slate-400 uppercase font-semibold">
+              <tr className="border-b border-[#30363D] bg-[#0D1117] text-[11px] text-slate-400 uppercase font-semibold">
                 <th className="py-3 px-4">Road / Bridge Corridor</th>
                 <th className="py-3 px-4">Current Status</th>
                 <th className="py-3 px-4">Active Incident</th>
@@ -58,11 +58,11 @@ export const RoadStatusTab: React.FC<RoadStatusTabProps> = ({ roadStatuses, haza
                 <th className="py-3 px-4 text-right">Manual Override</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80 font-sans text-slate-300">
+            <tbody className="divide-y divide-[#30363D] font-sans text-slate-300">
               {MONITORED_CORRIDORS.map((road) => {
                 const { status, hazard } = getRoadInfo(road);
                 return (
-                  <tr key={road} className="hover:bg-slate-800/30 transition">
+                  <tr key={road} className="hover:bg-[#21262D]/60 transition">
                     <td className="py-3 px-4 font-bold text-white">{road}</td>
                     <td className="py-3 px-4 font-mono">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${

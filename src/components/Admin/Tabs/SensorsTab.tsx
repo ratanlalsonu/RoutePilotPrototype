@@ -61,7 +61,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
   return (
     <div className="p-4 space-y-4 text-xs">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl shadow-lg">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow-lg">
         <div>
           <h2 className="text-base font-extrabold text-white flex items-center gap-2">
             <span>IoT Sensor Infrastructure</span>
@@ -79,7 +79,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
         <div className="flex items-center gap-2">
           <button
             onClick={handleTestPing}
-            className="px-3 py-2 rounded-xl bg-blue-600/30 hover:bg-blue-600 border border-blue-500/40 text-blue-300 hover:text-white font-bold text-xs transition cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-[#66ffff] hover:bg-[#80ffff] text-slate-950 font-bold text-xs shadow-md shadow-[#66ffff]/20 transition cursor-pointer"
           >
             Ping ESP32
           </button>
@@ -102,8 +102,8 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
       {/* Register Modal */}
       {isRegistering && (
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#30363D] pb-2">
               <h3 className="font-bold text-white text-base">Register IoT Sensor Node</h3>
               <button onClick={() => setIsRegistering(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
@@ -117,7 +117,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                   value={nodeId}
                   onChange={(e) => setNodeId(e.target.value)}
                   placeholder="BR-007"
-                  className="w-full bg-[#141e33] border border-slate-700 rounded-xl p-2.5 text-white font-mono"
+                  className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-2.5 text-white font-mono"
                 />
               </div>
 
@@ -129,7 +129,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                   value={nodeName}
                   onChange={(e) => setNodeName(e.target.value)}
                   placeholder="Pahuj River North Pier"
-                  className="w-full bg-[#141e33] border border-slate-700 rounded-xl p-2.5 text-white"
+                  className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-2.5 text-white"
                 />
               </div>
 
@@ -139,7 +139,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                   <select
                     value={nodeType}
                     onChange={(e) => setNodeType(e.target.value as SensorNode['type'])}
-                    className="w-full bg-[#141e33] border border-slate-700 rounded-xl p-2.5 text-white"
+                    className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-2.5 text-white"
                   >
                     <option value="Bridge North">Bridge North</option>
                     <option value="Bridge South">Bridge South</option>
@@ -156,7 +156,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                     value={nodeLocation}
                     onChange={(e) => setNodeLocation(e.target.value)}
                     placeholder="Civil Lines Bridge"
-                    className="w-full bg-[#141e33] border border-slate-700 rounded-xl p-2.5 text-white"
+                    className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-2.5 text-white"
                   />
                 </div>
               </div>
@@ -169,7 +169,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                     step="0.0001"
                     value={nodeLat}
                     onChange={(e) => setNodeLat(e.target.value)}
-                    className="w-full bg-[#141e33] border border-slate-700 rounded-xl p-2 text-white font-mono"
+                    className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-2 text-white font-mono"
                   />
                 </div>
                 <div>
@@ -179,7 +179,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                     step="0.0001"
                     value={nodeLng}
                     onChange={(e) => setNodeLng(e.target.value)}
-                    className="w-full bg-[#141e33] border border-slate-700 rounded-xl p-2 text-white font-mono"
+                    className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-2 text-white font-mono"
                   />
                 </div>
               </div>
@@ -188,13 +188,13 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                 <button
                   type="button"
                   onClick={() => setIsRegistering(false)}
-                  className="flex-1 py-2 bg-slate-800 text-slate-300 rounded-xl font-semibold"
+                  className="flex-1 py-2 bg-[#21262D] border border-[#30363D] text-slate-300 rounded-xl font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg"
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg cursor-pointer"
                 >
                   Save Node
                 </button>
@@ -205,10 +205,10 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
       )}
 
       {/* Sensor Nodes Table */}
-      <div className="bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl">
         {sensors.length === 0 ? (
           <div className="p-12 text-center text-slate-400 space-y-3">
-            <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-500 flex items-center justify-center mx-auto text-xl font-mono">
+            <div className="w-12 h-12 rounded-full bg-[#21262D] text-slate-500 flex items-center justify-center mx-auto text-xl font-mono">
               IoT
             </div>
             <div className="font-semibold text-slate-300">No hardware sensor nodes currently registered</div>
@@ -245,7 +245,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 bg-[#0d1424] text-[11px] text-slate-400 uppercase font-semibold">
+                <tr className="border-b border-[#30363D] bg-[#0D1117] text-[11px] text-slate-400 uppercase font-semibold">
                   <th className="py-3 px-4">Node ID</th>
                   <th className="py-3 px-4">Name</th>
                   <th className="py-3 px-4">Type</th>
@@ -256,9 +256,9 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80 font-mono text-slate-300">
+              <tbody className="divide-y divide-[#30363D] font-mono text-slate-300">
                 {sensors.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/30 transition">
+                  <tr key={s.id} className="hover:bg-[#21262D]/60 transition">
                     <td className="py-3 px-4 font-bold text-white">{s.id}</td>
                     <td className="py-3 px-4 font-sans font-medium text-slate-200">{s.name}</td>
                     <td className="py-3 px-4 font-sans text-slate-400">{s.type}</td>

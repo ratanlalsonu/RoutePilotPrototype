@@ -10,6 +10,14 @@ export class VoiceService {
     this.language = lang;
   }
 
+  public static getLanguage(): 'en' | 'hi' {
+    return this.language;
+  }
+
+  public static isEnabled(): boolean {
+    return this.enabled;
+  }
+
   public static speak(textEn: string, textHi?: string) {
     if (!this.enabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
       return;

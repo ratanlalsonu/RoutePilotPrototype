@@ -35,7 +35,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 1: Active Hazards */}
         <div
           onClick={() => onNavigateTab('Hazards')}
-          className="bg-[#0f172a] border border-red-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-red-500/60 transition"
+          className="bg-[#161B22] border border-red-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-red-500/60 transition"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -62,7 +62,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 2: Active Drivers */}
         <div
           onClick={() => onNavigateTab('Active Drivers')}
-          className="bg-[#0f172a] border border-blue-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-blue-500/60 transition"
+          className="bg-[#161B22] border border-blue-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-blue-500/60 transition"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -89,7 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 3: Online Sensor Nodes */}
         <div
           onClick={() => onNavigateTab('Sensor Nodes')}
-          className="bg-[#0f172a] border border-emerald-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-emerald-500/60 transition"
+          className="bg-[#161B22] border border-emerald-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-emerald-500/60 transition"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -115,7 +115,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 4: Blocked Roads */}
         <div
           onClick={() => onNavigateTab('Road Status')}
-          className="bg-[#0f172a] border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-500/60 transition"
+          className="bg-[#161B22] border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-500/60 transition"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -143,9 +143,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Central Workspace: Live Map + Right Monitoring Panels */}
       <div className="px-4 pb-4 grid grid-cols-1 xl:grid-cols-4 gap-4 flex-1 min-h-[460px]">
         {/* Map Column (3 cols on XL) */}
-        <div className="xl:col-span-3 flex flex-col bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl min-h-[440px]">
+        <div className="xl:col-span-3 flex flex-col bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl min-h-[440px]">
           {/* Map Bar: Controls & Quick Actions */}
-          <div className="px-4 py-3 border-b border-slate-800 bg-[#0d1424] flex flex-wrap items-center justify-between gap-2 z-10">
+          <div className="px-4 py-3 border-b border-[#30363D] bg-[#161B22] flex flex-wrap items-center justify-between gap-2 z-10">
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm text-white">Live Map — Real Time Monitoring</span>
               <span className="text-xs text-slate-400 hidden sm:inline">• OpenStreetMap Real Roads</span>
@@ -168,7 +168,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 onClick={onQuickHazardOnRoute}
                 title="Creates Hazard on active route (triggers alert)"
-                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#162238] border border-slate-700 hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
               >
                 ⚠ Hazard on Driver Route
               </button>
@@ -176,7 +176,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 onClick={onQuickHazardAwayFromRoute}
                 title="Creates hazard far away (proves rule 13: NO driver alert)"
-                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#162238] border border-slate-700 hover:border-slate-500 text-slate-300 transition cursor-pointer"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-slate-500 text-slate-300 transition cursor-pointer"
               >
                 Hazard Away (No Alert)
               </button>
@@ -184,7 +184,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 onClick={onQuickSecondHazardAhead}
                 title="Creates second hazard ahead on diverted route (tests repeated diversion!)"
-                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#162238] border border-slate-700 hover:border-amber-500 text-amber-300 transition cursor-pointer"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-amber-500 text-amber-300 transition cursor-pointer"
               >
                 ⚠ 2nd Hazard Ahead
               </button>
@@ -192,7 +192,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 onClick={() => realtimeSync.resetDemo()}
                 title="Reset demo state"
-                className="p-1.5 rounded-xl bg-[#162238] border border-slate-700 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+                className="p-1.5 rounded-xl bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 transition cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               </button>
@@ -212,6 +212,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onCommitRoute={(id) => realtimeSync.commitToAlternateRoute(id)}
               theme={state.appSettings.mapTheme}
               onToggleTheme={() => realtimeSync.toggleMapTheme()}
+              onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
             />
           </div>
         </div>
@@ -219,8 +220,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Right Monitoring Panels (matching screenshot Image 2) */}
         <div className="flex flex-col gap-3">
           {/* Panel 1: Active Drivers */}
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-3.5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2.5">
+          <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-3.5 shadow-lg">
+            <div className="flex items-center justify-between border-b border-[#30363D] pb-2 mb-2.5">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
                 <span className="font-bold text-xs text-white">Active Drivers</span>
@@ -233,7 +234,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </span>
             </div>
 
-            <div className="bg-[#141e33] border border-slate-700/60 rounded-xl p-3">
+            <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white">
@@ -257,7 +258,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               </div>
 
-              <div className="text-[11px] text-slate-300 space-y-1 pt-1 border-t border-slate-700/40">
+              <div className="text-[11px] text-slate-300 space-y-1 pt-1 border-t border-[#30363D]">
                 <div className="flex justify-between">
                   <span className="text-slate-400">From:</span>
                   <span className="text-slate-200 font-medium">{journey.origin.name}</span>
@@ -287,8 +288,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Panel 2: Sensor Nodes */}
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-3.5 shadow-lg flex-1">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+          <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-3.5 shadow-lg flex-1">
+            <div className="flex items-center justify-between border-b border-[#30363D] pb-2 mb-2">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0"/></svg>
                 <span className="font-bold text-xs text-white">Sensor Nodes</span>
@@ -306,7 +307,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="p-3 text-center text-slate-500 text-[11px]">No active hardware nodes</div>
               ) : (
                 sensorNodes.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between p-2 rounded-xl bg-[#141e33] border border-slate-800/60 text-xs">
+                  <div key={s.id} className="flex items-center justify-between p-2 rounded-xl bg-[#21262D] border border-[#30363D] text-xs">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${s.status === 'Online' ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`}></span>
                       <div>
@@ -328,8 +329,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Panel 3: Road Status */}
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-3.5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+          <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-3.5 shadow-lg">
+            <div className="flex items-center justify-between border-b border-[#30363D] pb-2 mb-2">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 <span className="font-bold text-xs text-white">Road Status</span>
@@ -347,7 +348,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="p-2 text-center text-slate-500 text-[11px]">All corridors open &amp; normal</div>
               ) : (
                 roadStatuses.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-[#141e33] border border-slate-800/60 text-xs">
+                  <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-[#21262D] border border-[#30363D] text-xs">
                     <span className="text-slate-300 font-medium text-[11px] truncate max-w-[130px]">{r.roadName}</span>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                       r.status === 'Blocked'
@@ -371,8 +372,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Bottom 3 Panels matching screenshot Image 2 */}
       <div className="px-4 pb-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bottom 1: Recent Hazards Table */}
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+        <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between border-b border-[#30363D] pb-2 mb-3">
             <div className="flex items-center gap-2">
               <span className="text-red-400 font-bold">⚠</span>
               <span className="font-bold text-xs text-white">Recent Hazards</span>
@@ -391,7 +392,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             ) : (
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="text-slate-400 border-b border-slate-800 text-[10px] uppercase">
+                  <tr className="text-slate-400 border-b border-[#30363D] text-[10px] uppercase">
                     <th className="pb-2 font-semibold">Type</th>
                     <th className="pb-2 font-semibold">Location</th>
                     <th className="pb-2 font-semibold">Severity</th>
@@ -399,9 +400,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <th className="pb-2 font-semibold">Time</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-[#30363D]">
                   {hazards.slice(0, 4).map((h) => (
-                    <tr key={h.hazardId} className="hover:bg-slate-800/40">
+                    <tr key={h.hazardId} className="hover:bg-[#21262D]">
                       <td className="py-2 font-medium text-slate-200">{h.type}</td>
                       <td className="py-2 text-slate-400 truncate max-w-[110px]">{h.locationName}</td>
                       <td className="py-2">
@@ -428,8 +429,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Bottom 2: Recent Route Events */}
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+        <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between border-b border-[#30363D] pb-2 mb-3">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span className="font-bold text-xs text-white">Recent Route Events</span>
@@ -444,7 +445,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="space-y-2 overflow-y-auto max-h-48 pr-1">
             {routeEvents.slice(0, 5).map((ev) => (
-              <div key={ev.id} className="p-2 rounded-xl bg-[#141e33] border border-slate-800/80 flex items-center justify-between text-xs">
+              <div key={ev.id} className="p-2 rounded-xl bg-[#21262D] border border-[#30363D] flex items-center justify-between text-xs">
                 <div className="flex items-start gap-2 truncate">
                   <span className="text-[10px] font-mono text-slate-400 mt-0.5">{ev.time}</span>
                   <div className="truncate">
@@ -469,8 +470,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Bottom 3: System Status */}
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+        <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between border-b border-[#30363D] pb-2 mb-3">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span className="font-bold text-xs text-white">System Status</span>
@@ -492,7 +493,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               { name: 'Sensor Network', status: `${onlineSensorsCount} / ${sensorNodes.length} Online` },
               { name: 'API Server', status: systemHealth.apiServer },
             ].map((s, idx) => (
-              <div key={idx} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-800/40">
+              <div key={idx} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-[#21262D]">
                 <span className="text-slate-300 text-[11px]">{s.name}</span>
                 <span className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>

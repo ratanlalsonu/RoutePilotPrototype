@@ -68,9 +68,9 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#0f172a] border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-[#131d33]">
+        <div className="px-6 py-4 border-b border-[#30363D] flex items-center justify-between bg-[#0D1117]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -84,7 +84,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#21262D] transition"
           >
             ✕
           </button>
@@ -93,7 +93,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-sm">
           {/* Coordinates readout */}
-          <div className="bg-[#0a0f1d] p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+          <div className="bg-[#0D1117] p-3 rounded-xl border border-[#30363D] flex items-center justify-between text-xs">
             <span className="text-slate-400">Clicked Location:</span>
             <span className="font-mono text-blue-400 font-semibold">
               {lat.toFixed(6)}, {lng.toFixed(6)}
@@ -106,7 +106,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
             <select
               value={type}
               onChange={(e) => setType(e.target.value as HazardType)}
-              className="w-full bg-[#162238] border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-blue-500 transition"
+              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-blue-500 transition"
             >
               <option value="Bridge Damage">Bridge Damage</option>
               <option value="Road Blockage">Road Blockage</option>
@@ -137,7 +137,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
                         : lvl === 'WARNING'
                         ? 'bg-amber-600/30 border-amber-500 text-amber-300 shadow'
                         : 'bg-emerald-600/30 border-emerald-500 text-emerald-300 shadow'
-                      : 'bg-[#162238] border-slate-700 text-slate-400 hover:text-white'
+                      : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                   }`}
                 >
                   {lvl}
@@ -158,7 +158,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
                 onChange={(e) => setLocationName(e.target.value)}
                 placeholder="e.g. Near Civil Lines Bridge"
                 required
-                className="w-full bg-[#162238] border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500 text-xs"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500 text-xs"
               />
             </div>
             <div>
@@ -169,7 +169,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
                 onChange={(e) => setRoadName(e.target.value)}
                 placeholder="e.g. Civil Lines Road"
                 required
-                className="w-full bg-[#162238] border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500 text-xs"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500 text-xs"
               />
             </div>
           </div>
@@ -187,7 +187,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
               step="10"
               value={affectedRadius}
               onChange={(e) => setAffectedRadius(Number(e.target.value))}
-              className="w-full accent-amber-500 bg-slate-800 h-2 rounded-lg cursor-pointer"
+              className="w-full accent-amber-500 bg-[#21262D] h-2 rounded-lg cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-500 mt-1">
               <span>50m (Point)</span>
@@ -204,7 +204,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Bridge pier sensor shows excessive vibration; northbound lane closed."
               rows={2}
-              className="w-full bg-[#162238] border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 text-xs resize-none"
+              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 text-xs resize-none"
             />
           </div>
 
@@ -227,11 +227,11 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="pt-3 border-t border-slate-800 flex gap-3">
+          <div className="pt-3 border-t border-[#30363D] flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition cursor-pointer"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-[#21262D] hover:bg-[#30363D] text-slate-300 font-semibold text-xs transition border border-[#30363D] cursor-pointer"
             >
               Cancel
             </button>

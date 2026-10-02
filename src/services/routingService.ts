@@ -1,5 +1,113 @@
-import { RouteOption, Hazard } from '../types';
+import { RouteOption, Hazard, RouteStep } from '../types';
 import { getDistanceMeters } from '../algorithms/hazardRouteIntersection';
+
+export function generateSyntheticSteps(
+  routeName: string,
+  viaRoads: string[],
+  totalDistKm: number,
+  destName: string = 'Destination'
+): RouteStep[] {
+  const road1 = viaRoads[0] || 'Main City Corridor';
+  const road2 = viaRoads[1] || 'Arterial Link Road';
+  return [
+    {
+      instruction: `Head straight on ${road1}`,
+      roadName: road1,
+      distanceMeters: Math.max(100, Math.round(totalDistKm * 200)),
+      durationSeconds: Math.round(totalDistKm * 30),
+      turnType: 'straight',
+    },
+    {
+      instruction: routeName.toLowerCase().includes('b')
+        ? `Turn left onto ${road2}`
+        : routeName.toLowerCase().includes('d')
+        ? `Turn right onto ${road2}`
+        : `Continue onto ${road2}`,
+      roadName: road2,
+      distanceMeters: Math.max(150, Math.round(totalDistKm * 400)),
+      durationSeconds: Math.round(totalDistKm * 50),
+      turnType: routeName.toLowerCase().includes('b') ? 'left' : routeName.toLowerCase().includes('d') ? 'right' : 'straight',
+    },
+    {
+      instruction: `Follow ${road2} toward approach corridor`,
+      roadName: road2,
+      distanceMeters: Math.max(100, Math.round(totalDistKm * 250)),
+      durationSeconds: Math.round(totalDistKm * 35),
+      turnType: 'slight-right',
+    },
+    {
+      instruction: `Arrive at ${destName}`,
+      roadName: destName,
+      distanceMeters: 50,
+      durationSeconds: 10,
+      turnType: 'arrive',
+    },
+  ];
+}
+
+/**
+ * Real online OSRM router query
+ */
+export async function fetchOSRMRoute(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+  waypoints: [number, number][] = []
+): Promise<{ coordinates: [number, number][]; distanceKm: number; durationMin: number; steps?: RouteStep[] } | null> {
+  try {
+    const allPoints = [[startLng, startLat], ...waypoints.map(w => [w[1], w[0]]), [endLng, endLat]];
+    const coordString = allPoints.map(p => `${p[0]},${p[1]}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson&steps=true`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.routes || data.routes.length === 0) return null;
+
+    const primary = data.routes[0];
+    const geoCoords: [number, number][] = primary.geometry.coordinates.map(
+      (c: [number, number]) => [c[1], c[0]] // convert lon,lat to lat,lon
+    );
+
+    const steps: RouteStep[] = [];
+    if (primary.legs && primary.legs[0] && Array.isArray(primary.legs[0].steps)) {
+      for (const s of primary.legs[0].steps) {
+        const mod = s.maneuver?.modifier || '';
+        let turnType: RouteStep['turnType'] = 'straight';
+        if (s.maneuver?.type === 'arrive') turnType = 'arrive';
+        else if (mod.includes('left')) turnType = mod.includes('slight') ? 'slight-left' : 'left';
+        else if (mod.includes('right')) turnType = mod.includes('slight') ? 'slight-right' : 'right';
+        else if (mod.includes('uturn')) turnType = 'u-turn';
+
+        const stepInst = s.maneuver?.instruction ||
+          (turnType === 'arrive' ? 'Arrive at destination' : `Continue on ${s.name || 'Road'}`);
+
+        steps.push({
+          instruction: stepInst,
+          roadName: s.name || 'Connecting Road',
+          distanceMeters: Math.round(s.distance || 150),
+          durationSeconds: Math.round(s.duration || 20),
+          turnType,
+        });
+      }
+    }
+
+    return {
+      coordinates: geoCoords,
+      distanceKm: parseFloat((primary.distance / 1000).toFixed(1)),
+      durationMin: Math.max(1, Math.round(primary.duration / 60)),
+      steps: steps.length > 0 ? steps : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
 
 // Real OpenStreetMap road geometry for Jhansi landmark routes
 // Origin: Jhansi Fort / City Center (25.4484, 78.5685)
@@ -89,46 +197,6 @@ export function calculatePolylineDistanceKm(coords: [number, number][]): number 
 }
 
 /**
- * Real online OSRM router query
- */
-export async function fetchOSRMRoute(
-  startLat: number,
-  startLng: number,
-  endLat: number,
-  endLng: number,
-  waypoints: [number, number][] = []
-): Promise<{ coordinates: [number, number][]; distanceKm: number; durationMin: number } | null> {
-  try {
-    const allPoints = [[startLng, startLat], ...waypoints.map(w => [w[1], w[0]]), [endLng, endLat]];
-    const coordString = allPoints.map(p => `${p[0]},${p[1]}`).join(';');
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson&steps=true`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.routes || data.routes.length === 0) return null;
-
-    const primary = data.routes[0];
-    const geoCoords: [number, number][] = primary.geometry.coordinates.map(
-      (c: [number, number]) => [c[1], c[0]] // convert lon,lat to lat,lon
-    );
-
-    return {
-      coordinates: geoCoords,
-      distanceKm: parseFloat((primary.distance / 1000).toFixed(1)),
-      durationMin: Math.max(1, Math.round(primary.duration / 60)),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Generates initial active route between origin and destination
  */
 export async function getInitialRoute(
@@ -138,6 +206,7 @@ export async function getInitialRoute(
   // Try online real OSRM routing first
   const osrm = await fetchOSRMRoute(origin.lat, origin.lng, destination.lat, destination.lng);
   if (osrm && osrm.coordinates.length > 5) {
+    const viaRoads = ['Civil Lines Arterial', 'Station Road'];
     return {
       id: 'route_primary',
       name: 'Primary Route',
@@ -145,18 +214,20 @@ export async function getInitialRoute(
       distanceKm: osrm.distanceKm,
       durationMinutes: osrm.durationMin,
       coordinates: osrm.coordinates,
-      viaRoads: ['Civil Lines Arterial', 'Station Road'],
+      viaRoads,
       isRecommended: true,
       maneuver: {
         instruction: 'Head north on City Center Road toward Civil Lines',
         distanceMeters: 450,
       },
+      steps: osrm.steps || generateSyntheticSteps('Primary Route', viaRoads, osrm.distanceKm, destination.name),
     };
   }
 
   // Fallback to high-resolution real OSM road geometry
   const coords = JHANSI_DIRECT_ROUTE_COORDS;
   const dist = calculatePolylineDistanceKm(coords);
+  const viaRoads = ['Civil Lines Arterial', 'Sadar Bazar Rd'];
   return {
     id: 'route_primary',
     name: 'Primary Route',
@@ -164,12 +235,13 @@ export async function getInitialRoute(
     distanceKm: dist,
     durationMinutes: Math.round(dist * 2.1), // ~18 min
     coordinates: coords,
-    viaRoads: ['Civil Lines Arterial', 'Sadar Bazar Rd'],
+    viaRoads,
     isRecommended: true,
     maneuver: {
       instruction: 'Head straight through Civil Lines toward Medical College',
       distanceMeters: 400,
     },
+    steps: generateSyntheticSteps('Primary Route', viaRoads, dist, destination.name),
   };
 }
 
@@ -214,23 +286,24 @@ export async function calculateAlternativeRoutes(
   const alternatives: RouteOption[] = [];
 
   // Route B (Recommended - Green)
+  const viaRoadsB = ['Gwalior Bypass Rd', 'Medical College Ring'];
   if (resB && resB.coordinates.length > 3) {
     alternatives.push({
       id: 'route_b',
-      name: 'Route B',
+      name: 'Route B (West Bypass)',
       color: '#10b981', // Emerald green
       distanceKm: resB.distanceKm,
       durationMinutes: resB.durationMin,
       coordinates: [[currentLat, currentLng], ...resB.coordinates],
-      viaRoads: ['Gwalior Bypass Rd', 'Medical College Ring'],
+      viaRoads: viaRoadsB,
       isRecommended: true,
       maneuver: {
         instruction: 'Turn left onto Gwalior Link Road to bypass hazard',
         distanceMeters: 300,
       },
+      steps: resB.steps || generateSyntheticSteps('Route B', viaRoadsB, resB.distanceKm, destination.name),
     });
   } else {
-    // Generate seamlessly connected branch starting from current position
     const branchB: [number, number][] = [
       [currentLat, currentLng],
       ...JHANSI_ROUTE_B_COORDS.filter(
@@ -240,35 +313,38 @@ export async function calculateAlternativeRoutes(
     const distB = calculatePolylineDistanceKm(branchB);
     alternatives.push({
       id: 'route_b',
-      name: 'Route B',
+      name: 'Route B (West Bypass)',
       color: '#10b981', // Emerald green
       distanceKm: distB,
       durationMinutes: Math.round(distB * 2.1),
       coordinates: branchB,
-      viaRoads: ['Gwalior Bypass Rd', 'Medical College Ring'],
+      viaRoads: viaRoadsB,
       isRecommended: true,
       maneuver: {
         instruction: 'Turn left onto Gwalior Link Road to bypass hazard',
         distanceMeters: 300,
       },
+      steps: generateSyntheticSteps('Route B', viaRoadsB, distB, destination.name),
     });
   }
 
   // Route C (Outer Loop - Yellow/Amber)
+  const viaRoadsC = ['Station Outer Bypass', 'North Ring Rd'];
   if (resC && resC.coordinates.length > 3) {
     alternatives.push({
       id: 'route_c',
-      name: 'Route C',
+      name: 'Route C (Outer Highway)',
       color: '#f59e0b', // Yellow / Amber
       distanceKm: resC.distanceKm,
       durationMinutes: resC.durationMin,
       coordinates: [[currentLat, currentLng], ...resC.coordinates],
-      viaRoads: ['Station Outer Bypass', 'North Ring Rd'],
+      viaRoads: viaRoadsC,
       isRecommended: false,
       maneuver: {
         instruction: 'Bear slight left onto Outer Station Bypass',
         distanceMeters: 450,
       },
+      steps: resC.steps || generateSyntheticSteps('Route C', viaRoadsC, resC.distanceKm, destination.name),
     });
   } else {
     const branchC: [number, number][] = [
@@ -280,35 +356,38 @@ export async function calculateAlternativeRoutes(
     const distC = calculatePolylineDistanceKm(branchC);
     alternatives.push({
       id: 'route_c',
-      name: 'Route C',
+      name: 'Route C (Outer Highway)',
       color: '#f59e0b',
       distanceKm: distC,
       durationMinutes: Math.round(distC * 2.25),
       coordinates: branchC,
-      viaRoads: ['Station Outer Bypass', 'North Ring Rd'],
+      viaRoads: viaRoadsC,
       isRecommended: false,
       maneuver: {
         instruction: 'Bear slight left onto Outer Station Bypass',
         distanceMeters: 450,
       },
+      steps: generateSyntheticSteps('Route C', viaRoadsC, distC, destination.name),
     });
   }
 
   // Route D (Eastern Bypass - Purple)
+  const viaRoadsD = ['Cantonment Rd', 'Eastern Arterial'];
   if (resD && resD.coordinates.length > 3) {
     alternatives.push({
       id: 'route_d',
-      name: 'Route D',
+      name: 'Route D (Cantonment East)',
       color: '#a855f7', // Purple
       distanceKm: resD.distanceKm,
       durationMinutes: resD.durationMin,
       coordinates: [[currentLat, currentLng], ...resD.coordinates],
-      viaRoads: ['Cantonment Rd', 'Eastern Arterial'],
+      viaRoads: viaRoadsD,
       isRecommended: false,
       maneuver: {
         instruction: 'Turn right toward Cantonment Eastern Arterial',
         distanceMeters: 550,
       },
+      steps: resD.steps || generateSyntheticSteps('Route D', viaRoadsD, resD.distanceKm, destination.name),
     });
   } else {
     const branchD: [number, number][] = [
@@ -320,17 +399,18 @@ export async function calculateAlternativeRoutes(
     const distD = calculatePolylineDistanceKm(branchD);
     alternatives.push({
       id: 'route_d',
-      name: 'Route D',
+      name: 'Route D (Cantonment East)',
       color: '#a855f7',
       distanceKm: distD,
       durationMinutes: Math.round(distD * 2.35),
       coordinates: branchD,
-      viaRoads: ['Cantonment Rd', 'Eastern Arterial'],
+      viaRoads: viaRoadsD,
       isRecommended: false,
       maneuver: {
         instruction: 'Turn right toward Cantonment Eastern Arterial',
         distanceMeters: 550,
       },
+      steps: generateSyntheticSteps('Route D', viaRoadsD, distD, destination.name),
     });
   }
 

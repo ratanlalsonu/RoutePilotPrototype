@@ -14,7 +14,7 @@ export type HazardType =
 
 export type HazardSeverity = 'SAFE' | 'WARNING' | 'CRITICAL' | 'BLOCKED';
 
-export type HazardSource = 'ADMIN' | 'LIVE_HARDWARE' | 'VIRTUAL_TEST';
+export type HazardSource = 'ADMIN' | 'LIVE_HARDWARE' | 'VIRTUAL_TEST' | 'DRIVER';
 
 export interface Hazard {
   hazardId: string;
@@ -50,6 +50,14 @@ export interface SensorNode {
   };
 }
 
+export interface RouteStep {
+  instruction: string;
+  roadName: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  turnType?: 'straight' | 'left' | 'right' | 'slight-left' | 'slight-right' | 'u-turn' | 'arrive';
+}
+
 export interface RouteOption {
   id: string;
   name: string; // e.g. "Route B", "Route C", "Route D"
@@ -64,6 +72,7 @@ export interface RouteOption {
     distanceMeters: number;
     icon?: string;
   };
+  steps?: RouteStep[];
 }
 
 export type RouteDiversionState =
@@ -158,6 +167,6 @@ export interface AppSettings {
   routingApiKey?: string;
   routeCommitThresholdMeters: number;
   minimumProgressMeters: number;
-  mapProvider: 'OpenStreetMap' | 'CartoDark';
-  mapTheme: 'dark' | 'standard';
+  mapProvider: 'OpenStreetMap' | 'CartoDark' | 'EsriSatellite';
+  mapTheme: 'standard' | 'satellite';
 }
