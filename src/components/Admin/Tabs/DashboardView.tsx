@@ -147,9 +147,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Central Workspace: Live Map + Right Monitoring Panels */}
       <div className="px-3 sm:px-4 pb-4 grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4 flex-1">
         {/* Map Column (3 cols on XL) */}
-        <div className="xl:col-span-3 flex flex-col bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl h-[340px] sm:h-[440px] xl:h-auto min-h-[320px]">
+        <div className="xl:col-span-3 flex flex-col bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl min-h-[460px] sm:min-h-[520px] xl:min-h-[560px]">
           {/* Map Bar: Controls & Quick Actions */}
-          <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-[#30363D] bg-[#161B22] flex flex-wrap items-center justify-between gap-2 z-10">
+          <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-[#30363D] bg-[#161B22] flex flex-wrap items-center justify-between gap-2 z-10 shrink-0">
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs sm:text-sm text-white">
                 {lang === 'hi' ? 'लाइव मैप — वास्तविक समय निगरानी' : 'Live Map — Real Time Monitoring'}
@@ -211,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Map Canvas */}
-          <div className="flex-1 relative min-h-[380px]">
+          <div className="flex-1 relative w-full h-full min-h-[380px] sm:min-h-[440px]">
             <RoutePilotMap
               mode="admin"
               hazards={hazards}

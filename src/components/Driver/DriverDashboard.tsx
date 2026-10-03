@@ -370,22 +370,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
             />
           </div>
 
-          {/* Map Satellite Mode Toggle - ALWAYS VISIBLE NEXT TO BELL */}
-          <button
-            type="button"
-            onClick={() => realtimeSync.toggleMapTheme()}
-            title={`Map Mode: ${state.appSettings.mapTheme === 'satellite' ? 'Satellite Mode' : 'Standard Map'} (Click to switch)`}
-            className={`p-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer flex items-center justify-center shrink-0 ${
-              state.appSettings.mapTheme === 'satellite'
-                ? 'bg-[#AEF5F0] text-slate-950 font-bold border-[#AEF5F0] shadow-md shadow-[#AEF5F0]/30'
-                : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-200'
-            }`}
-          >
-            <span>🛰️</span>
-            <span className="hidden md:inline ml-0.5">{state.appSettings.mapTheme === 'satellite' ? 'Satellite' : 'Standard'}</span>
-          </button>
-
-          {/* Settings Icon - ALWAYS VISIBLE NEXT TO SATELLITE */}
+          {/* Settings Icon */}
           <button
             type="button"
             onClick={() => setIsSettingsOpen(true)}
