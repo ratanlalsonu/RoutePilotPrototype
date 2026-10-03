@@ -16,7 +16,7 @@ export const ActiveDriversTab: React.FC<ActiveDriversTabProps> = ({ journey }) =
             <span>Fleet &amp; Driver Telemetry Management</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
               journey.status === 'ON_ROUTE'
-                ? 'bg-blue-500/20 text-blue-400'
+                ? 'bg-[#AEF5F0]/15 text-[#AEF5F0] border border-[#AEF5F0]/30'
                 : journey.status === 'DIVERTED'
                 ? 'bg-purple-500/20 text-purple-400'
                 : journey.status === 'ARRIVED'
@@ -35,7 +35,7 @@ export const ActiveDriversTab: React.FC<ActiveDriversTabProps> = ({ journey }) =
           {journey.isNavigating && (
             <button
               onClick={() => realtimeSync.advanceVehicle(1)}
-              className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-lg cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs transition shadow-lg shadow-[#AEF5F0]/20 cursor-pointer"
             >
               Step Forward (Demo GPS) →
             </button>
@@ -48,7 +48,7 @@ export const ActiveDriversTab: React.FC<ActiveDriversTabProps> = ({ journey }) =
         {/* Profile Card */}
         <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-xl space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400">
+            <div className="w-12 h-12 rounded-xl bg-[#AEF5F0]/15 border border-[#AEF5F0]/30 flex items-center justify-center text-[#AEF5F0]">
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
             </div>
             <div>
@@ -86,7 +86,7 @@ export const ActiveDriversTab: React.FC<ActiveDriversTabProps> = ({ journey }) =
                   onClick={() => realtimeSync.setVehicleType(v)}
                   className={`py-1.5 rounded-lg text-[10px] font-bold uppercase transition capitalize cursor-pointer ${
                     journey.vehicleType === v
-                      ? 'bg-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/20'
+                      ? 'bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
                       : 'bg-[#21262D] text-slate-400 hover:text-white border border-[#30363D]'
                   }`}
                 >
@@ -120,7 +120,7 @@ export const ActiveDriversTab: React.FC<ActiveDriversTabProps> = ({ journey }) =
 
             <div className="bg-[#21262D] p-3 rounded-xl border border-[#30363D] space-y-1">
               <div className="text-[10px] text-slate-400">Active Destination</div>
-              <div className="font-bold text-blue-300 text-xs truncate">
+              <div className="font-bold text-[#AEF5F0] text-xs truncate">
                 {journey.destination?.name || 'Awaiting Selection by Driver'}
               </div>
               <div className="text-[10px] text-slate-400 pt-1">

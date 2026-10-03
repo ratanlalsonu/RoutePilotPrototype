@@ -45,12 +45,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   };
 
   return (
-    <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-modal-backdrop">
+      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-modal-content">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#30363D] flex items-center justify-between bg-[#0D1117]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+            <div className="w-8 h-8 rounded-lg bg-[#AEF5F0]/15 border border-[#AEF5F0]/30 flex items-center justify-center text-[#AEF5F0]">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               </svg>
@@ -92,7 +92,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 onClick={() => setLanguage('en')}
                 className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   language === 'en'
-                    ? 'bg-[#66ffff] border-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/20'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
                     : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
@@ -103,7 +103,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 onClick={() => setLanguage('hi')}
                 className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   language === 'hi'
-                    ? 'bg-[#66ffff] border-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/20'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
                     : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
@@ -122,7 +122,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               type="checkbox"
               checked={voiceEnabled}
               onChange={(e) => setVoiceEnabled(e.target.checked)}
-              className="w-4 h-4 accent-blue-500 cursor-pointer"
+              className="w-4 h-4 accent-[#AEF5F0] cursor-pointer"
             />
           </div>
 
@@ -164,7 +164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 value={esp32Endpoint}
                 onChange={(e) => setEsp32Endpoint(e.target.value)}
                 placeholder="http://192.168.1.100:80/api/sensor"
-                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#AEF5F0]"
               />
             </div>
           )}
@@ -192,7 +192,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 px-4 rounded-xl bg-[#66ffff] hover:bg-[#80ffff] text-slate-950 font-bold transition shadow-lg shadow-[#66ffff]/25 flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold transition shadow-lg shadow-[#AEF5F0]/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               {isSaved ? <span>✓ Saved!</span> : <span>Save Configuration</span>}
             </button>

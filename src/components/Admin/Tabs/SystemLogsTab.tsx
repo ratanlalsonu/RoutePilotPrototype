@@ -60,7 +60,7 @@ export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) =>
             <div key={i} className="flex items-start gap-3">
               <span className="text-slate-400 select-none">{l.timestamp}</span>
               <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                l.level === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'
+                l.level === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[#AEF5F0]/15 text-[#AEF5F0]'
               }`}>
                 {l.level}
               </span>

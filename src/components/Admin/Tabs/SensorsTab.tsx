@@ -79,7 +79,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
         <div className="flex items-center gap-2">
           <button
             onClick={handleTestPing}
-            className="px-3 py-2 rounded-xl bg-[#66ffff] hover:bg-[#80ffff] text-slate-950 font-bold text-xs shadow-md shadow-[#66ffff]/20 transition cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs shadow-md shadow-[#AEF5F0]/20 transition cursor-pointer"
           >
             Ping ESP32
           </button>
@@ -93,7 +93,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
       </div>
 
       {pingStatus && (
-        <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-blue-300 font-mono text-xs flex items-center justify-between">
+        <div className="p-3 bg-[#AEF5F0]/15 border border-[#AEF5F0]/30 rounded-xl text-[#AEF5F0] font-mono text-xs flex items-center justify-between">
           <span>{pingStatus} (Endpoint: {esp32Endpoint})</span>
           <button onClick={() => setPingStatus(null)} className="text-slate-400 hover:text-white">✕</button>
         </div>

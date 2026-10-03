@@ -36,7 +36,7 @@ export const RoadStatusTab: React.FC<RoadStatusTabProps> = ({ roadStatuses, haza
       <div className="bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow-lg">
         <h2 className="text-base font-extrabold text-white flex items-center gap-2">
           <span>Corridor Traffic &amp; Road Restriction Manager</span>
-          <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-mono font-bold">
+          <span className="px-2 py-0.5 rounded-full bg-[#AEF5F0]/15 text-[#AEF5F0] border border-[#AEF5F0]/30 text-xs font-mono font-bold">
             {MONITORED_CORRIDORS.length} Tracked Corridors
           </span>
         </h2>

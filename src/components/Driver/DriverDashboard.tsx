@@ -1,12 +1,13 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { RoutePilotState, realtimeSync } from '../../services/realtimeSync';
 import { RoutePilotMap } from '../Map/RoutePilotMap';
 import { SettingsModal } from '../Common/SettingsModal';
 import { ReportHazardModal } from './ReportHazardModal';
 import { EmergencySosModal } from './EmergencySosModal';
 import { VehicleType, HazardType, HazardSeverity, RouteStep } from '../../types';
-import { searchPlaces } from '../../services/geocodingService';
+import { searchPlaces, reverseGeocode } from '../../services/geocodingService';
 import { VoiceService } from '../../services/voiceService';
+import { getVehicleSpeedProfile, formatDurationText } from '../../services/routingService';
 
 interface DriverDashboardProps {
   state: RoutePilotState;
@@ -28,6 +29,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
   const searchDebounceRef = useRef<any>(null);
   const [activeBottomNav, setActiveBottomNav] = useState<'Home' | 'Map' | 'Route' | 'Alerts' | 'More'>('Home');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -40,15 +42,48 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
   const { journey, hazards, sensorNodes } = state;
 
-  // Real GPS acquisition
+  // Auto-acquire real live GPS on component mount so the driver's real position appears as Source
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      setIsAcquiringGps(true);
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          setIsAcquiringGps(false);
+          const { latitude, longitude } = pos.coords;
+          let placeName = 'Live Device Location';
+          try {
+            const rev = await reverseGeocode(latitude, longitude, state.appSettings.googleMapsApiKey);
+            if (rev?.locationName) {
+              placeName = rev.locationName;
+            }
+          } catch {}
+          realtimeSync.updateDriverLocationFromGps(latitude, longitude, placeName);
+        },
+        (err) => {
+          setIsAcquiringGps(false);
+          console.warn('GPS notice:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  }, []);
+
+  // Manual GPS acquisition
   const handleAcquireRealGps = () => {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       setIsAcquiringGps(true);
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           setIsAcquiringGps(false);
           const { latitude, longitude } = pos.coords;
-          realtimeSync.updateDriverLocationFromGps(latitude, longitude, 'Live Device GPS');
+          let placeName = 'Live Device Location';
+          try {
+            const rev = await reverseGeocode(latitude, longitude, state.appSettings.googleMapsApiKey);
+            if (rev?.locationName) {
+              placeName = rev.locationName;
+            }
+          } catch {}
+          realtimeSync.updateDriverLocationFromGps(latitude, longitude, placeName);
           VoiceService.speak('GPS location acquired.', 'जीपीएस स्थान प्राप्त किया गया।');
         },
         (err) => {
@@ -93,18 +128,31 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   };
 
   // Select destination
-  const handleSelectDestination = (dest: { name: string; lat: number; lng: number }) => {
-    realtimeSync.setDestination({
+  const handleSelectDestination = async (dest: { name: string; lat: number; lng: number }) => {
+    setSearchQuery(dest.name);
+    setShowSearchResults(false);
+    await realtimeSync.setDestination({
       name: dest.name,
       lat: dest.lat,
       lng: dest.lng,
     });
-    setSearchQuery(dest.name);
-    setShowSearchResults(false);
   };
 
-  const handleVehicleSelect = (type: VehicleType) => {
-    realtimeSync.setVehicleType(type);
+  const handleVehicleSelect = async (type: VehicleType) => {
+    setIsCalculatingRoutes(true);
+    try {
+      await realtimeSync.generateAndDisplayOptimalRoutes(type);
+    } finally {
+      setIsCalculatingRoutes(false);
+    }
+  };
+
+  const handleSelectOptimalRoute = (routeId: string) => {
+    realtimeSync.selectOptimalRoute(routeId);
+  };
+
+  const handleCommitRoute = (routeId: string) => {
+    realtimeSync.selectOptimalRoute(routeId);
   };
 
   const toggleNavigation = () => {
@@ -121,10 +169,6 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
   const handleOkFindAlternates = () => {
     realtimeSync.handleDriverConfirmFindAlternates();
-  };
-
-  const handleCommitRoute = (routeId: string) => {
-    realtimeSync.commitToAlternateRoute(routeId);
   };
 
   const handleSpeedChange = (speed: number) => {
@@ -204,7 +248,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
         );
       default:
         return (
-          <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
           </svg>
         );
@@ -217,7 +261,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
       <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-4 flex items-center justify-between z-30 shrink-0">
         <div className="flex items-center gap-3">
           {/* Logo */}
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+          <div className="w-8 h-8 rounded-lg bg-[#AEF5F0] flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-[#AEF5F0]/25">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
             </svg>
@@ -225,7 +269,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
           <div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-base tracking-tight text-white">RoutePilot</span>
-              <span className="text-[10px] font-mono uppercase bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/30">
+              <span className="text-[10px] font-mono uppercase bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
                 Driver Navigation
               </span>
             </div>
@@ -245,7 +289,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
           </button>
           <button
             onClick={() => onSwitchMode('driver')}
-            className="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow-md shadow-blue-600/30 cursor-pointer"
+            className="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/30 cursor-pointer"
           >
             Driver Mode
           </button>
@@ -274,7 +318,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
             title={`Map Mode: ${state.appSettings.mapTheme === 'satellite' ? 'Satellite Mode' : 'Standard Map'} (Click to switch)`}
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
               state.appSettings.mapTheme === 'satellite'
-                ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                ? 'bg-[#AEF5F0] text-slate-950 font-bold border-[#AEF5F0] shadow-md shadow-[#AEF5F0]/30'
                 : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-200'
             }`}
           >
@@ -298,14 +342,14 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
       <div className="flex-1 flex overflow-hidden relative">
         {/* VIEW 1: HOME (Standard 3-Column Cockpit on Desktop, or Full Cockpit on Mobile) */}
         {activeBottomNav === 'Home' && (
-          <div className="flex-1 flex w-full h-full overflow-hidden">
+          <div key="driver-tab-home" className="animate-tab-switch flex-1 flex w-full h-full overflow-hidden">
             {/* Left Column: Destination, Vehicle, Journey Controls */}
             <div className="w-full md:w-84 lg:w-88 bg-[#161B22] border-r border-[#30363D] flex flex-col justify-between shrink-0 overflow-y-auto z-10 p-4 space-y-4">
               <div className="space-y-4">
                 {/* Navigation Card Header */}
                 <div className="flex items-center justify-between border-b border-[#30363D] pb-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-md bg-[#AEF5F0]/15 text-[#AEF5F0] flex items-center justify-center">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                     </div>
                     <span className="font-bold text-sm text-white">Driver Cockpit</span>
@@ -326,11 +370,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         if (searchQuery.trim().length > 0) setShowSearchResults(true);
                       }}
                       placeholder="Search any place in Jhansi, Delhi, Highway..."
-                      className="w-full bg-[#21262D] border border-[#30363D] rounded-xl pl-9 pr-8 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-inner"
+                      className="w-full bg-[#21262D] border border-[#30363D] rounded-xl pl-9 pr-8 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0] shadow-inner"
                     />
                     <svg className="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     {isSearching ? (
-                      <div className="absolute right-3 top-3 w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="absolute right-3 top-3 w-3.5 h-3.5 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></div>
                     ) : searchQuery ? (
                       <button
                         type="button"
@@ -351,7 +395,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     <div className="absolute top-11 left-0 right-0 z-50 bg-[#161B22] border border-[#30363D] rounded-xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-[#30363D]">
                       {isSearching && searchResults.length === 0 && (
                         <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                          <span className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
+                          <span className="w-3.5 h-3.5 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></span>
                           <span>Searching live locations...</span>
                         </div>
                       )}
@@ -364,7 +408,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         >
                           <span className="text-base mt-0.5 shrink-0">📍</span>
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-white group-hover:text-blue-300 truncate">
+                            <div className="font-bold text-white group-hover:text-[#AEF5F0] truncate">
                               {item.name}
                             </div>
                             <div className="text-[10px] text-slate-400 truncate mt-0.5">
@@ -374,7 +418,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
                             </div>
                           </div>
-                          <span className="text-[10px] font-semibold text-blue-400 opacity-0 group-hover:opacity-100 transition shrink-0 self-center">
+                          <span className="text-[10px] font-semibold text-[#AEF5F0] opacity-0 group-hover:opacity-100 transition shrink-0 self-center">
                             Select →
                           </span>
                         </div>
@@ -394,7 +438,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                 key={kw}
                                 type="button"
                                 onClick={() => handleSearch(kw)}
-                                className="px-2 py-0.5 bg-[#21262D] hover:bg-blue-600/30 text-blue-300 rounded text-[10px] cursor-pointer border border-[#30363D]"
+                                className="px-2 py-0.5 bg-[#21262D] hover:bg-[#AEF5F0]/20 text-[#AEF5F0] rounded text-[10px] cursor-pointer border border-[#30363D]"
                               >
                                 {kw}
                               </button>
@@ -415,7 +459,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           onClick={() => handleSelectDestination(dest)}
                           className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition border flex items-center gap-1 cursor-pointer ${
                             journey.destination?.name === dest.name
-                              ? 'bg-blue-600/30 border-blue-500 text-blue-300 shadow'
+                              ? 'bg-[#AEF5F0]/15 border-[#AEF5F0]/40 text-[#AEF5F0] shadow'
                               : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white hover:bg-[#30363D]'
                           }`}
                         >
@@ -431,10 +475,18 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3 space-y-2.5 text-xs">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-2.5">
-                      <span className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white shrink-0 mt-0.5"></span>
+                      <span className="w-3 h-3 rounded-full bg-[#AEF5F0] border-2 border-white shrink-0 mt-0.5"></span>
                       <div>
-                        <div className="text-[10px] text-slate-400">Current Position</div>
-                        <div className="font-medium text-slate-200">{journey.origin.name}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-slate-400">Source / Start Location</span>
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 rounded border border-emerald-500/30">
+                            Live GPS
+                          </span>
+                        </div>
+                        <div className="font-medium text-slate-200 mt-0.5">{journey.origin.name}</div>
+                        <div className="text-[9px] font-mono text-cyan-400">
+                          {journey.origin.lat.toFixed(4)}, {journey.origin.lng.toFixed(4)}
+                        </div>
                       </div>
                     </div>
 
@@ -442,185 +494,345 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       type="button"
                       onClick={handleAcquireRealGps}
                       title="Locate via device GPS"
-                      className="px-2 py-1 rounded bg-blue-600/30 hover:bg-blue-600 border border-blue-500/40 text-blue-300 hover:text-white text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 rounded bg-[#AEF5F0]/15 hover:bg-[#AEF5F0] border border-[#AEF5F0]/30 text-[#AEF5F0] hover:text-slate-950 font-bold text-[10px] transition flex items-center gap-1 cursor-pointer shrink-0"
                     >
                       <svg className={`w-3 h-3 ${isAcquiringGps ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-                      <span>{isAcquiringGps ? 'Locating...' : 'Real GPS'}</span>
+                      <span>{isAcquiringGps ? 'Locating...' : 'Refresh GPS'}</span>
                     </button>
                   </div>
 
                   <div className="border-l-2 border-dashed border-[#30363D] ml-1.5 h-3"></div>
 
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-3 h-3 rounded-full bg-red-500 border-2 border-white shrink-0 mt-0.5"></span>
-                    <div className="truncate">
-                      <div className="text-[10px] text-slate-400">Destination</div>
-                      <div className={`font-bold text-xs truncate ${journey.destination?.name ? 'text-blue-300' : 'text-slate-400 italic'}`}>
-                        {journey.destination?.name || 'Select above or choose a preset'}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5 truncate">
+                      <span className="w-3 h-3 rounded-full bg-red-500 border-2 border-white shrink-0 mt-0.5"></span>
+                      <div className="truncate">
+                        <div className="text-[10px] text-slate-400">Destination</div>
+                        <div className={`font-bold text-xs truncate ${journey.destination?.name ? 'text-[#AEF5F0]' : 'text-slate-400 italic'}`}>
+                          {journey.destination?.name || 'Search destination above'}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Vehicle Selection */}
-                <div>
-                  <div className="text-xs font-semibold text-slate-300 mb-1.5">Vehicle Type</div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {[
-                      { id: 'car', label: 'Car', icon: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z' },
-                      { id: 'bike', label: 'Bike', icon: 'M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 6H6m6 11.5l3.5-7 3.5 2' },
-                      { id: 'van', label: 'Van', icon: 'M1 5h16v12H1zM17 9l4 2v6h-4' },
-                      { id: 'bus', label: 'Bus', icon: 'M4 3h16v16H4zM4 11h16' },
-                      { id: 'truck', label: 'Truck', icon: 'M1 3h15v13H1zM16 8h4l3 3v5h-7z' },
-                    ].map((v) => (
+                    {journey.destination?.name && !journey.isNavigating && (
                       <button
-                        key={v.id}
-                        onClick={() => handleVehicleSelect(v.id as VehicleType)}
-                        className={`py-2 px-1 rounded-xl flex flex-col items-center gap-1 border transition cursor-pointer ${
-                          journey.vehicleType === v.id
-                            ? 'bg-blue-600/30 border-blue-500 text-blue-400 shadow-md shadow-blue-500/20'
-                            : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-slate-200'
-                        }`}
+                        onClick={() => {
+                          setSearchQuery('');
+                          realtimeSync.setDestination({ name: '', lat: 0, lng: 0 });
+                        }}
+                        className="text-[10px] text-slate-400 hover:text-red-400 underline cursor-pointer shrink-0"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d={v.icon}/></svg>
-                        <span className="text-[10px] font-semibold">{v.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Primary Navigation Controls */}
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={toggleNavigation}
-                      disabled={!journey.destination?.name}
-                      className={`flex-1 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer active:scale-98 ${
-                        !journey.destination?.name
-                          ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed opacity-70'
-                          : journey.isNavigating
-                          ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30'
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        {journey.isNavigating ? (
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        ) : (
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        )}
-                      </svg>
-                      <span>
-                        {!journey.destination?.name
-                          ? 'Select Destination Above'
-                          : journey.isNavigating
-                          ? 'Pause Navigation'
-                          : 'Start Navigation'}
-                      </span>
-                    </button>
-
-                    {journey.isNavigating && (
-                      <button
-                        onClick={handleStopNavigation}
-                        title="Cancel & Reset Trip"
-                        className="px-3 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-300 hover:text-white text-xs font-bold transition cursor-pointer"
-                      >
-                        Stop
+                        Change
                       </button>
                     )}
                   </div>
+                </div>
 
-                  {/* Simulation Controls & Speed Multiplexer */}
-                  <div className="bg-[#21262D] p-2.5 rounded-xl border border-[#30363D] space-y-2">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-semibold text-emerald-400">DRIVE SIMULATION</span>
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 4].map((spd) => (
+                {/* STAGE 1: Destination NOT yet selected -> Ask to search destination. DO NOT ask vehicle type yet! */}
+                {!journey.destination?.name && (
+                  <div key="stage-step1" className="animate-section-smooth bg-[#21262D]/60 border border-dashed border-[#30363D] rounded-xl p-3.5 text-center space-y-1.5">
+                    <div className="w-8 h-8 rounded-full bg-[#AEF5F0]/15 text-[#AEF5F0] flex items-center justify-center mx-auto text-sm">
+                      🔍
+                    </div>
+                    <div className="text-xs font-bold text-slate-200">Step 1: Search & Select Destination</div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Search your destination in the box above or tap any quick preset. Vehicle type and optimal routes will be calculated once destination is chosen.
+                    </p>
+                  </div>
+                )}
+
+                {/* STAGE 2: Destination IS selected, but route not yet active -> Prompt Vehicle Type & Show Optimal Routes */}
+                {journey.destination?.name && !journey.activeRoute && (
+                  <div key="stage-step2" className="animate-section-smooth space-y-3">
+                    {/* Vehicle Selection */}
+                    <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span>🚗</span>
+                            <span>Step 2: Select Vehicle Type</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Calculates real transit speeds & optimal paths
+                          </div>
+                        </div>
+                        {isCalculatingRoutes && (
+                          <span className="w-4 h-4 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[
+                          { id: 'car', label: 'Car', icon: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z', speed: '~54 km/h' },
+                          { id: 'bike', label: 'Bike', icon: 'M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 6H6m6 11.5l3.5-7 3.5 2', speed: '~42 km/h' },
+                          { id: 'van', label: 'Van', icon: 'M1 5h16v12H1zM17 9l4 2v6h-4', speed: '~48 km/h' },
+                          { id: 'bus', label: 'Bus', icon: 'M4 3h16v16H4zM4 11h16', speed: '~36 km/h' },
+                          { id: 'truck', label: 'Truck', icon: 'M1 3h15v13H1zM16 8h4l3 3v5h-7z', speed: '~32 km/h' },
+                        ].map((v) => (
                           <button
-                            key={spd}
-                            onClick={() => handleSpeedChange(spd)}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition ${
-                              (journey.simulationSpeed || 1) === spd
-                                ? 'bg-blue-600 border-blue-500 text-white'
-                                : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-white'
+                            key={v.id}
+                            type="button"
+                            onClick={() => handleVehicleSelect(v.id as VehicleType)}
+                            className={`py-2 px-1 rounded-xl flex flex-col items-center gap-0.5 border transition cursor-pointer ${
+                              journey.vehicleType === v.id
+                                ? 'bg-[#AEF5F0]/20 border-[#AEF5F0] text-[#AEF5F0] shadow-md shadow-[#AEF5F0]/20 font-bold'
+                                : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-slate-200'
                             }`}
                           >
-                            {spd}x
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d={v.icon}/></svg>
+                            <span className="text-[10px] font-semibold">{v.label}</span>
+                            <span className="text-[8px] text-slate-500">{v.speed}</span>
                           </button>
                         ))}
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        onClick={handleAdvanceStep}
-                        disabled={!journey.isNavigating}
-                        className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
-                          journey.isNavigating
-                            ? 'bg-blue-600/30 border border-blue-500/50 hover:bg-blue-600 text-white'
-                            : 'bg-[#161B22] text-slate-500 border border-[#30363D] cursor-not-allowed'
-                        }`}
-                      >
-                        <span>Step Forward →</span>
-                      </button>
-                      <button
-                        onClick={() => setIsReportHazardOpen(true)}
-                        className="py-1 px-2.5 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500 border border-amber-500/40 text-amber-300 hover:text-white transition cursor-pointer"
-                      >
-                        ⚠ Report Hazard
-                      </button>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Current Journey Stats Card & Speedometer */}
-                <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3">
-                  <div className="text-xs font-semibold text-white mb-2 flex items-center justify-between">
-                    <span>Live Telemetry</span>
-                    <span className="text-[10px] text-cyan-400 font-mono">
-                      {journey.activeRoute ? `${journey.progressPercent}% Completed` : 'Standby'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1 text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-300">
-                        <span className="text-slate-400">Distance:</span>
-                        <span className="font-mono font-bold text-white">
-                          {journey.activeRoute ? `${journey.remainingDistanceKm} km` : '--'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-slate-300">
-                        <span className="text-slate-400">ETA:</span>
-                        <span className="font-mono font-bold text-white">
-                          {journey.activeRoute ? journey.eta : '--:--'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-slate-300">
-                        <span className="text-slate-400">Est. Time:</span>
-                        <span className="font-mono font-bold text-white">
-                          {journey.activeRoute ? `${journey.remainingDurationMinutes} min` : '--'}
-                        </span>
-                      </div>
+                      {journey.alternativeRoutes.length === 0 && !isCalculatingRoutes && (
+                        <button
+                          type="button"
+                          onClick={() => handleVehicleSelect(journey.vehicleType || 'car')}
+                          className="w-full py-2.5 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-[#AEF5F0]/25"
+                        >
+                          <span>🔍 Find Optimal Routes for {journey.vehicleType.toUpperCase()}</span>
+                        </button>
+                      )}
                     </div>
 
-                    {/* Speed Gauge matching design */}
-                    <div className="w-16 h-16 rounded-full border-4 border-blue-500/40 bg-blue-500/10 flex flex-col items-center justify-center text-center">
-                      <span className="text-base font-extrabold text-white leading-none">
-                        {journey.isNavigating ? journey.currentSpeedKmh : 0}
-                      </span>
-                      <span className="text-[8px] text-slate-400 uppercase">km/h</span>
-                    </div>
-                  </div>
+                    {/* Step 3: Optimal Routes Choice */}
+                    {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
+                      <div key="stage-step3-routes" className="animate-section-smooth bg-[#21262D] border border-[#AEF5F0]/40 rounded-xl p-3 space-y-2.5 shadow-xl">
+                        <div className="flex items-center justify-between border-b border-[#30363D] pb-2">
+                          <div>
+                            <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                              <span>🗺️</span>
+                              <span>Step 3: Choose an Optimal Route</span>
+                            </div>
+                            <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                              {journey.alternativeRoutes.length} optimal paths calculated
+                            </div>
+                          </div>
+                        </div>
 
-                  {/* Progress bar */}
-                  <div className="mt-2.5">
-                    <div className="w-full bg-[#161B22] h-1.5 rounded-full overflow-hidden border border-[#30363D]">
-                      <div
-                        className="bg-blue-500 h-full rounded-full transition-all duration-300 shadow"
-                        style={{ width: `${journey.progressPercent}%` }}
-                      ></div>
+                        <p className="text-[10px] text-slate-400">
+                          Select one route below. <span className="text-slate-200 font-semibold">Other optimal routes will disappear</span> once selected.
+                        </p>
+
+                        <div className="space-y-2">
+                          {journey.alternativeRoutes.map((alt) => (
+                            <div
+                              key={alt.id}
+                              onClick={() => handleSelectOptimalRoute(alt.id)}
+                              className="p-2.5 rounded-xl border border-[#30363D] bg-[#161B22] hover:border-[#AEF5F0] hover:bg-[#1c222b] cursor-pointer transition flex items-center justify-between group"
+                              style={{ borderLeftWidth: '4px', borderLeftColor: alt.color }}
+                            >
+                              <div className="min-w-0 pr-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate">
+                                    {alt.name}
+                                  </span>
+                                  {alt.isRecommended && (
+                                    <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/20 px-1 py-0.5 rounded shrink-0">
+                                      Fastest
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                  {alt.viaRoads?.join(' • ') || 'Main Arterial Corridor'}
+                                </div>
+                                <div className="text-xs font-mono font-bold text-white mt-1 flex items-center gap-2">
+                                  <span className="text-cyan-400">{alt.distanceKm} km</span>
+                                  <span className="text-slate-500">•</span>
+                                  <span className="text-emerald-400">{alt.durationMinutes} min</span>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectOptimalRoute(alt.id);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shrink-0 shadow-md shadow-[#AEF5F0]/25 transition cursor-pointer"
+                              >
+                                Select Route →
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* STAGE 3: Route IS Chosen -> Show Active Route Telemetry, Navigation, and Drive Controls */}
+                {journey.activeRoute && journey.alternativeRoutes.length === 0 && (
+                  <div key="stage-step4-active" className="animate-section-smooth space-y-3">
+                    {/* Chosen Route Info Banner */}
+                    <div className="bg-[#21262D] border border-[#AEF5F0]/50 rounded-xl p-3 space-y-2 shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-pulse"></span>
+                          <span className="font-bold text-xs text-white truncate max-w-[170px]">
+                            {journey.activeRoute.name}
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-bold bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30 uppercase">
+                          {journey.vehicleType}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#30363D] text-xs font-mono">
+                        <div>
+                          <span className="text-[9px] text-slate-400 block font-sans">Distance</span>
+                          <span className="font-bold text-white">{journey.remainingDistanceKm} km</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-400 block font-sans">Est. Time</span>
+                          <span className="font-bold text-emerald-400">{journey.remainingDurationMinutes} min</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-400 block font-sans">ETA</span>
+                          <span className="font-bold text-cyan-400">{journey.eta}</span>
+                        </div>
+                      </div>
+
+                      {!journey.isNavigating && (
+                        <div className="pt-1 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400">Other routes hidden</span>
+                          <button
+                            type="button"
+                            onClick={() => realtimeSync.showOptimalRoutesAgain()}
+                            className="text-[10px] text-[#AEF5F0] hover:text-white font-semibold underline cursor-pointer"
+                          >
+                            ⇄ Compare Other Routes
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Primary Navigation Controls */}
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={toggleNavigation}
+                          className={`flex-1 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer active:scale-98 ${
+                            journey.isNavigating
+                              ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
+                              : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shadow-md shadow-[#AEF5F0]/25'
+                          }`}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            {journey.isNavigating ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            )}
+                          </svg>
+                          <span>{journey.isNavigating ? 'Pause Navigation' : 'Start Navigation'}</span>
+                        </button>
+
+                        {journey.isNavigating && (
+                          <button
+                            onClick={handleStopNavigation}
+                            title="Cancel & Reset Trip"
+                            className="px-3 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                          >
+                            Stop
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Simulation Controls & Speed Multiplexer */}
+                      <div className="bg-[#21262D] p-2.5 rounded-xl border border-[#30363D] space-y-2">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-emerald-400">DRIVE SIMULATION</span>
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 4].map((spd) => (
+                              <button
+                                key={spd}
+                                onClick={() => handleSpeedChange(spd)}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition ${
+                                  (journey.simulationSpeed || 1) === spd
+                                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold'
+                                    : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                {spd}x
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            onClick={handleAdvanceStep}
+                            disabled={!journey.isNavigating}
+                            className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                              journey.isNavigating
+                                ? 'bg-[#AEF5F0]/15 border border-[#AEF5F0]/30 hover:bg-[#AEF5F0] text-[#AEF5F0] hover:text-slate-950'
+                                : 'bg-[#161B22] text-slate-500 border border-[#30363D] cursor-not-allowed'
+                            }`}
+                          >
+                            <span>Step Forward →</span>
+                          </button>
+                          <button
+                            onClick={() => setIsReportHazardOpen(true)}
+                            className="py-1 px-2.5 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500 border border-amber-500/40 text-amber-300 hover:text-white transition cursor-pointer"
+                          >
+                            ⚠ Report Hazard
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Current Journey Stats Card & Speedometer */}
+                    <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3">
+                      <div className="text-xs font-semibold text-white mb-2 flex items-center justify-between">
+                        <span>Live Telemetry</span>
+                        <span className="text-[10px] text-cyan-400 font-mono">
+                          {journey.progressPercent}% Completed
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-center gap-1.5 text-slate-300">
+                            <span className="text-slate-400">Distance Left:</span>
+                            <span className="font-mono font-bold text-white">
+                              {journey.remainingDistanceKm} km
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-slate-300">
+                            <span className="text-slate-400">Est. Time:</span>
+                            <span className="font-mono font-bold text-emerald-400">
+                              {journey.remainingDurationMinutes} min
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-slate-300">
+                            <span className="text-slate-400">ETA:</span>
+                            <span className="font-mono font-bold text-cyan-400">
+                              {journey.eta}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Speed Gauge */}
+                        <div className="w-16 h-16 rounded-full border-4 border-[#AEF5F0]/40 bg-[#AEF5F0]/10 flex flex-col items-center justify-center text-center">
+                          <span className="text-base font-extrabold text-white leading-none">
+                            {journey.isNavigating ? journey.currentSpeedKmh : 0}
+                          </span>
+                          <span className="text-[8px] text-slate-400 uppercase">km/h</span>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="mt-2.5">
+                        <div className="w-full bg-[#161B22] h-1.5 rounded-full overflow-hidden border border-[#30363D]">
+                          <div
+                            className="bg-[#AEF5F0] h-full rounded-full transition-all duration-300 shadow"
+                            style={{ width: `${journey.progressPercent}%` }}
+                          ></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Route Status Card */}
                 <div
@@ -631,7 +843,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     <div className="text-[10px] text-slate-400">Active Corridor</div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className={`w-2 h-2 rounded-full ${
-                        journey.activeRoute ? (journey.activeRouteId === 'route_b' ? 'bg-emerald-400' : 'bg-blue-400') : 'bg-slate-500'
+                        journey.activeRoute ? (journey.activeRouteId === 'route_b' ? 'bg-emerald-400' : 'bg-[#AEF5F0]') : 'bg-slate-500'
                       }`}></span>
                       <span className="text-xs font-bold text-white truncate max-w-[200px]">
                         {journey.activeRoute ? journey.activeRoute.name : 'Standby / Awaiting Destination'}
@@ -663,7 +875,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               {/* Top HUD Banner on Map */}
               {journey.isNavigating && currentManeuver && (
                 <div className="absolute top-4 left-4 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl flex items-center gap-3.5 max-w-md animate-fade-in">
-                  <div className="w-11 h-11 rounded-xl bg-blue-600/30 border border-blue-500 flex items-center justify-center shrink-0">
+                  <div className="w-11 h-11 rounded-xl bg-[#AEF5F0]/20 border border-[#AEF5F0] flex items-center justify-center shrink-0">
                     {getTurnIcon(currentManeuver.turnType)}
                   </div>
                   <div>
@@ -728,7 +940,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     {/* OK - Find Alternate Routes Action */}
                     <button
                       onClick={handleOkFindAlternates}
-                      className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/40 transition cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+                      className="w-full py-3 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 transition cursor-pointer flex items-center justify-center gap-2 active:scale-98"
                     >
                       <span>OK – Find Alternate Routes</span>
                     </button>
@@ -781,7 +993,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               e.stopPropagation();
                               handleCommitRoute(alt.id);
                             }}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#21262D] hover:bg-blue-600 text-slate-200 hover:text-white border border-[#30363D] transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#21262D] hover:bg-[#AEF5F0] text-slate-200 hover:text-slate-950 font-bold border border-[#30363D] transition cursor-pointer"
                           >
                             Follow Route
                           </button>
@@ -794,18 +1006,18 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 {/* 3. Live Trip Status Progress Card */}
                 <div className="bg-[#21262D] border border-[#30363D] rounded-2xl p-4 shadow-lg space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
-                    <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/></svg>
+                    <svg className="w-4 h-4 text-[#AEF5F0]" fill="currentColor" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/></svg>
                     <span>Trip Summary</span>
                   </div>
 
                   <div>
                     <div className="flex justify-between text-[10px] text-slate-400 mb-1">
                       <span>Journey Progress</span>
-                      <span className="font-mono text-blue-400 font-bold">{journey.progressPercent}%</span>
+                      <span className="font-mono text-[#AEF5F0] font-bold">{journey.progressPercent}%</span>
                     </div>
                     <div className="w-full bg-[#161B22] h-2 rounded-full overflow-hidden border border-[#30363D]">
                       <div
-                        className="bg-blue-500 h-full rounded-full transition-all duration-500 shadow-md shadow-blue-500/50"
+                        className="bg-[#AEF5F0] h-full rounded-full transition-all duration-500 shadow-md shadow-[#AEF5F0]/50"
                         style={{ width: `${journey.progressPercent}%` }}
                       ></div>
                     </div>
@@ -851,7 +1063,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 2: MAP (Fullscreen Immersive Navigation View with Top HUD) */}
         {activeBottomNav === 'Map' && (
-          <div className="flex-1 relative w-full h-full">
+          <div key="driver-tab-map" className="animate-tab-switch flex-1 relative w-full h-full">
             <RoutePilotMap
               mode="driver"
               hazards={hazards}
@@ -866,7 +1078,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
             {/* Turn-by-Turn Maneuver HUD Banner */}
             {journey.isNavigating && currentManeuver && (
               <div className="absolute top-4 left-4 right-16 sm:right-auto z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl flex items-center gap-3.5 max-w-md animate-fade-in">
-                <div className="w-12 h-12 rounded-xl bg-blue-600/30 border border-blue-500 flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-[#AEF5F0]/20 border border-[#AEF5F0] flex items-center justify-center shrink-0">
                   {getTurnIcon(currentManeuver.turnType)}
                 </div>
                 <div className="truncate">
@@ -894,7 +1106,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
             {/* Speedometer HUD Overlay (Bottom Left) */}
             <div className="absolute bottom-20 left-4 z-[995] bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full border-4 border-blue-500 bg-blue-600/20 flex flex-col items-center justify-center text-center">
+              <div className="w-14 h-14 rounded-full border-4 border-[#AEF5F0] bg-[#AEF5F0]/15 flex flex-col items-center justify-center text-center">
                 <span className="text-lg font-extrabold text-white leading-none">
                   {journey.isNavigating ? journey.currentSpeedKmh : 0}
                 </span>
@@ -922,7 +1134,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 </p>
                 <button
                   onClick={handleOkFindAlternates}
-                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg cursor-pointer"
+                  className="w-full py-2.5 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 cursor-pointer"
                 >
                   OK – Find Alternate Routes
                 </button>
@@ -951,7 +1163,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleCommitRoute(alt.id); }}
-                        className="px-2 py-0.5 rounded bg-blue-600 text-white text-[10px] font-semibold cursor-pointer"
+                        className="px-2 py-0.5 rounded bg-[#AEF5F0] text-slate-950 font-bold text-[10px] cursor-pointer"
                       >
                         Follow
                       </button>
@@ -971,7 +1183,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                     : journey.isNavigating
                     ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white'
+                    : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950'
                 }`}
               >
                 <span>{journey.isNavigating ? '⏸ Pause' : '▶ Start'}</span>
@@ -990,17 +1202,17 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 3: ROUTE (Turn-by-Turn Maneuvers & Alternatives List) */}
         {activeBottomNav === 'Route' && (
-          <div className="flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
+          <div key="driver-tab-route" className="animate-tab-switch flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
             {/* Header Card */}
             <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <div className="text-xs font-bold text-blue-400 uppercase tracking-wide">Active Navigation Route</div>
+                <div className="text-xs font-bold text-[#AEF5F0] uppercase tracking-wide">Active Navigation Route</div>
                 <h2 className="text-lg font-extrabold text-white mt-1">
                   {journey.activeRoute ? journey.activeRoute.name : 'No Active Route Selected'}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Origin: <span className="text-slate-200 font-semibold">{journey.origin.name}</span> → Destination:{' '}
-                  <span className="text-blue-300 font-semibold">{journey.destination.name || 'Not set'}</span>
+                  <span className="text-[#AEF5F0] font-semibold">{journey.destination.name || 'Not set'}</span>
                 </p>
               </div>
 
@@ -1043,7 +1255,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       key={idx}
                       className={`p-3.5 rounded-xl border transition flex items-center gap-3.5 ${
                         isCurrent
-                          ? 'bg-blue-600/20 border-blue-500 shadow-md ring-1 ring-blue-500/40'
+                          ? 'bg-[#AEF5F0]/15 border-[#AEF5F0] shadow-md ring-1 ring-[#AEF5F0]/40'
                           : isPast
                           ? 'bg-[#161B22] border-[#21262D] opacity-60'
                           : 'bg-[#21262D] border-[#30363D]'
@@ -1051,7 +1263,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     >
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
                         isCurrent
-                          ? 'bg-blue-600 border-blue-400 text-white'
+                          ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold'
                           : 'bg-[#161B22] border-[#30363D] text-slate-300'
                       }`}>
                         {getTurnIcon(step.turnType)}
@@ -1061,7 +1273,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-white">{step.instruction}</span>
                           {isCurrent && (
-                            <span className="text-[9px] bg-blue-500 text-white px-1.5 py-0.2 rounded font-bold uppercase animate-pulse">
+                            <span className="text-[9px] bg-[#AEF5F0] text-slate-950 px-1.5 py-0.2 rounded font-bold uppercase animate-pulse">
                               Current
                             </span>
                           )}
@@ -1098,7 +1310,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 </div>
                 <button
                   onClick={handleOkFindAlternates}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 text-xs font-bold transition cursor-pointer"
                 >
                   Recalculate
                 </button>
@@ -1139,7 +1351,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                     <button
                       onClick={() => handleCommitRoute(r.id)}
-                      className="w-full py-2 rounded-lg bg-[#161B22] hover:bg-blue-600 border border-[#30363D] text-slate-200 hover:text-white text-xs font-bold transition cursor-pointer"
+                      className="w-full py-2 rounded-lg bg-[#161B22] hover:bg-[#AEF5F0] border border-[#30363D] text-slate-200 hover:text-slate-950 font-bold text-xs transition cursor-pointer"
                     >
                       Follow This Route
                     </button>
@@ -1152,7 +1364,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 4: ALERTS (Hazard Center & Report Hazard) */}
         {activeBottomNav === 'Alerts' && (
-          <div className="flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
+          <div key="driver-tab-alerts" className="animate-tab-switch flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#161B22] border border-[#30363D] rounded-2xl p-5 shadow-xl">
               <div>
@@ -1210,7 +1422,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                 <button
                   onClick={handleOkFindAlternates}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/40 cursor-pointer transition"
+                  className="w-full py-3 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 cursor-pointer transition"
                 >
                   OK – Find Alternate Routes Now
                 </button>
@@ -1265,7 +1477,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                         <div className="text-right shrink-0 text-xs">
                           <div className="text-[10px] text-slate-400">Reported: {h.createdAt}</div>
-                          <div className="text-[10px] text-blue-400 font-mono mt-0.5">Source: {h.source}</div>
+                          <div className="text-[10px] text-[#AEF5F0] font-mono mt-0.5">Source: {h.source}</div>
                         </div>
                       </div>
                     );
@@ -1278,17 +1490,17 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 5: MORE (Driver Profile, Audio, Simulation & SOS) */}
         {activeBottomNav === 'More' && (
-          <div className="flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
+          <div key="driver-tab-more" className="animate-tab-switch flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
             {/* Driver Profile Card */}
             <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+                <div className="w-14 h-14 rounded-2xl bg-[#AEF5F0] flex items-center justify-center text-slate-950 text-xl font-bold shadow-lg shadow-[#AEF5F0]/25">
                   D1
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-extrabold text-white">{journey.driverName || 'Driver 01'}</h2>
-                    <span className="text-[10px] font-mono bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">
+                    <span className="text-[10px] font-mono bg-[#AEF5F0]/15 text-[#AEF5F0] px-2 py-0.5 rounded border border-[#AEF5F0]/30 font-bold">
                       {journey.driverId}
                     </span>
                   </div>
@@ -1340,7 +1552,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       onClick={() => handleToggleLanguage('en')}
                       className={`flex-1 py-2 rounded-lg font-bold border transition cursor-pointer ${
                         language === 'en'
-                          ? 'bg-blue-600 border-blue-500 text-white'
+                          ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950'
                           : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-white'
                       }`}
                     >
@@ -1350,7 +1562,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       onClick={() => handleToggleLanguage('hi')}
                       className={`flex-1 py-2 rounded-lg font-bold border transition cursor-pointer ${
                         language === 'hi'
-                          ? 'bg-blue-600 border-blue-500 text-white'
+                          ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950'
                           : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-white'
                       }`}
                     >
@@ -1367,7 +1579,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   </div>
                   <button
                     onClick={handleTestVoice}
-                    className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full py-2 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-[#AEF5F0]/20"
                   >
                     <span>▶</span>
                     <span>{voiceTestFeedback || 'Play Test Voice Sample'}</span>
@@ -1457,9 +1669,9 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
           <button
             key={tab.id}
             onClick={() => setActiveBottomNav(tab.id as any)}
-            className={`flex flex-col items-center gap-1 transition relative cursor-pointer px-3 py-1 rounded-xl ${
+            className={`flex flex-col items-center gap-1 transition-all duration-200 ease-out relative cursor-pointer px-3 py-1 rounded-xl active:scale-95 ${
               activeBottomNav === tab.id
-                ? 'text-blue-400 font-bold bg-blue-500/10'
+                ? 'text-[#AEF5F0] font-bold bg-[#AEF5F0]/10 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >

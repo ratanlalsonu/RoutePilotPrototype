@@ -33,9 +33,13 @@ export function App() {
   return (
     <div className="w-full h-full min-h-screen bg-[#0D1117] text-slate-100 flex flex-col font-sans select-none">
       {activeMode === 'admin' ? (
-        <AdminDashboard state={state} onSwitchMode={handleSwitchMode} />
+        <div key="mode-admin" className="animate-tab-switch flex-1 flex flex-col w-full h-full">
+          <AdminDashboard state={state} onSwitchMode={handleSwitchMode} />
+        </div>
       ) : (
-        <DriverDashboard state={state} onSwitchMode={handleSwitchMode} />
+        <div key="mode-driver" className="animate-tab-switch flex-1 flex flex-col w-full h-full">
+          <DriverDashboard state={state} onSwitchMode={handleSwitchMode} />
+        </div>
       )}
     </div>
   );

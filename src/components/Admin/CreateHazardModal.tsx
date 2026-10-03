@@ -67,8 +67,8 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-modal-backdrop">
+      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-modal-content">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#30363D] flex items-center justify-between bg-[#0D1117]">
           <div className="flex items-center gap-3">
@@ -95,7 +95,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
           {/* Coordinates readout */}
           <div className="bg-[#0D1117] p-3 rounded-xl border border-[#30363D] flex items-center justify-between text-xs">
             <span className="text-slate-400">Clicked Location:</span>
-            <span className="font-mono text-blue-400 font-semibold">
+            <span className="font-mono text-[#AEF5F0] font-semibold">
               {lat.toFixed(6)}, {lng.toFixed(6)}
             </span>
           </div>
@@ -106,7 +106,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
             <select
               value={type}
               onChange={(e) => setType(e.target.value as HazardType)}
-              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-blue-500 transition"
+              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#AEF5F0] transition"
             >
               <option value="Bridge Damage">Bridge Damage</option>
               <option value="Road Blockage">Road Blockage</option>
@@ -150,7 +150,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Place / Landmark Name {isLoadingGeocode && <span className="text-blue-400 animate-pulse text-[10px]">(resolving...)</span>}
+                Place / Landmark Name {isLoadingGeocode && <span className="text-[#AEF5F0] animate-pulse text-[10px]">(resolving...)</span>}
               </label>
               <input
                 type="text"
@@ -158,7 +158,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
                 onChange={(e) => setLocationName(e.target.value)}
                 placeholder="e.g. Near Civil Lines Bridge"
                 required
-                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500 text-xs"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#AEF5F0] text-xs"
               />
             </div>
             <div>
@@ -169,7 +169,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
                 onChange={(e) => setRoadName(e.target.value)}
                 placeholder="e.g. Civil Lines Road"
                 required
-                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500 text-xs"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#AEF5F0] text-xs"
               />
             </div>
           </div>
@@ -204,7 +204,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Bridge pier sensor shows excessive vibration; northbound lane closed."
               rows={2}
-              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 text-xs resize-none"
+              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-3 text-white focus:outline-none focus:border-[#AEF5F0] text-xs resize-none"
             />
           </div>
 
@@ -219,7 +219,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
                   value={src}
                   checked={source === src}
                   onChange={() => setSource(src)}
-                  className="accent-blue-500"
+                  className="accent-[#AEF5F0]"
                 />
                 <span className={source === src ? 'text-white font-medium' : ''}>{src}</span>
               </label>

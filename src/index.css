@@ -98,13 +98,79 @@
 
 @keyframes vehicle-glow {
   0%, 100% {
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8), 0 0 24px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 12px rgba(174, 245, 240, 0.8), 0 0 24px rgba(174, 245, 240, 0.4);
   }
   50% {
-    box-shadow: 0 0 18px rgba(59, 130, 246, 1), 0 0 32px rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 18px rgba(174, 245, 240, 1), 0 0 32px rgba(174, 245, 240, 0.6);
   }
 }
 
 .vehicle-marker-glow {
   animation: vehicle-glow 1.5s infinite ease-in-out;
+}
+
+/* Smooth Section & Tab Transitions (Eliminates abrupt snapping/jerking) */
+@keyframes viewSmoothEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sectionSmoothEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalBackdropFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modalPopScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-tab-switch {
+  animation: viewSmoothEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+.animate-section-smooth {
+  animation: sectionSmoothEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+.animate-fade-in {
+  animation: modalBackdropFade 0.22s ease-out forwards;
+}
+
+.animate-modal-backdrop {
+  animation: modalBackdropFade 0.22s ease-out forwards;
+}
+
+.animate-modal-content {
+  animation: modalPopScale 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
 }

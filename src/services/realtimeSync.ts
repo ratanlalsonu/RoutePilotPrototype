@@ -11,7 +11,12 @@ import {
 import {
   JHANSI_DIRECT_ROUTE_COORDS,
   calculatePolylineDistanceKm,
+  calculateRemainingDistanceKm,
+  calculateVehicleDuration,
+  getVehicleSpeedProfile,
+  formatDurationText,
   calculateAlternativeRoutes,
+  calculateMultipleOptimalRoutes,
   fetchOSRMRoute,
   generateSyntheticSteps,
 } from './routingService';
@@ -418,7 +423,8 @@ class RealtimeSyncManager {
       currentCoords[0],
       currentCoords[1],
       j.destination,
-      j.detectedHazard
+      j.detectedHazard,
+      j.vehicleType
     );
 
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -537,12 +543,24 @@ class RealtimeSyncManager {
       pointIndex: nextIndex,
     };
 
-    // Calculate remaining distance and progress
-    const remainingCoords = coords.slice(nextIndex);
-    const remainingKm = calculatePolylineDistanceKm(remainingCoords);
+    // Calculate real remaining distance and progress
+    const remainingKm = calculateRemainingDistanceKm(coords, nextIndex);
     j.remainingDistanceKm = remainingKm;
-    j.remainingDurationMinutes = Math.max(1, Math.round(remainingKm * 2.1));
-    j.progressPercent = Math.min(99, Math.round((nextIndex / (totalPoints - 1)) * 100));
+    j.remainingDurationMinutes = calculateVehicleDuration(remainingKm, j.vehicleType);
+
+    // Dynamic ETA clock calculation
+    const etaDate = new Date(Date.now() + j.remainingDurationMinutes * 60000);
+    j.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Dynamic progress percent based on real distance
+    const totalDist = j.totalDistanceKm || remainingKm + 0.1;
+    const completedDist = Math.max(0, totalDist - remainingKm);
+    j.progressPercent = Math.min(99, Math.max(0, Math.round((completedDist / totalDist) * 100)));
+
+    // Realistic vehicle speed according to vehicle profile
+    const profile = getVehicleSpeedProfile(j.vehicleType);
+    const speedVariation = nextIndex % 3 === 0 ? -2 : nextIndex % 2 === 0 ? 3 : 0;
+    j.currentSpeedKmh = Math.max(15, profile.averageSpeedKmh + speedVariation);
 
     // If alternatives are currently displayed, check if vehicle moved closer/onto one of them
     if (j.diversionState === 'ALTERNATIVES_DISPLAYED' && j.alternativeRoutes.length > 0) {
@@ -693,78 +711,118 @@ class RealtimeSyncManager {
 
   public setVehicleType(vehicleType: Journey['vehicleType']) {
     this.state.journey.vehicleType = vehicleType;
+    // If destination is already picked, recalculate optimal routes for this vehicle type!
+    if (this.state.journey.destination && this.state.journey.destination.name && this.state.journey.destination.lat !== 0) {
+      this.generateAndDisplayOptimalRoutes(vehicleType);
+      return;
+    }
     this.notify();
   }
 
+  /**
+   * Set Destination: Clears old routes and prompts for vehicle type / optimal route selection
+   */
   public async setDestination(dest: { name: string; lat: number; lng: number }) {
     this.state.journey.destination = dest;
+    this.state.journey.activeRoute = null;
+    this.state.journey.activeRouteId = '';
     this.state.journey.alternativeRoutes = [];
     this.state.journey.status = 'IDLE';
     this.state.journey.diversionState = 'IDLE';
     this.state.journey.progressPercent = 0;
     this.state.journey.currentSpeedKmh = 0;
+    this.state.journey.totalDistanceKm = 0;
+    this.state.journey.remainingDistanceKm = 0;
+    this.state.journey.remainingDurationMinutes = 0;
+    this.state.journey.eta = '--:--';
+
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    this.addRouteEvent({
+      time: nowTime,
+      event: `Destination Selected: ${dest.name}`,
+      driver: this.state.journey.driverId,
+      status: 'Info',
+      details: 'Select vehicle type to calculate real-world optimal routes and travel times.',
+    });
+
+    // Notify so UI immediately presents Step 2: Vehicle Type
+    this.notify();
+  }
+
+  /**
+   * Calculates and displays multiple optimal paths tailored to the selected vehicle type
+   */
+  public async generateAndDisplayOptimalRoutes(vehicleType?: Journey['vehicleType']) {
+    const vType = vehicleType || this.state.journey.vehicleType || 'car';
+    this.state.journey.vehicleType = vType;
 
     const origin = this.state.journey.origin;
+    const dest = this.state.journey.destination;
+
+    if (!dest || !dest.name || dest.lat === 0) return;
+
+    this.state.journey.diversionState = 'CALCULATING_ALTERNATIVES';
+    this.notify();
+
+    // Calculate multiple optimal routes (Fastest, Bypass, Arterial)
+    const routes = await calculateMultipleOptimalRoutes(origin, dest, vType);
+
+    this.state.journey.alternativeRoutes = routes;
+    this.state.journey.activeRoute = null;
+    this.state.journey.activeRouteId = '';
+    this.state.journey.diversionState = 'ALTERNATIVES_DISPLAYED';
+
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    this.addRouteEvent({
+      time: nowTime,
+      event: `Optimal Paths Generated (${routes.length} options)`,
+      driver: this.state.journey.driverId,
+      status: 'Success',
+      details: `Tailored for ${vType.toUpperCase()} with real travel distance & time. Choose a route to activate.`,
+    });
+
+    VoiceService.speak(
+      `${routes.length} optimal routes found for your ${vType}. Please choose your preferred route.`,
+      `${vType} के लिए ${routes.length} सर्वोत्तम मार्ग मिले हैं। कृपया अपना पसंदीदा मार्ग चुनें।`
+    );
+
+    this.notify();
+  }
+
+  /**
+   * User chooses ONE optimal route -> ALL OTHER OPTIMAL PATHS DISAPPEAR!
+   */
+  public selectOptimalRoute(selectedRouteId: string) {
+    const j = this.state.journey;
+    const chosenRoute = j.alternativeRoutes.find((r) => r.id === selectedRouteId) ||
+      (j.activeRoute?.id === selectedRouteId ? j.activeRoute : null);
+
+    if (!chosenRoute) return;
+
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Live OSRM calculation for the selected destination
-    const osrm = await fetchOSRMRoute(origin.lat, origin.lng, dest.lat, dest.lng);
+    // CRITICAL USER REQUIREMENT:
+    // "user optimal koi ek choose karta hai to other optimal path dispear ho jaye"
+    j.activeRoute = chosenRoute;
+    j.activeRouteId = chosenRoute.id;
+    j.alternativeRoutes = []; // ALL OTHER ALTERNATIVE ROUTES DISAPPEAR!
 
-    let coordinates: [number, number][] = osrm?.coordinates || [];
-    let distanceKm: number = osrm?.distanceKm || 0;
-    let durationMin: number = osrm?.durationMin || 0;
-    let steps = osrm?.steps;
+    j.totalDistanceKm = chosenRoute.distanceKm;
+    j.remainingDistanceKm = chosenRoute.distanceKm;
+    j.remainingDurationMinutes = chosenRoute.durationMinutes;
 
-    if (!coordinates || coordinates.length < 2) {
-      // Reliable fallback interpolation
-      const pts: [number, number][] = [];
-      const numPts = 14;
-      for (let i = 0; i <= numPts; i++) {
-        const frac = i / numPts;
-        const lat = origin.lat + (dest.lat - origin.lat) * frac;
-        const lng = origin.lng + (dest.lng - origin.lng) * frac;
-        pts.push([parseFloat(lat.toFixed(5)), parseFloat(lng.toFixed(5))]);
-      }
-      coordinates = pts;
-      distanceKm = calculatePolylineDistanceKm(pts);
-      durationMin = Math.max(2, Math.round(distanceKm * 2.1));
-      steps = generateSyntheticSteps('Active Route', ['City Arterial Corridor'], distanceKm, dest.name);
-    }
+    const etaDate = new Date(Date.now() + chosenRoute.durationMinutes * 60000);
+    j.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    if (!steps || steps.length === 0) {
-      steps = generateSyntheticSteps('Active Route', ['Live Road Network'], distanceKm, dest.name);
-    }
+    j.diversionState = 'ROUTE_ACTIVE';
+    j.status = 'IDLE'; // Ready to navigate
+    j.progressPercent = 0;
 
-    const activeRoute: RouteOption = {
-      id: `route_${Date.now()}`,
-      name: `Route to ${dest.name}`,
-      color: '#2563eb',
-      distanceKm,
-      durationMinutes: durationMin,
-      coordinates,
-      viaRoads: ['Live Road Network'],
-      isRecommended: true,
-      maneuver: {
-        instruction: `Head toward ${dest.name}`,
-        distanceMeters: Math.round(distanceKm * 180),
-      },
-      steps,
-    };
-
-    this.state.journey.activeRoute = activeRoute;
-    this.state.journey.activeRouteId = activeRoute.id;
-    this.state.journey.totalDistanceKm = distanceKm;
-    this.state.journey.remainingDistanceKm = distanceKm;
-    this.state.journey.remainingDurationMinutes = durationMin;
-
-    const etaDate = new Date(Date.now() + durationMin * 60000);
-    this.state.journey.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // Place vehicle at start of the calculated route
-    if (coordinates.length > 0) {
-      this.state.journey.currentLocation = {
-        lat: coordinates[0][0],
-        lng: coordinates[0][1],
+    // Place vehicle at start of chosen route
+    if (chosenRoute.coordinates.length > 0) {
+      j.currentLocation = {
+        lat: chosenRoute.coordinates[0][0],
+        lng: chosenRoute.coordinates[0][1],
         heading: 0,
         pointIndex: 0,
       };
@@ -772,13 +830,25 @@ class RealtimeSyncManager {
 
     this.addRouteEvent({
       time: nowTime,
-      event: `Route Configured to ${dest.name}`,
-      driver: this.state.journey.driverId,
+      event: `Active Route Chosen: ${chosenRoute.name}`,
+      driver: j.driverId,
       status: 'Success',
-      details: `Distance: ${distanceKm} km, Duration: ${durationMin} min`,
+      details: `Distance: ${chosenRoute.distanceKm} km, Travel Time: ${chosenRoute.durationMinutes} min. Other alternatives dismissed.`,
     });
 
+    VoiceService.speak(
+      `${chosenRoute.name} selected. Total distance ${chosenRoute.distanceKm} kilometers, estimated ${chosenRoute.durationMinutes} minutes. Ready to navigate.`,
+      `${chosenRoute.name} चुना गया। कुल दूरी ${chosenRoute.distanceKm} किमी, समय ${chosenRoute.durationMinutes} मिनट।`
+    );
+
     this.notify();
+  }
+
+  /**
+   * Re-display optimal route alternatives if user wants to change route
+   */
+  public async showOptimalRoutesAgain() {
+    await this.generateAndDisplayOptimalRoutes(this.state.journey.vehicleType);
   }
 
   public addRouteEvent(event: Omit<RouteEvent, 'id'>) {
@@ -836,17 +906,24 @@ class RealtimeSyncManager {
    */
   public updateDriverLocationFromGps(lat: number, lng: number, placeName?: string) {
     const j = this.state.journey;
-    j.currentLocation = {
-      lat,
-      lng,
-      heading: j.currentLocation.heading,
-      pointIndex: 0,
-    };
+    j.origin.lat = lat;
+    j.origin.lng = lng;
     if (placeName) {
       j.origin.name = placeName;
     }
-    j.origin.lat = lat;
-    j.origin.lng = lng;
+    if (!j.isNavigating) {
+      j.currentLocation = {
+        lat,
+        lng,
+        heading: j.currentLocation.heading,
+        pointIndex: 0,
+      };
+      // If destination already chosen and awaiting route selection, update optimal routes
+      if (j.destination && j.destination.name && j.destination.lat !== 0 && j.alternativeRoutes.length > 0) {
+        this.generateAndDisplayOptimalRoutes(j.vehicleType);
+        return;
+      }
+    }
 
     this.addRouteEvent({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

@@ -36,8 +36,8 @@ export const EmergencySosModal: React.FC<EmergencySosModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[2600] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in select-none">
-      <div className="bg-[#161B22] border-2 border-red-500 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-center">
+    <div className="fixed inset-0 z-[2600] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-modal-backdrop select-none">
+      <div className="bg-[#161B22] border-2 border-red-500 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-center animate-modal-content">
         {!dispatched ? (
           <>
             <div className="w-16 h-16 rounded-full bg-red-600/30 border-2 border-red-500 flex items-center justify-center mx-auto text-red-400 animate-pulse">
@@ -106,7 +106,7 @@ export const EmergencySosModal: React.FC<EmergencySosModalProps> = ({
 
             <button
               onClick={onClose}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg cursor-pointer transition"
+              className="w-full py-3 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/20 cursor-pointer transition"
             >
               Return to Navigation
             </button>

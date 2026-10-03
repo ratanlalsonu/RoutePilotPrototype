@@ -35,7 +35,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ state }) => {
 
         <div className="bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow">
           <div className="text-[10px] text-slate-400 uppercase font-semibold">Incident Resolution Rate</div>
-          <div className="text-2xl font-extrabold font-mono text-blue-400 mt-1">
+          <div className="text-2xl font-extrabold font-mono text-[#AEF5F0] mt-1">
             {hazards.length > 0 ? Math.round((resolvedCount / hazards.length) * 100) : 100}%
           </div>
           <div className="text-[10px] text-slate-400 mt-1">{resolvedCount} of {hazards.length} cleared</div>
@@ -91,7 +91,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ state }) => {
             </div>
             <div className="flex justify-between py-1 border-b border-[#30363D]">
               <span className="text-slate-400">Intersection Detection Algorithm</span>
-              <span className="font-mono text-blue-400 font-bold">Haversine Spatial Buffer</span>
+              <span className="font-mono text-[#AEF5F0] font-bold">Haversine Spatial Buffer</span>
             </div>
             <div className="flex justify-between py-1 border-b border-[#30363D]">
               <span className="text-slate-400">Bypass Options Computed</span>

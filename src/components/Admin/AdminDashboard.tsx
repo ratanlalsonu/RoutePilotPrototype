@@ -102,7 +102,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-4 flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center gap-3">
           {/* Logo */}
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+          <div className="w-8 h-8 rounded-lg bg-[#AEF5F0] flex items-center justify-center text-slate-950 shadow-lg shadow-[#AEF5F0]/25">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
             </svg>
@@ -110,7 +110,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           <div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-base tracking-tight text-white">RoutePilot</span>
-              <span className="text-[10px] font-mono uppercase bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">
+              <span className="text-[10px] font-mono uppercase bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
                 Command Center
               </span>
             </div>
@@ -124,7 +124,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         <div className="flex items-center bg-[#0D1117] p-1 rounded-xl border border-[#30363D]">
           <button
             onClick={() => onSwitchMode('admin')}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold transition bg-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/30"
+            className="px-4 py-1.5 rounded-lg text-xs font-bold transition bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/30"
           >
             Admin Mode
           </button>
@@ -177,7 +177,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
             title={`Map Mode: ${state.appSettings.mapTheme === 'satellite' ? 'Satellite Mode' : 'Standard Map'} (Click to switch)`}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
               state.appSettings.mapTheme === 'satellite'
-                ? 'bg-[#66ffff] text-slate-950 font-bold border-[#66ffff] shadow-md shadow-[#66ffff]/30'
+                ? 'bg-[#AEF5F0] text-slate-950 font-bold border-[#AEF5F0] shadow-md shadow-[#AEF5F0]/30'
                 : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-200'
             }`}
           >
@@ -223,9 +223,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                     setActiveTab(item.id);
                   }
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ease-out cursor-pointer active:scale-[0.98] ${
                   activeTab === item.id
-                    ? 'bg-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/30'
+                    ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
                 }`}
               >
@@ -251,28 +251,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 flex flex-col overflow-y-auto bg-[#0D1117]">
+        <main className="flex-1 flex flex-col overflow-y-auto bg-[#0D1117] transition-all duration-300">
           {activeTab === 'Dashboard' && (
-            <DashboardView
-              state={state}
-              onNavigateTab={(tab) => {
-                if (tab === 'Settings') setIsSettingsOpen(true);
-                else setActiveTab(tab);
-              }}
-              onOpenCreateHazard={() => {
-                setActiveTab('Live Map');
-                setIsCreatingHazard(true);
-              }}
-              isCreatingHazard={isCreatingHazard}
-              onMapClickForHazard={handleMapClickForHazard}
-              onQuickHazardOnRoute={handleQuickHazardOnRoute}
-              onQuickHazardAwayFromRoute={handleQuickHazardAwayFromRoute}
-              onQuickSecondHazardAhead={handleQuickSecondHazardAhead}
-            />
+            <div key="tab-dashboard" className="animate-tab-switch flex-1 flex flex-col">
+              <DashboardView
+                state={state}
+                onNavigateTab={(tab) => {
+                  if (tab === 'Settings') setIsSettingsOpen(true);
+                  else setActiveTab(tab);
+                }}
+                onOpenCreateHazard={() => {
+                  setActiveTab('Live Map');
+                  setIsCreatingHazard(true);
+                }}
+                isCreatingHazard={isCreatingHazard}
+                onMapClickForHazard={handleMapClickForHazard}
+                onQuickHazardOnRoute={handleQuickHazardOnRoute}
+                onQuickHazardAwayFromRoute={handleQuickHazardAwayFromRoute}
+                onQuickSecondHazardAhead={handleQuickSecondHazardAhead}
+              />
+            </div>
           )}
 
           {activeTab === 'Live Map' && (
-            <div className="flex-1 flex flex-col h-full bg-[#0D1117] overflow-hidden min-h-[550px]">
+            <div key="tab-live-map" className="animate-tab-switch flex-1 flex flex-col h-full bg-[#0D1117] overflow-hidden min-h-[550px]">
               {/* Map Bar: Controls & Quick Actions */}
               <div className="px-4 py-3 border-b border-[#30363D] bg-[#161B22] flex flex-wrap items-center justify-between gap-2 shrink-0 z-10">
                 <div className="flex items-center gap-2">
@@ -348,41 +350,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           )}
 
           {activeTab === 'Hazards' && (
-            <HazardsTab
-              hazards={hazards}
-              onCreateHazardClick={() => {
-                setActiveTab('Live Map');
-                setIsCreatingHazard(true);
-              }}
-            />
+            <div key="tab-hazards" className="animate-tab-switch flex-1 flex flex-col">
+              <HazardsTab
+                hazards={hazards}
+                onCreateHazardClick={() => {
+                  setActiveTab('Live Map');
+                  setIsCreatingHazard(true);
+                }}
+              />
+            </div>
           )}
 
           {activeTab === 'Sensor Nodes' && (
-            <SensorsTab
-              sensors={sensorNodes}
-              sensorMode={state.appSettings.sensorMode}
-              esp32Endpoint={state.appSettings.esp32Endpoint}
-            />
+            <div key="tab-sensors" className="animate-tab-switch flex-1 flex flex-col">
+              <SensorsTab
+                sensors={sensorNodes}
+                sensorMode={state.appSettings.sensorMode}
+                esp32Endpoint={state.appSettings.esp32Endpoint}
+              />
+            </div>
           )}
 
           {activeTab === 'Active Drivers' && (
-            <ActiveDriversTab journey={journey} />
+            <div key="tab-drivers" className="animate-tab-switch flex-1 flex flex-col">
+              <ActiveDriversTab journey={journey} />
+            </div>
           )}
 
           {activeTab === 'Road Status' && (
-            <RoadStatusTab roadStatuses={roadStatuses} hazards={hazards} />
+            <div key="tab-roads" className="animate-tab-switch flex-1 flex flex-col">
+              <RoadStatusTab roadStatuses={roadStatuses} hazards={hazards} />
+            </div>
           )}
 
           {activeTab === 'Route Events' && (
-            <RouteEventsTab events={routeEvents} />
+            <div key="tab-events" className="animate-tab-switch flex-1 flex flex-col">
+              <RouteEventsTab events={routeEvents} />
+            </div>
           )}
 
           {activeTab === 'System Logs' && (
-            <SystemLogsTab systemHealth={systemHealth} />
+            <div key="tab-logs" className="animate-tab-switch flex-1 flex flex-col">
+              <SystemLogsTab systemHealth={systemHealth} />
+            </div>
           )}
 
           {activeTab === 'Analytics' && (
-            <AnalyticsTab state={state} />
+            <div key="tab-analytics" className="animate-tab-switch flex-1 flex flex-col">
+              <AnalyticsTab state={state} />
+            </div>
           )}
         </main>
       </div>

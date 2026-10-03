@@ -245,10 +245,10 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
           className: 'origin-marker',
           html: `
             <div class="flex flex-col items-center">
-              <div class="w-7 h-7 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center shadow-md">
-                <div class="w-2.5 h-2.5 rounded-full bg-white"></div>
+              <div class="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
+                <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
               </div>
-              <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-blue-300 text-[10px] font-semibold rounded border border-blue-500/40 shadow whitespace-nowrap">
+              <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-[#AEF5F0] text-[10px] font-semibold rounded border border-[#AEF5F0]/40 shadow whitespace-nowrap">
                 ${journey.origin.name}
               </div>
             </div>
@@ -313,7 +313,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
 
       // Route Glow casing
       activeRouteGlowRef.current = L.polyline(latlngs, {
-        color: '#2563eb',
+        color: '#AEF5F0',
         weight: 12,
         opacity: 0.35,
         lineCap: 'round',
@@ -322,19 +322,28 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
 
       // Active Route main line
       activeRouteLayerRef.current = L.polyline(latlngs, {
-        color: journey.activeRoute.color || '#3b82f6',
+        color: journey.activeRoute.color || '#AEF5F0',
         weight: 6,
         opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(map);
+
+      // Auto fit bounds to make chosen route clearly visible
+      if (latlngs.length > 0 && !journey.isNavigating) {
+        try {
+          const bounds = L.latLngBounds(latlngs);
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
+        } catch {}
+      }
     }
-  }, [journey.activeRoute]);
+  }, [journey.activeRoute, journey.isNavigating]);
 
   // Render Alternative Routes
   useEffect(() => {
+    const map = mapRef.current;
     const group = altRoutesGroupRef.current;
-    if (!group) return;
+    if (!group || !map) return;
 
     group.clearLayers();
 
@@ -385,6 +394,14 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
         }
         group.addLayer(labelMarker);
       });
+
+      // Auto fit bounds over all optimal routes
+      try {
+        const bounds = group.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
+        }
+      } catch {}
     }
   }, [journey.alternativeRoutes, onCommitRoute]);
 
@@ -414,12 +431,12 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
 
     const vehicleHtml = `
       <div class="relative flex items-center justify-center" style="transform: rotate(${loc.heading || 0}deg);">
-        <!-- Blue directional beam -->
-        <div class="absolute -top-6 w-12 h-8 bg-gradient-to-t from-blue-500/40 to-transparent rounded-full filter blur-xs pointer-events-none"></div>
+        <!-- Directional beam -->
+        <div class="absolute -top-6 w-12 h-8 bg-gradient-to-t from-[#AEF5F0]/50 to-transparent rounded-full filter blur-xs pointer-events-none"></div>
         <!-- Outer pulse ring -->
-        <div class="w-10 h-10 rounded-full bg-blue-500/30 animate-ping absolute"></div>
+        <div class="w-10 h-10 rounded-full bg-[#AEF5F0]/30 animate-ping absolute"></div>
         <!-- Inner vehicle badge -->
-        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 border-2 border-white flex items-center justify-center shadow-2xl vehicle-marker-glow">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#AEF5F0] to-[#5eead4] border-2 border-slate-900 text-slate-950 flex items-center justify-center shadow-2xl vehicle-marker-glow font-bold">
           ${getVehicleSvg(vType)}
         </div>
       </div>
@@ -617,7 +634,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
           onClick={() => selectMapStyle('standard')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
             mapStyle === 'standard'
-              ? 'bg-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/30'
+              ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
               : 'text-slate-300 hover:text-white hover:bg-[#21262D]'
           }`}
         >
@@ -627,7 +644,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
           onClick={() => selectMapStyle('satellite')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
             mapStyle === 'satellite'
-              ? 'bg-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/30'
+              ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
               : 'text-slate-300 hover:text-white hover:bg-[#21262D]'
           }`}
         >
@@ -654,7 +671,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
         <button
           onClick={handleCenterVehicle}
           title="Center on Driver"
-          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-[#66ffff] flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-[#AEF5F0] flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
         </button>
@@ -663,7 +680,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
           title={mapStyle === 'satellite' ? 'Switch to Standard OpenStreetMap' : 'Switch to Satellite Mode'}
           className={`w-9 h-9 rounded-lg border flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer ${
             mapStyle === 'satellite'
-              ? 'bg-[#66ffff] border-[#66ffff] text-slate-950 font-bold shadow-md shadow-[#66ffff]/20'
+              ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/20'
               : 'bg-[#161B22]/90 border-[#30363D] hover:bg-[#21262D] text-amber-400'
           }`}
         >
@@ -680,7 +697,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 font-semibold hover:underline"
+              className="text-[#AEF5F0] font-semibold hover:underline"
             >
               OpenStreetMap
             </a>
@@ -692,7 +709,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 font-semibold hover:underline"
+              className="text-[#AEF5F0] font-semibold hover:underline"
             >
               OpenStreetMap
             </a>
@@ -704,12 +721,12 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
       {/* Map Legend Overlay (Bottom Left) matching screenshot */}
       <div className="absolute left-4 bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] rounded-xl p-3 shadow-2xl text-[11px] text-slate-300">
         <div className="font-semibold text-slate-200 mb-1.5 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#AEF5F0]"></span>
           <span>Map Legend</span>
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] border border-white"></span>
             <span>Current Vehicle</span>
           </div>
           <div className="flex items-center gap-2">
@@ -717,7 +734,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
             <span>Destination</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3.5 h-1 bg-blue-500 rounded"></span>
+            <span className="w-3.5 h-1 bg-[#AEF5F0] rounded"></span>
             <span>Active Route</span>
           </div>
           <div className="flex items-center gap-2">

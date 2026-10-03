@@ -48,8 +48,8 @@ export const ReportHazardModal: React.FC<ReportHazardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in select-none">
-      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-modal-backdrop select-none">
+      <div className="bg-[#161B22] border border-[#30363D] rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4 animate-modal-content">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#30363D] pb-3">
           <div className="flex items-center gap-2.5">
@@ -84,7 +84,7 @@ export const ReportHazardModal: React.FC<ReportHazardModalProps> = ({
             {/* Current Coordinates Banner */}
             <div className="bg-[#21262D] p-2.5 rounded-xl border border-[#30363D] flex items-center justify-between text-xs">
               <span className="text-slate-400 text-[11px]">Location Coordinates:</span>
-              <span className="font-mono text-blue-400 text-xs font-semibold">
+              <span className="font-mono text-[#AEF5F0] text-xs font-semibold">
                 {currentLat.toFixed(5)}, {currentLng.toFixed(5)}
               </span>
             </div>
@@ -95,7 +95,7 @@ export const ReportHazardModal: React.FC<ReportHazardModalProps> = ({
               <select
                 value={hazardType}
                 onChange={(e) => setHazardType(e.target.value as HazardType)}
-                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#AEF5F0]"
               >
                 <option value="Road Blockage">🚧 Road Blockage / Obstruction</option>
                 <option value="High Water Level">🌊 High Water Level / Flooding</option>
@@ -138,7 +138,7 @@ export const ReportHazardModal: React.FC<ReportHazardModalProps> = ({
                 value={roadName}
                 onChange={(e) => setRoadName(e.target.value)}
                 placeholder="e.g. Civil Lines Road, Jhansi-Gwalior Bypass"
-                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#AEF5F0]"
               />
             </div>
 
@@ -150,7 +150,7 @@ export const ReportHazardModal: React.FC<ReportHazardModalProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
                 placeholder="Describe road condition, lane blockage, water depth, etc."
-                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
+                className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#AEF5F0] resize-none"
               />
             </div>
 

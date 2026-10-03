@@ -36,7 +36,7 @@ export const RouteEventsTab: React.FC<RouteEventsTabProps> = ({ events }) => {
         <div>
           <h2 className="text-base font-extrabold text-white flex items-center gap-2">
             <span>Route Events &amp; Audit Log Stream</span>
-            <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-mono font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-[#AEF5F0]/15 text-[#AEF5F0] border border-[#AEF5F0]/30 text-xs font-mono font-bold">
               {events.length} Records
             </span>
           </h2>
@@ -68,7 +68,7 @@ export const RouteEventsTab: React.FC<RouteEventsTabProps> = ({ events }) => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Filter events by driver, hazard, or description..."
-          className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+          className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0]"
         />
       </div>
 
@@ -100,7 +100,7 @@ export const RouteEventsTab: React.FC<RouteEventsTabProps> = ({ events }) => {
                       ? 'bg-emerald-500/20 text-emerald-400'
                       : ev.status === 'Triggered' || ev.status === 'Warning'
                       ? 'bg-amber-500/20 text-amber-400'
-                      : 'bg-blue-500/20 text-blue-400'
+                      : 'bg-[#AEF5F0]/15 text-[#AEF5F0]'
                   }`}>
                     {ev.status}
                   </span>

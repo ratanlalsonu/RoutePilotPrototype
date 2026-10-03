@@ -74,7 +74,7 @@ export const HazardsTab: React.FC<HazardsTabProps> = ({ hazards, onCreateHazardC
               onClick={() => setFilterSeverity(sev)}
               className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
                 filterSeverity === sev
-                  ? 'bg-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/20'
+                  ? 'bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
                   : 'bg-[#21262D] text-slate-400 hover:text-white border border-[#30363D]'
               }`}
             >
@@ -89,7 +89,7 @@ export const HazardsTab: React.FC<HazardsTabProps> = ({ hazards, onCreateHazardC
               onClick={() => setFilterStatus(st)}
               className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
                 filterStatus === st
-                  ? 'bg-[#66ffff] text-slate-950 shadow-md shadow-[#66ffff]/20'
+                  ? 'bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
                   : 'bg-[#21262D] text-slate-400 hover:text-white border border-[#30363D]'
               }`}
             >
@@ -104,7 +104,7 @@ export const HazardsTab: React.FC<HazardsTabProps> = ({ hazards, onCreateHazardC
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by road, location, or ID..."
-            className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+            className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0]"
           />
         </div>
       </div>
