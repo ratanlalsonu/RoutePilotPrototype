@@ -145,6 +145,28 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
     });
   };
 
+  const handleMapClickForDestination = async (lat: number, lng: number) => {
+    if (journey.isNavigating) return;
+    try {
+      const geo = await reverseGeocode(lat, lng);
+      const name = geo.locationName || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+      setSearchQuery(name);
+      await realtimeSync.setDestination({
+        name,
+        lat,
+        lng,
+      });
+    } catch {
+      const name = `Point (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+      setSearchQuery(name);
+      await realtimeSync.setDestination({
+        name,
+        lat,
+        lng,
+      });
+    }
+  };
+
   const handleVehicleSelect = async (type: VehicleType) => {
     setIsCalculatingRoutes(true);
     try {
@@ -267,7 +289,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#0D1117] text-slate-100 overflow-hidden font-sans select-none">
+    <div className="flex flex-col h-full w-full max-w-full h-[100dvh] bg-[#0D1117] text-slate-100 overflow-hidden font-sans select-none min-h-0">
       {/* Top Header */}
       <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-1 sm:px-4 flex items-center justify-between z-30 shrink-0 gap-1 sm:gap-3">
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -385,12 +407,12 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative min-h-0 w-full">
         {/* VIEW 1: HOME (Standard 3-Column Cockpit on Desktop, or Full Cockpit on Mobile) */}
         {activeBottomNav === 'Home' && (
-          <div key="driver-tab-home" className="animate-tab-switch flex-1 flex w-full h-full overflow-hidden">
+          <div key="driver-tab-home" className="animate-tab-switch flex-1 flex w-full h-full min-h-0 overflow-hidden">
             {/* Left Column: Destination, Vehicle, Journey Controls */}
-            <div className="w-full md:w-84 lg:w-88 bg-[#161B22] border-r border-[#30363D] flex flex-col justify-between shrink-0 overflow-y-auto z-10 p-4 space-y-4">
+            <div className="w-full md:w-84 lg:w-88 bg-[#161B22] border-r border-[#30363D] flex flex-col justify-between shrink-0 overflow-y-auto z-10 p-4 space-y-4 min-h-0">
               <div className="space-y-4">
                 {/* Mobile Quick Map View Button */}
                 <div className="block md:hidden bg-[#21262D] border border-[#AEF5F0]/40 rounded-xl p-2.5 shadow-md">
@@ -780,31 +802,87 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         )}
                       </div>
 
-                      {/* Simulation Controls & Speed Multiplexer */}
-                      <div className="bg-[#21262D] p-2.5 rounded-xl border border-[#30363D] space-y-2">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-emerald-400">DRIVE SIMULATION</span>
-                          <div className="flex items-center gap-1">
-                            {[1, 2, 4].map((spd) => (
-                              <button
-                                key={spd}
-                                onClick={() => handleSpeedChange(spd)}
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition ${
-                                  (journey.simulationSpeed || 1) === spd
-                                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold'
-                                    : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-white'
-                                }`}
-                              >
-                                {spd}x
-                              </button>
-                            ))}
+                      {/* Simulation Controls & Speed Controller */}
+                      <div className="bg-[#21262D] p-3 rounded-xl border border-[#30363D] space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 font-bold text-white">
+                            <span className="text-sm">⚡</span>
+                            <span>Vehicle Speed Control</span>
                           </div>
+                          <span className="text-xs font-mono font-bold text-[#AEF5F0] bg-[#AEF5F0]/10 px-2 py-0.5 rounded border border-[#AEF5F0]/30">
+                            {journey.simulationSpeed || 1}x Speed
+                          </span>
                         </div>
-                        <div className="flex items-center justify-between gap-2">
+
+                        {/* Interactive Minus, Plus & Presets */}
+                        <div className="flex items-center justify-between gap-1.5">
                           <button
+                            type="button"
+                            onClick={() => {
+                              const cur = journey.simulationSpeed || 1;
+                              const next = Math.max(0.25, parseFloat((cur - 0.5).toFixed(2)));
+                              handleSpeedChange(next);
+                            }}
+                            title="Decrease Speed (-0.5x)"
+                            className="flex-1 py-1.5 rounded-lg bg-[#161B22] hover:bg-[#30363D] active:scale-95 border border-[#30363D] text-slate-200 font-bold text-xs flex items-center justify-center transition cursor-pointer"
+                          >
+                            − Slower (-0.5x)
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cur = journey.simulationSpeed || 1;
+                              const next = Math.min(10, parseFloat((cur + 0.5).toFixed(2)));
+                              handleSpeedChange(next);
+                            }}
+                            title="Increase Speed (+0.5x)"
+                            className="flex-1 py-1.5 rounded-lg bg-[#161B22] hover:bg-[#30363D] active:scale-95 border border-[#30363D] text-[#AEF5F0] font-bold text-xs flex items-center justify-center transition cursor-pointer"
+                          >
+                            + Faster (+0.5x)
+                          </button>
+                        </div>
+
+                        {/* Granular Slider */}
+                        <div className="flex items-center gap-2 px-1">
+                          <span className="text-[10px] text-slate-400 font-mono">0.25x</span>
+                          <input
+                            type="range"
+                            min="0.25"
+                            max="8"
+                            step="0.25"
+                            value={journey.simulationSpeed || 1}
+                            onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+                            className="flex-1 accent-[#AEF5F0] h-1.5 bg-[#161B22] rounded-lg cursor-pointer"
+                          />
+                          <span className="text-[10px] text-slate-400 font-mono">8x</span>
+                        </div>
+
+                        {/* Speed Preset Quick Pills */}
+                        <div className="grid grid-cols-5 gap-1">
+                          {[0.5, 1, 2, 4, 8].map((spd) => (
+                            <button
+                              key={spd}
+                              type="button"
+                              onClick={() => handleSpeedChange(spd)}
+                              className={`py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                                (journey.simulationSpeed || 1) === spd
+                                  ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-sm font-extrabold'
+                                  : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              {spd}x
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Simulation Actions: Step & Report */}
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#30363D]/60">
+                          <button
+                            type="button"
                             onClick={handleAdvanceStep}
                             disabled={!journey.isNavigating}
-                            className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                            className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
                               journey.isNavigating
                                 ? 'bg-[#AEF5F0]/15 border border-[#AEF5F0]/30 hover:bg-[#AEF5F0] text-[#AEF5F0] hover:text-slate-950'
                                 : 'bg-[#161B22] text-slate-500 border border-[#30363D] cursor-not-allowed'
@@ -812,9 +890,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           >
                             <span>Step Forward →</span>
                           </button>
+
                           <button
+                            type="button"
                             onClick={() => setIsReportHazardOpen(true)}
-                            className="py-1 px-2.5 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500 border border-amber-500/40 text-amber-300 hover:text-white transition cursor-pointer"
+                            className="py-1.5 px-2.5 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500 border border-amber-500/40 text-amber-300 hover:text-white transition cursor-pointer"
                           >
                             ⚠ Report Hazard
                           </button>
@@ -903,9 +983,12 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 sensorNodes={sensorNodes}
                 journey={journey}
                 onCommitRoute={handleCommitRoute}
+                onSelectDestinationFromMap={handleMapClickForDestination}
                 theme={state.appSettings.mapTheme}
                 onToggleTheme={() => realtimeSync.toggleMapTheme()}
                 onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
+                onChangeSpeed={handleSpeedChange}
+                onTogglePlayPause={() => realtimeSync.setSimulating(!journey.isSimulating)}
               />
 
               {/* Top HUD Banner on Map */}
@@ -1099,16 +1182,19 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 2: MAP (Fullscreen Immersive Navigation View with Top HUD) */}
         {activeBottomNav === 'Map' && (
-          <div key="driver-tab-map" className="animate-tab-switch flex-1 relative w-full h-full">
+          <div key="driver-tab-map" className="animate-tab-switch flex-1 relative w-full h-full min-h-0 overflow-hidden">
             <RoutePilotMap
               mode="driver"
               hazards={hazards}
               sensorNodes={sensorNodes}
               journey={journey}
               onCommitRoute={handleCommitRoute}
+              onSelectDestinationFromMap={handleMapClickForDestination}
               theme={state.appSettings.mapTheme}
               onToggleTheme={() => realtimeSync.toggleMapTheme()}
               onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
+              onChangeSpeed={handleSpeedChange}
+              onTogglePlayPause={() => realtimeSync.setSimulating(!journey.isSimulating)}
             />
 
             {/* Turn-by-Turn Maneuver HUD Banner */}
@@ -1140,18 +1226,56 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               </div>
             )}
 
-            {/* Speedometer HUD Overlay (Bottom Left) */}
-            <div className="absolute bottom-20 left-4 z-[995] bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full border-4 border-[#AEF5F0] bg-[#AEF5F0]/15 flex flex-col items-center justify-center text-center">
-                <span className="text-lg font-extrabold text-white leading-none">
+            {/* Speedometer & Multiplier HUD Overlay (Bottom Left) */}
+            <div className="absolute bottom-20 left-4 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 sm:p-3 shadow-2xl flex items-center gap-3">
+              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full border-3 sm:border-4 border-[#AEF5F0] bg-[#AEF5F0]/15 flex flex-col items-center justify-center text-center shrink-0">
+                <span className="text-base sm:text-lg font-extrabold text-white leading-none">
                   {journey.isNavigating ? journey.currentSpeedKmh : 0}
                 </span>
-                <span className="text-[8px] text-slate-400 uppercase">km/h</span>
+                <span className="text-[7px] sm:text-[8px] text-slate-400 uppercase">km/h</span>
               </div>
-              <div className="text-xs">
-                <div className="text-[10px] text-slate-400">Speed Limit</div>
-                <div className="w-7 h-7 rounded-full border-2 border-red-500 text-red-400 font-bold flex items-center justify-center text-[10px]">
-                  50
+              <div className="flex flex-col gap-1 border-l border-[#30363D] pl-2.5">
+                <div className="flex items-center justify-between text-[10px] gap-2">
+                  <span className="text-slate-400 font-semibold">Speed:</span>
+                  <span className="text-[#AEF5F0] font-mono font-bold">{journey.simulationSpeed || 1}x</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = journey.simulationSpeed || 1;
+                      handleSpeedChange(Math.max(0.5, parseFloat((cur - 0.5).toFixed(1))));
+                    }}
+                    title="Slow down (-0.5x)"
+                    className="w-6 h-6 rounded-md bg-[#21262D] hover:bg-[#30363D] text-slate-200 font-bold text-xs flex items-center justify-center border border-[#30363D] cursor-pointer active:scale-95"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = journey.simulationSpeed || 1;
+                      handleSpeedChange(Math.min(10, parseFloat((cur + 0.5).toFixed(1))));
+                    }}
+                    title="Speed up (+0.5x)"
+                    className="w-6 h-6 rounded-md bg-[#21262D] hover:bg-[#30363D] text-[#AEF5F0] font-bold text-xs flex items-center justify-center border border-[#30363D] cursor-pointer active:scale-95"
+                  >
+                    +
+                  </button>
+                  {[1, 2, 4].map((spd) => (
+                    <button
+                      key={spd}
+                      type="button"
+                      onClick={() => handleSpeedChange(spd)}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition cursor-pointer ${
+                        (journey.simulationSpeed || 1) === spd
+                          ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold'
+                          : 'bg-[#21262D] border-[#30363D] text-slate-400'
+                      }`}
+                    >
+                      {spd}x
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1238,7 +1362,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 3: ROUTE (Turn-by-Turn Maneuvers & Alternatives List) */}
         {activeBottomNav === 'Route' && (
-          <div key="driver-tab-route" className="animate-tab-switch flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
+          <div key="driver-tab-route" className="animate-tab-switch flex-1 w-full h-full min-h-0 bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
             {/* Header Card */}
             <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -1400,7 +1524,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 4: ALERTS (Hazard Center & Report Hazard) */}
         {activeBottomNav === 'Alerts' && (
-          <div key="driver-tab-alerts" className="animate-tab-switch flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
+          <div key="driver-tab-alerts" className="animate-tab-switch flex-1 w-full h-full min-h-0 bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#161B22] border border-[#30363D] rounded-2xl p-5 shadow-xl">
               <div>
@@ -1526,7 +1650,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
         {/* VIEW 5: MORE (Driver Profile, Audio, Simulation & SOS) */}
         {activeBottomNav === 'More' && (
-          <div key="driver-tab-more" className="animate-tab-switch flex-1 w-full h-full bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
+          <div key="driver-tab-more" className="animate-tab-switch flex-1 w-full h-full min-h-0 bg-[#0D1117] p-4 sm:p-6 overflow-y-auto space-y-5 max-w-4xl mx-auto">
             {/* Driver Profile Card */}
             <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -1666,11 +1790,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 </div>
                 <div className="bg-[#21262D] p-2.5 rounded-xl border border-[#30363D]">
                   <span className="text-[10px] text-slate-400 block">Routing Engine</span>
-                  <span className="font-bold text-cyan-400">OSRM Online</span>
+                  <span className="font-bold text-cyan-400">Google Maps Online</span>
                 </div>
                 <div className="bg-[#21262D] p-2.5 rounded-xl border border-[#30363D]">
                   <span className="text-[10px] text-slate-400 block">Map Tiles</span>
-                  <span className="font-bold text-white">{state.appSettings.mapTheme === 'satellite' ? 'Satellite' : 'OpenStreetMap'}</span>
+                  <span className="font-bold text-white">{state.appSettings.mapTheme === 'satellite' ? 'Google Hybrid' : 'Google Roadmap'}</span>
                 </div>
               </div>
 
@@ -1694,7 +1818,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
       </div>
 
       {/* Driver Bottom Navigation Bar */}
-      <nav className="h-16 bg-[#161B22] border-t border-[#30363D] px-4 flex items-center justify-around z-30 shrink-0">
+      <nav className="min-h-[58px] sm:min-h-[64px] bg-[#161B22] border-t border-[#30363D] px-1 sm:px-4 flex items-center justify-around z-40 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-1 shadow-[0_-4px_16px_rgba(0,0,0,0.5)]">
         {[
           { id: 'Home', label: t.navHome, icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
           { id: 'Map', label: t.navMap, icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
@@ -1704,15 +1828,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveBottomNav(tab.id as any)}
-            className={`flex flex-col items-center gap-1 transition-colors duration-150 relative cursor-pointer px-3 py-1 rounded-xl ${
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 sm:px-2 rounded-xl transition-colors duration-150 relative cursor-pointer touch-manipulation select-none ${
               activeBottomNav === tab.id
                 ? 'text-[#AEF5F0] font-bold bg-[#AEF5F0]/10 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <div className="relative">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <div className="relative flex items-center justify-center">
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
               </svg>
               {tab.badge && tab.badge > 0 ? (
@@ -1721,7 +1846,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 </span>
               ) : null}
             </div>
-            <span className="text-[10px]">{tab.label}</span>
+            <span className="text-[10px] sm:text-[11px] leading-tight mt-0.5">{tab.label}</span>
           </button>
         ))}
       </nav>

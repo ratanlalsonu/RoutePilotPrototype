@@ -1,6 +1,20 @@
 @import "tailwindcss";
 
 @layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    height: 100dvh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
@@ -8,6 +22,17 @@
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
+}
+
+/* Safe area support for mobile devices */
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Smooth touch momentum scrolling on mobile */
+.overflow-y-auto, .overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* Custom Scrollbar for Command Center */
@@ -26,53 +51,30 @@
   background: #484F58;
 }
 
-/* Custom Leaflet Map styling */
-.leaflet-container {
-  background: #0D1117 !important;
+/* Google Maps Container styling */
+.gm-style {
   font-family: 'Inter', sans-serif !important;
 }
 
-/* Real Dark Mode Tile Styling for OpenStreetMap */
-.leaflet-dark-mode .leaflet-tile-pane {
-  filter: brightness(0.65) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35) !important;
-}
-
-.leaflet-dark-mode .leaflet-tile {
-  filter: brightness(0.65) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35) !important;
-}
-
-.leaflet-dark-mode .leaflet-container {
-  background: #0D1117 !important;
-}
-
-.leaflet-bar {
-  border: 1px solid #30363D !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
-  border-radius: 8px !important;
-  overflow: hidden;
-}
-
-.leaflet-bar a {
+.gm-style-iw-c {
   background-color: #161B22 !important;
-  color: #94a3b8 !important;
-  border-bottom: 1px solid #30363D !important;
-}
-
-.leaflet-bar a:hover {
-  background-color: #21262D !important;
-  color: #f8fafc !important;
-}
-
-.leaflet-popup-content-wrapper {
-  background: #161B22 !important;
   color: #f1f5f9 !important;
   border: 1px solid #30363D !important;
   border-radius: 12px !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
 }
 
-.leaflet-popup-tip {
+.gm-style-iw-tc::after {
   background: #161B22 !important;
+}
+
+.gm-style-iw-d {
+  overflow: auto !important;
+  color: #f1f5f9 !important;
+}
+
+.gm-ui-hover-effect {
+  filter: invert(1) !important;
 }
 
 /* Hazard pulse animations */
@@ -107,6 +109,16 @@
 
 .vehicle-marker-glow {
   animation: vehicle-glow 1.5s infinite ease-in-out;
+}
+
+/* Smooth continuous vehicle marker motion without stuttering */
+.driver-vehicle-marker {
+  transition: transform 0.08s linear !important;
+  will-change: transform;
+}
+.driver-vehicle-marker .vehicle-rotator {
+  transition: transform 0.08s linear;
+  will-change: transform;
 }
 
 /* Smooth Section & Tab Transitions (Pure opacity fade with zero vertical jerking) */

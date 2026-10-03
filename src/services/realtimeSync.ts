@@ -125,7 +125,7 @@ function getInitialState(): RoutePilotState {
   const storedApiKey =
     (typeof window !== 'undefined' ? localStorage.getItem('routepilot_gmaps_api_key') : null) ||
     (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-    '';
+    'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
 
   const rawStoredTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null;
   const storedMapTheme: 'standard' | 'satellite' = rawStoredTheme === 'satellite' ? 'satellite' : 'standard';
@@ -157,7 +157,7 @@ function getInitialState(): RoutePilotState {
       googleMapsApiKey: storedApiKey,
       routeCommitThresholdMeters: 60,
       minimumProgressMeters: 25,
-      mapProvider: 'OpenStreetMap',
+      mapProvider: 'Google Maps',
       mapTheme: storedMapTheme,
       academicInfo: {
         projectTitle: 'IoT & Web-Based Real-Time Road & Bridge Hazard Detection with Intelligent Dynamic Route Diversion',
@@ -178,7 +178,13 @@ class RealtimeSyncManager {
   private state: RoutePilotState;
   private channel: BroadcastChannel | null = null;
   private listeners: Set<(state: RoutePilotState) => void> = new Set();
+  private vehicleListeners: Set<(pos: { lat: number; lng: number; heading: number; pointIndex: number }, speedKmh: number) => void> = new Set();
   private simulationTimer: any = null;
+  private animFrameId: number | null = null;
+  private lastFrameTimestamp: number = 0;
+  private lastTelemetryNotifyTime: number = 0;
+  private lastStorageTime: number = 0;
+  private hazardCheckCounter: number = 0;
 
   constructor() {
     this.state = getInitialState();
@@ -224,15 +230,33 @@ class RealtimeSyncManager {
     };
   }
 
-  private notify(broadcast: boolean = true) {
+  /**
+   * Dedicated high-frequency vehicle position subscriber for silky-smooth 60fps/120fps map rendering
+   */
+  public subscribeVehiclePosition(
+    callback: (pos: { lat: number; lng: number; heading: number; pointIndex: number }, speedKmh: number) => void
+  ): () => void {
+    this.vehicleListeners.add(callback);
+    callback(this.state.journey.currentLocation, this.state.journey.currentSpeedKmh);
+    return () => {
+      this.vehicleListeners.delete(callback);
+    };
+  }
+
+  private notify(broadcast: boolean = true, forceSave: boolean = false) {
     if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
-        if (broadcast && this.channel) {
-          this.channel.postMessage({ type: 'SYNC_STATE', state: this.state });
+      const now = Date.now();
+      // Debounce disk I/O to avoid any frame stuttering during live vehicle movement
+      if (forceSave || now - this.lastStorageTime > 6000) {
+        this.lastStorageTime = now;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+          if (broadcast && this.channel) {
+            this.channel.postMessage({ type: 'SYNC_STATE', state: this.state });
+          }
+        } catch {
+          // ignore quota error
         }
-      } catch {
-        // ignore quota error
       }
     }
     this.listeners.forEach((cb) => cb(this.state));
@@ -498,6 +522,7 @@ class RealtimeSyncManager {
 
     // Reset vehicle index to beginning of this new route
     j.currentLocation.pointIndex = 0;
+    j.progressMeters = 0;
     if (chosenRoute.coordinates.length > 0) {
       j.currentLocation.lat = chosenRoute.coordinates[0][0];
       j.currentLocation.lng = chosenRoute.coordinates[0][1];
@@ -523,27 +548,72 @@ class RealtimeSyncManager {
     this.notify();
   }
 
+  private getRouteCumulativeDistances(coords: [number, number][]): number[] {
+    const cum = [0];
+    for (let i = 0; i < coords.length - 1; i++) {
+      const d = getDistanceMeters(coords[i][0], coords[i][1], coords[i + 1][0], coords[i + 1][1]);
+      cum.push(cum[i] + d);
+    }
+    return cum;
+  }
+
   /**
-   * Advance vehicle movement along route
+   * Advance vehicle movement smoothly along route with sub-millisecond continuous interpolation
    */
-  public advanceVehicle(stepFraction: number = 1) {
+  public advanceVehicle(deltaSecondsOrStep: number = 0.016) {
     const j = this.state.journey;
     if (!j.isNavigating || !j.activeRoute || j.activeRoute.coordinates.length < 2) return;
 
     const coords = j.activeRoute.coordinates;
-    const totalPoints = coords.length;
-    const currentIndex = j.currentLocation.pointIndex;
+    const cum = this.getRouteCumulativeDistances(coords);
+    const totalMeters = cum[cum.length - 1];
+
+    if (totalMeters <= 5) return;
+
+    let metersToAdvance = 0;
+    if (deltaSecondsOrStep >= 1) {
+      // Manual "Step Forward" click: advance by 80 meters
+      metersToAdvance = 80 * deltaSecondsOrStep;
+    } else {
+      // Continuous smooth interpolation frame (runs at screen refresh rate ~60-120fps)
+      const mult = Math.max(0.25, Math.min(10, j.simulationSpeed || 1));
+      const profile = getVehicleSpeedProfile(j.vehicleType);
+      // Realistic speed adjusted by simulation speed multiplier
+      const speedKmh = Math.max(15, Math.round(profile.averageSpeedKmh * mult));
+      j.currentSpeedKmh = speedKmh;
+      // Convert km/h to m/s with natural visual pacing multiplier (~1.65x)
+      const metersPerSecond = (speedKmh / 3.6) * 1.65;
+      metersToAdvance = metersPerSecond * deltaSecondsOrStep;
+    }
+
+    let currentProgress = j.progressMeters ?? 0;
+    if (currentProgress === 0 && j.currentLocation.pointIndex > 0) {
+      currentProgress = cum[Math.min(cum.length - 1, j.currentLocation.pointIndex)];
+    }
+
+    const nextProgress = currentProgress + metersToAdvance;
 
     // Check if reached destination
-    if (currentIndex >= totalPoints - 1) {
+    if (nextProgress >= totalMeters) {
       if (j.status !== 'ARRIVED') {
         j.status = 'ARRIVED';
         j.diversionState = 'ARRIVED';
         j.isNavigating = false;
+        j.isSimulating = false;
         j.progressPercent = 100;
         j.remainingDistanceKm = 0;
         j.remainingDurationMinutes = 0;
         j.currentSpeedKmh = 0;
+        j.progressMeters = totalMeters;
+        const lastPt = coords[coords.length - 1];
+        j.currentLocation = {
+          lat: lastPt[0],
+          lng: lastPt[1],
+          heading: j.currentLocation.heading,
+          pointIndex: coords.length - 1,
+        };
+
+        this.vehicleListeners.forEach((cb) => cb(j.currentLocation, 0));
 
         const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         this.addRouteEvent({
@@ -555,59 +625,65 @@ class RealtimeSyncManager {
         });
 
         VoiceService.notifyArrived(j.destination.name);
-        this.notify();
+        this.notify(true, true);
       }
       return;
     }
 
-    // Move to next point
-    const nextIndex = Math.min(totalPoints - 1, currentIndex + 1);
-    const currCoord = coords[currentIndex];
-    const nextCoord = coords[nextIndex];
+    // Find the current segment index along the route
+    let idx = 0;
+    while (idx < cum.length - 2 && cum[idx + 1] < nextProgress) {
+      idx++;
+    }
 
+    const segLen = cum[idx + 1] - cum[idx];
+    const t = segLen > 0.001 ? Math.max(0, Math.min(1, (nextProgress - cum[idx]) / segLen)) : 0;
+
+    const currCoord = coords[idx];
+    const nextCoord = coords[idx + 1];
+
+    const lat = currCoord[0] + t * (nextCoord[0] - currCoord[0]);
+    const lng = currCoord[1] + t * (nextCoord[1] - currCoord[1]);
     const heading = calculateBearing(currCoord[0], currCoord[1], nextCoord[0], nextCoord[1]);
 
+    j.progressMeters = nextProgress;
     j.currentLocation = {
-      lat: nextCoord[0],
-      lng: nextCoord[1],
+      lat: parseFloat(lat.toFixed(6)),
+      lng: parseFloat(lng.toFixed(6)),
       heading,
-      pointIndex: nextIndex,
+      pointIndex: idx,
     };
 
     // Calculate real remaining distance and progress
-    const remainingKm = calculateRemainingDistanceKm(coords, nextIndex);
+    const remainingMeters = Math.max(0, totalMeters - nextProgress);
+    const remainingKm = parseFloat((remainingMeters / 1000).toFixed(1));
     j.remainingDistanceKm = remainingKm;
     j.remainingDurationMinutes = calculateVehicleDuration(remainingKm, j.vehicleType);
+
+    // Dynamic progress percent based on real distance
+    j.progressPercent = Math.min(99, Math.max(0, Math.round((nextProgress / totalMeters) * 100)));
 
     // Dynamic ETA clock calculation
     const etaDate = new Date(Date.now() + j.remainingDurationMinutes * 60000);
     j.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Dynamic progress percent based on real distance
-    const totalDist = j.totalDistanceKm || remainingKm + 0.1;
-    const completedDist = Math.max(0, totalDist - remainingKm);
-    j.progressPercent = Math.min(99, Math.max(0, Math.round((completedDist / totalDist) * 100)));
-
-    // Realistic vehicle speed according to vehicle profile
-    const profile = getVehicleSpeedProfile(j.vehicleType);
-    const speedVariation = nextIndex % 3 === 0 ? -2 : nextIndex % 2 === 0 ? 3 : 0;
-    j.currentSpeedKmh = Math.max(15, profile.averageSpeedKmh + speedVariation);
+    // Instantly notify high-frequency vehicle listeners (Leaflet marker glides at 60fps without React overhead)
+    this.vehicleListeners.forEach((cb) => cb(j.currentLocation, j.currentSpeedKmh));
 
     // If alternatives are currently displayed, check if vehicle moved closer/onto one of them
     if (j.diversionState === 'ALTERNATIVES_DISPLAYED' && j.alternativeRoutes.length > 0) {
-      // Natural movement commitment: if vehicle passes or heads towards Route B, commit to it
-      // Automatically commit to Route B after 2 steps or proximity
-      if (nextIndex > 2) {
+      if (idx > 2 || nextProgress > 160) {
         this.commitToAlternateRoute(j.alternativeRoutes[0].id);
         return;
       }
     }
 
-    // Continuously check active hazards ahead on route
-    if (j.diversionState === 'ROUTE_ACTIVE' && !j.detectedHazard) {
+    // Continuously check active hazards ahead on route (run periodically)
+    this.hazardCheckCounter = (this.hazardCheckCounter + 1) % 15;
+    if (this.hazardCheckCounter === 0 && j.diversionState === 'ROUTE_ACTIVE' && !j.detectedHazard) {
       for (const h of this.state.hazards) {
         if (h.status === 'ACTIVE' && !j.handledHazardIds.includes(h.hazardId)) {
-          const { affects, aheadOfDriver } = hazardAffectsRoute(h, coords, nextIndex);
+          const { affects, aheadOfDriver } = hazardAffectsRoute(h, coords, idx);
           if (affects && aheadOfDriver) {
             this.checkHazardAgainstActiveRoute(h);
             break;
@@ -616,32 +692,68 @@ class RealtimeSyncManager {
       }
     }
 
-    this.notify(false); // local update
+    // Throttle React full state re-renders to 4Hz (every ~250ms) to ensure smooth 60fps performance without DOM lock
+    const nowMs = Date.now();
+    if (nowMs - this.lastTelemetryNotifyTime > 250) {
+      this.lastTelemetryNotifyTime = nowMs;
+      this.notify(false);
+    }
   }
 
   private startSimulationLoop() {
-    if (this.simulationTimer) clearInterval(this.simulationTimer);
+    if (this.simulationTimer) {
+      clearInterval(this.simulationTimer);
+      this.simulationTimer = null;
+    }
+    if (typeof window !== 'undefined' && this.animFrameId) {
+      window.cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
 
-    const speed = this.state.journey.simulationSpeed || 1;
-    const intervalMs = Math.max(350, Math.round(2800 / speed));
+    this.lastFrameTimestamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
-    this.simulationTimer = setInterval(() => {
+    const loop = (timestamp: number) => {
+      const now = timestamp || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      // Clamp delta to avoid massive sudden teleportation if tab was backgrounded
+      const dt = Math.max(0.001, Math.min(0.08, (now - this.lastFrameTimestamp) / 1000));
+      this.lastFrameTimestamp = now;
+
       if (this.state.journey.isNavigating && this.state.journey.isSimulating) {
-        // Only advance if not waiting for user confirmation
         if (
           this.state.journey.diversionState === 'ROUTE_ACTIVE' ||
           this.state.journey.diversionState === 'NEW_ROUTE_ACTIVE'
         ) {
-          this.advanceVehicle(1);
+          this.advanceVehicle(dt);
         }
       }
-    }, intervalMs);
+
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        this.animFrameId = window.requestAnimationFrame(loop);
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      this.animFrameId = window.requestAnimationFrame(loop);
+    } else {
+      // Fallback timer
+      this.simulationTimer = setInterval(() => {
+        const now = Date.now();
+        const dt = Math.max(0.001, Math.min(0.08, (now - this.lastFrameTimestamp) / 1000));
+        this.lastFrameTimestamp = now;
+        if (this.state.journey.isNavigating && this.state.journey.isSimulating) {
+          this.advanceVehicle(dt);
+        }
+      }, 25);
+    }
   }
 
   public setSimulationSpeed(speed: number) {
-    this.state.journey.simulationSpeed = speed;
-    this.startSimulationLoop();
-    this.notify();
+    const clamped = Math.max(0.25, Math.min(10, parseFloat(speed.toFixed(2))));
+    this.state.journey.simulationSpeed = clamped;
+    const profile = getVehicleSpeedProfile(this.state.journey.vehicleType);
+    this.state.journey.currentSpeedKmh = Math.max(15, Math.round(profile.averageSpeedKmh * clamped));
+    this.vehicleListeners.forEach((cb) => cb(this.state.journey.currentLocation, this.state.journey.currentSpeedKmh));
+    this.notify(false);
   }
 
   public setSimulating(isSimulating: boolean) {
@@ -660,6 +772,9 @@ class RealtimeSyncManager {
       this.state.journey.status = 'ON_ROUTE';
       this.state.journey.diversionState = 'ROUTE_ACTIVE';
       this.state.journey.isSimulating = true;
+      if (this.state.journey.progressMeters === undefined || this.state.journey.currentLocation.pointIndex === 0) {
+        this.state.journey.progressMeters = 0;
+      }
       this.state.journey.currentSpeedKmh = 45;
       if (!this.state.journey.startedAt) {
         this.state.journey.startedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -690,6 +805,7 @@ class RealtimeSyncManager {
     this.state.journey.currentSpeedKmh = 0;
     this.state.journey.status = 'IDLE';
     this.state.journey.progressPercent = 0;
+    this.state.journey.progressMeters = 0;
     this.state.journey.currentLocation.pointIndex = 0;
     if (this.state.journey.activeRoute && this.state.journey.activeRoute.coordinates.length > 0) {
       this.state.journey.currentLocation.lat = this.state.journey.activeRoute.coordinates[0][0];
@@ -848,6 +964,7 @@ class RealtimeSyncManager {
     j.diversionState = 'ROUTE_ACTIVE';
     j.status = 'IDLE'; // Ready to navigate
     j.progressPercent = 0;
+    j.progressMeters = 0;
 
     // Place vehicle at start of chosen route
     if (chosenRoute.coordinates.length > 0) {

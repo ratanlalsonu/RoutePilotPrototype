@@ -104,7 +104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#0D1117] text-slate-100 overflow-hidden font-sans">
+    <div className="flex flex-col h-full w-full max-w-full h-[100dvh] bg-[#0D1117] text-slate-100 overflow-hidden font-sans min-h-0">
       {/* Header matching screenshot Image 2 */}
       <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-1 sm:px-4 flex items-center justify-between z-20 shrink-0 gap-1 sm:gap-3">
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -235,7 +235,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       </header>
 
       {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative min-h-0">
         {/* Mobile Backdrop for sidebar drawer */}
         <div
           className={`fixed inset-0 top-14 z-30 bg-black/60 backdrop-blur-xs md:hidden transition-opacity duration-300 ease-out ${

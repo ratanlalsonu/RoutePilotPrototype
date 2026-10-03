@@ -14,7 +14,7 @@ export function getGoogleMapsApiKey(): string {
     const fromStorage = localStorage.getItem('routepilot_gmaps_api_key');
     if (fromStorage) return fromStorage;
   }
-  return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
+  return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
 }
 
 /**

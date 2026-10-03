@@ -50,13 +50,13 @@ export function App() {
   };
 
   return (
-    <div className="w-full h-full min-h-screen bg-[#0D1117] text-slate-100 flex flex-col font-sans select-none">
+    <div className="w-full h-full h-[100dvh] bg-[#0D1117] text-slate-100 flex flex-col font-sans select-none overflow-hidden min-h-0">
       {activeMode === 'admin' ? (
-        <div key="mode-admin" className="animate-tab-switch flex-1 flex flex-col w-full h-full">
+        <div key="mode-admin" className="animate-tab-switch flex-1 flex flex-col w-full h-full min-h-0 overflow-hidden">
           <AdminDashboard state={state} onSwitchMode={handleSwitchMode} />
         </div>
       ) : (
-        <div key="mode-driver" className="animate-tab-switch flex-1 flex flex-col w-full h-full">
+        <div key="mode-driver" className="animate-tab-switch flex-1 flex flex-col w-full h-full min-h-0 overflow-hidden">
           <DriverDashboard state={state} onSwitchMode={handleSwitchMode} />
         </div>
       )}

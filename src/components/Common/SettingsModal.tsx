@@ -10,7 +10,11 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings }) => {
-  const [apiKey, setApiKey] = useState(settings.googleMapsApiKey || '');
+  const [apiKey, setApiKey] = useState(
+    settings.googleMapsApiKey ||
+      (typeof window !== 'undefined' ? localStorage.getItem('routepilot_gmaps_api_key') : '') ||
+      'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U'
+  );
   const [language, setLanguage] = useState<'en' | 'hi'>(settings.language || 'en');
   const [voiceEnabled, setVoiceEnabled] = useState(settings.voiceEnabled ?? true);
   const [sensorMode, setSensorMode] = useState<'VIRTUAL' | 'HARDWARE'>(settings.sensorMode || 'HARDWARE');
@@ -29,9 +33,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    realtimeSync.setApiKey(apiKey.trim());
+    const finalKey = apiKey.trim() || 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
+    realtimeSync.setApiKey(finalKey);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('routepilot_gmaps_api_key', finalKey);
+    }
     realtimeSync.updateSettings({
-      googleMapsApiKey: apiKey.trim(),
+      googleMapsApiKey: finalKey,
       language,
       voiceEnabled,
       sensorMode,
@@ -83,16 +91,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
         {/* Body */}
         <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-4 text-xs">
           {/* API Key Section */}
-          <div className="bg-[#21262D] p-3.5 rounded-xl border border-[#30363D] space-y-2">
+          <div className="bg-[#21262D] p-3.5 rounded-xl border border-[#30363D] space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="font-semibold text-slate-200">Map &amp; Routing Engine</label>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                ● OpenStreetMap + OSRM (Active)
+              <label className="font-semibold text-slate-200">Google Maps Platform Integration</label>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#AEF5F0]/15 text-[#AEF5F0] border border-[#AEF5F0]/30">
+                ● Google Maps Active
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              RoutePilot runs entirely on real interactive OpenStreetMap tiles, live OSRM road geometry routing, and Nominatim real-time search. No Google Maps billing or API keys required.
+              Integrated with Google Maps JavaScript API (<code className="text-[#AEF5F0]">@vis.gl/react-google-maps</code>), AdvancedMarkerElement, Vector dark styling, and Hybrid Satellite.
             </p>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">Google Maps API Key</label>
+              <input
+                type="text"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full bg-[#161B22] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#AEF5F0]"
+              />
+            </div>
           </div>
 
           {/* Language Selection */}

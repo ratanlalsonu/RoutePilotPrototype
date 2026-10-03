@@ -11,9 +11,9 @@ export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) =>
     { timestamp: '10:14:02', level: 'INFO', component: 'HC-SR04_INIT', message: 'Ultrasonic trigger pin: GPIO 5, echo pin: GPIO 18 calibrated. Distance: 184cm (Normal)' },
     { timestamp: '10:14:03', level: 'INFO', component: 'MPU6050_I2C', message: 'I2C sensor detected at address 0x68 (SDA: GPIO 21, SCL: GPIO 22). Zero-g offset calibrated' },
     { timestamp: '10:14:04', level: 'INFO', component: 'WIFI_STA', message: 'ESP32 connected to local Wi-Fi subnet. IP: 192.168.1.100. HTTP server listening on port 80' },
-    { timestamp: '10:14:05', level: 'INFO', component: 'OSRM_ENGINE', message: 'OpenStreetMap routing endpoint ready (Dijkstra algorithm / Contraction Hierarchies)' },
-    { timestamp: '10:14:06', level: 'INFO', component: 'LEAFLET_GIS', message: 'OpenStreetMap standard tile layers mounted successfully (CRS: EPSG:3857)' },
-    { timestamp: '10:14:07', level: 'INFO', component: 'NOMINATIM', message: 'Reverse geocoder initialized for landmark and street resolution' },
+    { timestamp: '10:14:05', level: 'INFO', component: 'GMP_ROUTES', message: 'Google Maps Platform routing & navigation subsystem initialized with active API key' },
+    { timestamp: '10:14:06', level: 'INFO', component: 'GMP_MAPS_JS', message: 'Google Maps JavaScript SDK mounted (@vis.gl/react-google-maps v1.10.1)' },
+    { timestamp: '10:14:07', level: 'INFO', component: 'GEOCODER', message: 'Reverse geocoder initialized for landmark and street resolution' },
     { timestamp: '10:14:08', level: 'INFO', component: 'REALTIME_SYNC', message: 'BroadcastChannel routepilot_sync_channel synchronized across browser tabs' },
   ]);
 
@@ -28,15 +28,15 @@ export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) =>
           </span>
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Low-level execution logs for Leaflet map tiles, OSRM road geometry engine, Nominatim reverse geocoder, and multi-tab state sync.
+          Low-level execution logs for Google Maps Platform, vector map layers, intelligent route diversion engine, and multi-tab state sync.
         </p>
       </div>
 
       {/* Diagnostics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { name: 'OSRM Routing Service', val: systemHealth.routingService, detail: 'router.project-osrm.org' },
-          { name: 'OpenStreetMap Tiles', val: systemHealth.mapService, detail: 'tile.openstreetmap.org' },
+          { name: 'Google Navigation Engine', val: systemHealth.routingService, detail: 'Google Maps Platform' },
+          { name: 'Google Maps Vector Tiles', val: systemHealth.mapService, detail: 'maps.googleapis.com' },
           { name: 'BroadcastChannel Sync', val: systemHealth.realtimeSync, detail: '0ms latency inter-tab' },
           { name: 'Database / Storage', val: systemHealth.database, detail: 'LocalStorage + Broadcast' },
         ].map((item, idx) => (

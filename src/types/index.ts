@@ -127,6 +127,7 @@ export interface Journey {
   isNavigating: boolean;
   isSimulating: boolean;
   simulationSpeed: number; // multiplier e.g. 1x, 2x, 4x
+  progressMeters?: number; // cumulative distance traveled in meters along active route
   startedAt: string;
   completedAt?: string;
 }

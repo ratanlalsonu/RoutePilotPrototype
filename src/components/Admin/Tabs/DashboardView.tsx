@@ -497,8 +497,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="space-y-1.5 text-xs">
             {[
-              { name: 'OSRM Routing Service', status: systemHealth.routingService },
-              { name: 'OpenStreetMap Tiles', status: systemHealth.mapService },
+              { name: 'Google Navigation Engine', status: systemHealth.routingService },
+              { name: 'Google Maps Vector Tiles', status: systemHealth.mapService },
               { name: 'Database & Sync', status: systemHealth.database },
               { name: 'Real-time Sync', status: systemHealth.realtimeSync },
               { name: 'Sensor Network', status: `${onlineSensorsCount} / ${sensorNodes.length} Online` },

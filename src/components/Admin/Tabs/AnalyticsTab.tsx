@@ -44,7 +44,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ state }) => {
         <div className="bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow">
           <div className="text-[10px] text-slate-400 uppercase font-semibold">Average Reroute Latency</div>
           <div className="text-2xl font-extrabold font-mono text-cyan-400 mt-1">180 ms</div>
-          <div className="text-[10px] text-slate-400 mt-1">Sub-second OSRM computation</div>
+          <div className="text-[10px] text-slate-400 mt-1">Sub-second dynamic computation</div>
         </div>
 
         <div className="bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow">
@@ -87,7 +87,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ state }) => {
           <div className="space-y-2 text-slate-300 text-xs">
             <div className="flex justify-between py-1 border-b border-[#30363D]">
               <span className="text-slate-400">Road Network Graph</span>
-              <span className="font-mono text-emerald-400 font-bold">OpenStreetMap (OSRM)</span>
+              <span className="font-mono text-[#AEF5F0] font-bold">Google Maps Platform</span>
             </div>
             <div className="flex justify-between py-1 border-b border-[#30363D]">
               <span className="text-slate-400">Intersection Detection Algorithm</span>
