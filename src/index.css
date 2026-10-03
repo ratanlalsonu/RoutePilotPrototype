@@ -109,26 +109,22 @@
   animation: vehicle-glow 1.5s infinite ease-in-out;
 }
 
-/* Smooth Section & Tab Transitions (Eliminates abrupt snapping/jerking) */
+/* Smooth Section & Tab Transitions (Pure opacity fade with zero vertical jerking) */
 @keyframes viewSmoothEnter {
   0% {
     opacity: 0;
-    transform: translateY(8px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes sectionSmoothEnter {
   0% {
     opacity: 0;
-    transform: translateY(5px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -144,33 +140,33 @@
 @keyframes modalPopScale {
   0% {
     opacity: 0;
-    transform: scale(0.96) translateY(8px);
+    transform: scale(0.985);
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: scale(1);
   }
 }
 
 .animate-tab-switch {
-  animation: viewSmoothEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: opacity, transform;
+  animation: viewSmoothEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity;
 }
 
 .animate-section-smooth {
-  animation: sectionSmoothEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: opacity, transform;
+  animation: sectionSmoothEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity;
 }
 
 .animate-fade-in {
-  animation: modalBackdropFade 0.22s ease-out forwards;
+  animation: modalBackdropFade 0.2s ease-out forwards;
 }
 
 .animate-modal-backdrop {
-  animation: modalBackdropFade 0.22s ease-out forwards;
+  animation: modalBackdropFade 0.2s ease-out forwards;
 }
 
 .animate-modal-content {
-  animation: modalPopScale 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPopScale 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: opacity, transform;
 }

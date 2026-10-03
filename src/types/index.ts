@@ -156,6 +156,17 @@ export interface SystemHealth {
   apiServer: 'Online' | 'Offline';
 }
 
+export interface AcademicInfo {
+  projectTitle: string;
+  degree: string;
+  department: string;
+  collegeName: string;
+  studentName: string;
+  rollNumber: string;
+  guideName: string;
+  batch: string;
+}
+
 export interface AppSettings {
   language: 'en' | 'hi';
   voiceEnabled: boolean;
@@ -169,4 +180,5 @@ export interface AppSettings {
   minimumProgressMeters: number;
   mapProvider: 'OpenStreetMap' | 'CartoDark' | 'EsriSatellite';
   mapTheme: 'standard' | 'satellite';
+  academicInfo?: AcademicInfo;
 }

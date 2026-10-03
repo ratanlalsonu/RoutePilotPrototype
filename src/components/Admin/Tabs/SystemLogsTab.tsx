@@ -7,12 +7,14 @@ interface SystemLogsTabProps {
 
 export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) => {
   const [logs] = useState([
-    { timestamp: '12:00:01', level: 'INFO', component: 'OSRM Engine', message: 'Routing endpoint connected (https://router.project-osrm.org)' },
-    { timestamp: '12:00:02', level: 'INFO', component: 'Leaflet Engine', message: 'OpenStreetMap standard tile layers loaded successfully' },
-    { timestamp: '12:00:03', level: 'INFO', component: 'Nominatim API', message: 'Reverse geocoder initialized with rate limiting compliance' },
-    { timestamp: '12:00:04', level: 'INFO', component: 'RealtimeSync', message: 'BroadcastChannel routepilot_sync_channel opened across tabs' },
-    { timestamp: '12:00:05', level: 'SUCCESS', component: 'Security Audit', message: 'Zero dummy data mode enforced. No mock fallbacks.' },
-    { timestamp: '12:00:06', level: 'INFO', component: 'ESP32 Adapter', message: 'Subnet listener awaiting hardware telemetry packet' },
+    { timestamp: '10:14:01', level: 'BOOT', component: 'ESP32_CORE', message: 'ESP32-WROOM-32 booting FreeRTOS v10.2.0 @ 240MHz' },
+    { timestamp: '10:14:02', level: 'INFO', component: 'HC-SR04_INIT', message: 'Ultrasonic trigger pin: GPIO 5, echo pin: GPIO 18 calibrated. Distance: 184cm (Normal)' },
+    { timestamp: '10:14:03', level: 'INFO', component: 'MPU6050_I2C', message: 'I2C sensor detected at address 0x68 (SDA: GPIO 21, SCL: GPIO 22). Zero-g offset calibrated' },
+    { timestamp: '10:14:04', level: 'INFO', component: 'WIFI_STA', message: 'ESP32 connected to local Wi-Fi subnet. IP: 192.168.1.100. HTTP server listening on port 80' },
+    { timestamp: '10:14:05', level: 'INFO', component: 'OSRM_ENGINE', message: 'OpenStreetMap routing endpoint ready (Dijkstra algorithm / Contraction Hierarchies)' },
+    { timestamp: '10:14:06', level: 'INFO', component: 'LEAFLET_GIS', message: 'OpenStreetMap standard tile layers mounted successfully (CRS: EPSG:3857)' },
+    { timestamp: '10:14:07', level: 'INFO', component: 'NOMINATIM', message: 'Reverse geocoder initialized for landmark and street resolution' },
+    { timestamp: '10:14:08', level: 'INFO', component: 'REALTIME_SYNC', message: 'BroadcastChannel routepilot_sync_channel synchronized across browser tabs' },
   ]);
 
   return (

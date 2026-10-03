@@ -156,6 +156,16 @@ function getInitialState(): RoutePilotState {
       minimumProgressMeters: 25,
       mapProvider: 'OpenStreetMap',
       mapTheme: storedMapTheme,
+      academicInfo: {
+        projectTitle: 'IoT & Web-Based Real-Time Road & Bridge Hazard Detection with Intelligent Dynamic Route Diversion',
+        degree: 'B.Tech (Computer Science & Engineering)',
+        department: 'Department of Computer Science & Engineering',
+        collegeName: 'Engineering & Technology Institute',
+        studentName: 'Project Team',
+        rollNumber: 'CSE-2024-042',
+        guideName: 'Dr. Project Guide / Mentor',
+        batch: '2024 - 2025',
+      },
     },
     activeMode: 'admin',
   };
@@ -956,6 +966,80 @@ class RealtimeSyncManager {
       },
     ];
     this.notify();
+  }
+
+  /**
+   * Trigger Viva / Evaluation scenarios for student project demonstration
+   */
+  public triggerVivaScenario(scenario: 'underpass_flood' | 'bridge_vibration') {
+    if (scenario === 'underpass_flood') {
+      this.createHazard({
+        type: 'High Water Level',
+        severity: 'BLOCKED',
+        latitude: 25.4520,
+        longitude: 78.5650,
+        locationName: 'Railway Underpass (Low-Lying Water Zone)',
+        roadName: 'Station Link Road',
+        affectedRadius: 260,
+        description: 'ESP32 HC-SR04 ultrasonic water sensor detected flood depth 38cm (Threshold: >15cm). Road blocked for safety.',
+        source: 'LIVE_HARDWARE',
+      });
+      this.addSensorNode({
+        id: 'ESP32-NODE-FLOOD',
+        name: 'Underpass Flood Sensor (HC-SR04)',
+        location: 'Station Underpass Ch. 12',
+        type: 'City Road',
+        status: 'Online',
+        lat: 25.4520,
+        lng: 78.5650,
+        battery: 98,
+        lastReading: {
+          waterLevelM: 0.38,
+          updatedAt: 'Just now',
+        },
+      });
+      this.addRouteEvent({
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        event: '[VIVA TEST] ESP32 HC-SR04 Water Level Alert: 38cm detected',
+        driver: 'HARDWARE_ESP32',
+        status: 'Warning',
+        details: 'Hazard broadcasted. Active driver navigation will calculate safe detour.',
+      });
+    } else if (scenario === 'bridge_vibration') {
+      this.createHazard({
+        type: 'Structural Vibration',
+        severity: 'CRITICAL',
+        latitude: 25.4650,
+        longitude: 78.5800,
+        locationName: 'River Bridge Span #3',
+        roadName: 'Main River Bridge Expressway',
+        affectedRadius: 300,
+        description: 'ESP32 MPU6050 accelerometer detected structural vibration 2.14 mm/s (>0.8 limit) and tilt 1.8°. Bridge closed.',
+        source: 'LIVE_HARDWARE',
+      });
+      this.addSensorNode({
+        id: 'ESP32-NODE-BRIDGE',
+        name: 'Bridge Structural Health (MPU6050)',
+        location: 'River Bridge Pier 3',
+        type: 'Bridge North',
+        status: 'Online',
+        lat: 25.4650,
+        lng: 78.5800,
+        battery: 94,
+        lastReading: {
+          vibrationMmS: 2.14,
+          tiltDegrees: 1.8,
+          updatedAt: 'Just now',
+        },
+      });
+      this.addRouteEvent({
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        event: '[VIVA TEST] ESP32 MPU6050 Structural Vibration Alert: 2.14 mm/s',
+        driver: 'HARDWARE_ESP32',
+        status: 'Warning',
+        details: 'Structural threshold breached. Diverting traffic to Ring Road bypass.',
+      });
+    }
   }
 
   /**

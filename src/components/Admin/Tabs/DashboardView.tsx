@@ -35,7 +35,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 1: Active Hazards */}
         <div
           onClick={() => onNavigateTab('Hazards')}
-          className="bg-[#161B22] border border-red-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-red-500/60 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98]"
+          className="bg-[#161B22] border border-red-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-red-500/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -62,7 +62,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 2: Active Drivers */}
         <div
           onClick={() => onNavigateTab('Active Drivers')}
-          className="bg-[#161B22] border border-[#AEF5F0]/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-[#AEF5F0]/60 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98]"
+          className="bg-[#161B22] border border-[#AEF5F0]/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-[#AEF5F0]/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -89,7 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 3: Online Sensor Nodes */}
         <div
           onClick={() => onNavigateTab('Sensor Nodes')}
-          className="bg-[#161B22] border border-emerald-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-emerald-500/60 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98]"
+          className="bg-[#161B22] border border-emerald-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-emerald-500/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -115,7 +115,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 4: Blocked Roads */}
         <div
           onClick={() => onNavigateTab('Road Status')}
-          className="bg-[#161B22] border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-500/60 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98]"
+          className="bg-[#161B22] border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-500/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>

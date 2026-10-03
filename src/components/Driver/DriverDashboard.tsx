@@ -14,16 +14,6 @@ interface DriverDashboardProps {
   onSwitchMode: (mode: 'admin' | 'driver') => void;
 }
 
-// Preset popular destinations in Jhansi for 1-click testing
-const POPULAR_DESTINATIONS = [
-  { name: 'MLB Medical College, Jhansi', lat: 25.4678, lng: 78.5835, icon: '🏥', tag: 'Medical' },
-  { name: 'Jhansi Railway Station', lat: 25.4520, lng: 78.5580, icon: '🚆', tag: 'Station' },
-  { name: 'Jhansi Fort (Rani Mahal)', lat: 25.4578, lng: 78.5782, icon: '🏰', tag: 'Landmark' },
-  { name: 'Elite Crossing, Jhansi', lat: 25.4470, lng: 78.5720, icon: '🚦', tag: 'Commercial' },
-  { name: 'Sipri Bazar, Jhansi', lat: 25.4580, lng: 78.5450, icon: '🛍️', tag: 'Market' },
-  { name: 'Kanpur Highway Bypass', lat: 25.4750, lng: 78.6050, icon: '🛣️', tag: 'Highway' },
-];
-
 export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitchMode }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -273,9 +263,6 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 Driver Navigation
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 truncate max-w-sm hidden sm:block">
-              Real-Time Road & Bridge Hazard Detection with Intelligent Route Diversion System
-            </p>
           </div>
         </div>
 
@@ -448,27 +435,6 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       )}
                     </div>
                   )}
-
-                  {/* Quick Popular Destination Chips */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase font-bold text-slate-400">Quick Destination Presets:</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {POPULAR_DESTINATIONS.map((dest) => (
-                        <button
-                          key={dest.name}
-                          onClick={() => handleSelectDestination(dest)}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition border flex items-center gap-1 cursor-pointer ${
-                            journey.destination?.name === dest.name
-                              ? 'bg-[#AEF5F0]/15 border-[#AEF5F0]/40 text-[#AEF5F0] shadow'
-                              : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white hover:bg-[#30363D]'
-                          }`}
-                        >
-                          <span>{dest.icon}</span>
-                          <span className="truncate max-w-[110px]">{dest.name.split(',')[0]}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Origin & Destination Display */}
@@ -535,7 +501,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     </div>
                     <div className="text-xs font-bold text-slate-200">Step 1: Search & Select Destination</div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Search your destination in the box above or tap any quick preset. Vehicle type and optimal routes will be calculated once destination is chosen.
+                      Search your destination in the box above. Vehicle type and optimal routes will be calculated once destination is chosen.
                     </p>
                   </div>
                 )}
@@ -853,10 +819,6 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   <span className="text-slate-400 text-xs">View Turn Details ›</span>
                 </div>
               </div>
-
-              <div className="p-2 border-t border-[#30363D] text-[10px] text-slate-500 text-center">
-                RoutePilot • B.Tech Project Driver System
-              </div>
             </div>
 
             {/* Center: Interactive Map with Top HUD and Overlays */}
@@ -907,7 +869,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               <div className="space-y-4">
                 {/* 1. Prominent Hazard Alert Box */}
                 {journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED' && (
-                  <div className="bg-gradient-to-br from-red-950/70 to-[#120a12] border-2 border-red-500 rounded-2xl p-4 shadow-2xl animate-pulse">
+                  <div className="bg-gradient-to-br from-red-950/80 via-[#1c0f18] to-[#161B22] border-2 border-red-500 rounded-2xl p-4 shadow-2xl shadow-red-950/50 animate-section-smooth transition-all duration-300">
                     <div className="flex items-start gap-3 mb-3">
                       <div className="w-10 h-10 rounded-xl bg-red-600/30 border border-red-500 flex items-center justify-center text-red-400 shrink-0">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -1122,7 +1084,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
             {/* Floating Hazard Alert Overlay on Map */}
             {journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED' && (
-              <div className="absolute top-20 left-4 right-4 sm:left-auto sm:right-4 z-[1000] max-w-sm bg-gradient-to-br from-red-950/90 to-[#161B22] border-2 border-red-500 rounded-2xl p-4 shadow-2xl animate-bounce">
+              <div className="absolute top-20 left-4 right-4 sm:left-auto sm:right-4 z-[1000] max-w-sm bg-gradient-to-br from-red-950/90 to-[#161B22] border-2 border-red-500 rounded-2xl p-4 shadow-2xl animate-section-smooth transition-all duration-300">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-red-400 text-lg">⚠️</span>
                   <div className="font-bold text-white text-xs uppercase tracking-wide">
@@ -1669,7 +1631,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
           <button
             key={tab.id}
             onClick={() => setActiveBottomNav(tab.id as any)}
-            className={`flex flex-col items-center gap-1 transition-all duration-200 ease-out relative cursor-pointer px-3 py-1 rounded-xl active:scale-95 ${
+            className={`flex flex-col items-center gap-1 transition-colors duration-150 relative cursor-pointer px-3 py-1 rounded-xl ${
               activeBottomNav === tab.id
                 ? 'text-[#AEF5F0] font-bold bg-[#AEF5F0]/10 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'

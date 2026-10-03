@@ -21,12 +21,31 @@ export function App() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && (e.state.mode === 'admin' || e.state.mode === 'driver')) {
+        setActiveMode(e.state.mode);
+      } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const m = urlParams.get('mode');
+        if (m === 'admin' || m === 'driver') {
+          setActiveMode(m);
+        } else {
+          setActiveMode('admin');
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleSwitchMode = (mode: 'admin' | 'driver') => {
+    if (mode === activeMode) return;
     setActiveMode(mode);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('mode', mode);
-      window.history.replaceState({}, '', url.toString());
+      window.history.pushState({ mode }, '', url.toString());
     }
   };
 

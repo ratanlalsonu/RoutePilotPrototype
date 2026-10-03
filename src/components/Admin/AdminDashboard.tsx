@@ -3,6 +3,7 @@ import { RoutePilotState, realtimeSync } from '../../services/realtimeSync';
 import { RoutePilotMap } from '../Map/RoutePilotMap';
 import { CreateHazardModal } from './CreateHazardModal';
 import { SettingsModal } from '../Common/SettingsModal';
+import { AStarAlgorithmTab } from './Tabs/AStarAlgorithmTab';
 import { HazardType, HazardSeverity } from '../../types';
 import { DashboardView } from './Tabs/DashboardView';
 import { HazardsTab } from './Tabs/HazardsTab';
@@ -114,9 +115,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 Command Center
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 truncate max-w-sm hidden sm:block">
-              Real-Time Road & Bridge Hazard Detection with Intelligent Route Diversion System
-            </p>
           </div>
         </div>
 
@@ -209,6 +207,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
               { id: 'Sensor Nodes', icon: 'M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0' },
               { id: 'Active Drivers', icon: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0' },
               { id: 'Road Status', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' },
+              { id: 'A* Algorithm', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
               { id: 'Route Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
               { id: 'System Logs', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
               { id: 'Analytics', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
@@ -223,7 +222,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                     setActiveTab(item.id);
                   }
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ease-out cursor-pointer active:scale-[0.98] ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer ${
                   activeTab === item.id
                     ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
@@ -380,6 +379,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           {activeTab === 'Road Status' && (
             <div key="tab-roads" className="animate-tab-switch flex-1 flex flex-col">
               <RoadStatusTab roadStatuses={roadStatuses} hazards={hazards} />
+            </div>
+          )}
+
+          {activeTab === 'A* Algorithm' && (
+            <div key="tab-astar" className="animate-tab-switch flex-1 flex flex-col">
+              <AStarAlgorithmTab journey={journey} hazards={hazards} />
             </div>
           )}
 
