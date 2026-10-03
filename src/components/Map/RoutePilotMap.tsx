@@ -8,15 +8,18 @@ import {
   Polyline,
   Circle,
   useMap,
+  MapMouseEvent,
 } from '@vis.gl/react-google-maps';
 import { Hazard, SensorNode, RouteOption, VehicleType, Journey } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
+import { getTranslation, translateText } from '../../services/i18n';
 
 interface RoutePilotMapProps {
   mode: 'admin' | 'driver';
   hazards: Hazard[];
   sensorNodes: SensorNode[];
   journey: Journey;
+  language?: 'en' | 'hi';
   isCreatingHazard?: boolean;
   onMapClickForHazard?: (lat: number, lng: number) => void;
   onSelectDestinationFromMap?: (lat: number, lng: number) => void;
@@ -27,6 +30,8 @@ interface RoutePilotMapProps {
   onChangeTheme?: (theme: 'standard' | 'satellite') => void;
   onChangeSpeed?: (speed: number) => void;
   onTogglePlayPause?: () => void;
+  isMapClearMode?: boolean;
+  onToggleClearMode?: () => void;
 }
 
 // Sleek dark vector map styles matching RoutePilot Command Center (#0D1117)
@@ -56,6 +61,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   hazards,
   sensorNodes,
   journey,
+  language,
   isCreatingHazard,
   onMapClickForHazard,
   onSelectDestinationFromMap,
@@ -66,8 +72,12 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   onChangeTheme,
   onChangeSpeed,
   onTogglePlayPause,
+  isMapClearMode,
+  onToggleClearMode,
 }) => {
   const map = useMap();
+  const activeLang = language || realtimeSync.getState().appSettings.language || 'en';
+  const t = getTranslation(activeLang);
   const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null);
   const [selectedSensor, setSelectedSensor] = useState<SensorNode | null>(null);
   const [tempMarkerPos, setTempMarkerPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -81,6 +91,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     }
     return 'standard';
   });
+
+  // Collapsible legend state (default collapsed for crystal clear map visibility)
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
 
   useEffect(() => {
     if (theme === 'satellite' || theme === 'standard') {
@@ -174,10 +187,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   }, [isCreatingHazard]);
 
   // Map Click Listener
-  const handleMapClick = (e: google.maps.MapMouseEvent) => {
-    if (!e.latLng) return;
-    const lat = e.latLng.lat();
-    const lng = e.latLng.lng();
+  const handleMapClick = (e: MapMouseEvent) => {
+    if (!e.detail.latLng) return;
+    const { lat, lng } = e.detail.latLng;
 
     if (isCreatingHazard && onMapClickForHazard) {
       setTempMarkerPos({ lat, lng });
@@ -344,9 +356,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     }}
                   >
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: route.color }}></span>
-                    <span>{route.name}</span>
+                    <span>{translateText(route.name, activeLang)}</span>
                     <span className="text-slate-300 font-normal">
-                      • {route.distanceKm} km • {route.durationMinutes} min
+                      • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
                     </span>
                   </div>
                 </AdvancedMarker>
@@ -417,7 +429,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                   <div
                     className={`px-2 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/60 text-red-200' : 'border-amber-500/60 text-amber-200'} text-[11px] font-bold rounded shadow-lg whitespace-nowrap`}
                   >
-                    {hazard.type}
+                    {translateText(hazard.type, activeLang)}
                   </div>
                 </div>
               </AdvancedMarker>
@@ -433,7 +445,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
           >
             <div className="p-2 text-slate-900 min-w-[220px]">
               <div className="flex items-center justify-between gap-2 border-b border-slate-300 pb-1.5 mb-2">
-                <div className="font-bold text-sm text-slate-950">{selectedHazard.type}</div>
+                <div className="font-bold text-sm text-slate-950">{translateText(selectedHazard.type, activeLang)}</div>
                 <span
                   className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${
                     selectedHazard.severity === 'CRITICAL' || selectedHazard.severity === 'BLOCKED'
@@ -441,22 +453,22 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                       : 'bg-amber-100 text-amber-700 border border-amber-300'
                   }`}
                 >
-                  {selectedHazard.severity}
+                  {translateText(selectedHazard.severity, activeLang)}
                 </span>
               </div>
               <div className="text-xs text-slate-700 space-y-1 mb-3">
                 <div>
-                  <span className="font-semibold text-slate-900">Location:</span> {selectedHazard.locationName}
+                  <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'स्थान:' : 'Location:'}</span> {selectedHazard.locationName}
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-900">Road:</span> {selectedHazard.roadName}
+                  <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'सड़क:' : 'Road:'}</span> {selectedHazard.roadName}
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-900">Radius:</span> {selectedHazard.affectedRadius} meters
+                  <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'प्रभावित क्षेत्र:' : 'Radius:'}</span> {selectedHazard.affectedRadius} {activeLang === 'hi' ? 'मीटर' : 'meters'}
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-900">Reported:</span> {selectedHazard.createdAt} (
-                  {selectedHazard.source})
+                  <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}</span> {selectedHazard.createdAt} (
+                  {translateText(selectedHazard.source, activeLang)})
                 </div>
                 <div className="text-[11px] italic text-slate-600 mt-1">{selectedHazard.description}</div>
               </div>
@@ -468,7 +480,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                   }}
                   className="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold transition cursor-pointer"
                 >
-                  ✓ Resolve Hazard
+                  {t.resolveHazardBtn}
                 </button>
               )}
             </div>
@@ -521,26 +533,26 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               </div>
               <div className="text-[11px] text-slate-700 space-y-0.5">
                 <div>
-                  <span className="font-semibold text-slate-900">Location:</span> {selectedSensor.location}
+                  <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'स्थान:' : 'Location:'}</span> {selectedSensor.location}
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-900">Battery:</span> {selectedSensor.battery}%
+                  <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'बैटरी:' : 'Battery:'}</span> {selectedSensor.battery}%
                 </div>
                 {selectedSensor.lastReading?.vibrationMmS !== undefined && (
                   <div>
-                    <span className="font-semibold text-slate-900">Vibration:</span>{' '}
+                    <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'कंपन:' : 'Vibration:'}</span>{' '}
                     {selectedSensor.lastReading.vibrationMmS} mm/s
                   </div>
                 )}
                 {selectedSensor.lastReading?.waterLevelM !== undefined && (
                   <div>
-                    <span className="font-semibold text-slate-900">Water Level:</span>{' '}
+                    <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'जल स्तर:' : 'Water Level:'}</span>{' '}
                     {selectedSensor.lastReading.waterLevelM} m
                   </div>
                 )}
                 {selectedSensor.lastReading?.tiltDegrees !== undefined && (
                   <div>
-                    <span className="font-semibold text-slate-900">Tilt:</span> {selectedSensor.lastReading.tiltDegrees}
+                    <span className="font-semibold text-slate-900">{activeLang === 'hi' ? 'झुकाव:' : 'Tilt:'}</span> {selectedSensor.lastReading.tiltDegrees}
                     °
                   </div>
                 )}
@@ -567,43 +579,63 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-red-600/90 backdrop-blur-md text-white px-5 py-2 rounded-full border border-red-400 shadow-2xl flex items-center gap-2.5 animate-bounce">
           <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
           <span className="text-xs font-bold uppercase tracking-wider">
-            Click ANYWHERE on Google Maps to place hazard
+            {t.clickMapPointText}
           </span>
         </div>
       )}
 
-      {/* Map Controls (Right Side) */}
-      <div
-        className={`absolute right-3 sm:right-4 ${
-          mode === 'driver' ? 'bottom-16 sm:bottom-24' : 'bottom-9 sm:bottom-11'
-        } z-[990] flex flex-col gap-1.5 sm:gap-2`}
-      >
-        {/* Satellite Mode Option directly above Plus (+) button */}
+      {/* Vertical Map Utility Dock (Right Side Center) - Always Clean & Non-Overlapping */}
+      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-[#30363D] shadow-2xl p-1 gap-1">
+        {/* Clean Map Mode Toggle (Hides floating cards for unobstructed road clarity) */}
+        {onToggleClearMode && (
+          <>
+            <button
+              onClick={onToggleClearMode}
+              title={isMapClearMode ? t.showHudToggle : t.cleanMapToggle}
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
+                isMapClearMode
+                  ? 'bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-400/30'
+                  : 'hover:bg-[#21262D] text-slate-200 hover:text-white'
+              }`}
+              aria-label="Toggle Clean Map View"
+            >
+              <span className="text-sm select-none">{isMapClearMode ? '👁️' : '🗺️'}</span>
+              <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-[#0D1117] text-white text-[10px] whitespace-nowrap border border-[#30363D] shadow-xl z-50">
+                {isMapClearMode ? t.showHudToggle : t.cleanMapToggle}
+              </span>
+            </button>
+            <div className="h-px bg-[#30363D] mx-1 my-0.5"></div>
+          </>
+        )}
+
+        {/* Satellite Mode Toggle */}
         <button
           onClick={toggleMapStyle}
           title={
             mapStyle === 'satellite'
-              ? 'Satellite Mode Active (Click to switch to Standard Map)'
-              : 'Switch to Satellite Mode'
+              ? t.satelliteActiveBadge
+              : t.satelliteModeTitle
           }
-          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer relative group ${
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
             mapStyle === 'satellite'
-              ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
-              : 'bg-[#161B22]/90 border-[#30363D] hover:bg-[#21262D] text-slate-200 hover:text-white'
+              ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
+              : 'hover:bg-[#21262D] text-slate-200 hover:text-white'
           }`}
           aria-label="Toggle Satellite Mode"
         >
           <span className="text-sm select-none">🛰️</span>
-          <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-[#0D1117] text-white text-[11px] whitespace-nowrap border border-[#30363D] shadow-xl z-50">
-            {mapStyle === 'satellite' ? 'Satellite: Active' : 'Satellite Mode'}
+          <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-[#0D1117] text-white text-[10px] whitespace-nowrap border border-[#30363D] shadow-xl z-50">
+            {mapStyle === 'satellite' ? t.satelliteActiveBadge : t.satelliteModeTitle}
           </span>
         </button>
+
+        <div className="h-px bg-[#30363D] mx-1 my-0.5"></div>
 
         {/* Zoom In (+) */}
         <button
           onClick={handleZoomIn}
-          title="Zoom In"
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          title={t.zoomInBtn}
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-[#21262D] text-slate-200 hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" />
@@ -613,19 +645,21 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         {/* Zoom Out (-) */}
         <button
           onClick={handleZoomOut}
-          title="Zoom Out"
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          title={t.zoomOutBtn}
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-[#21262D] text-slate-200 hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M5 12h14" />
           </svg>
         </button>
 
-        {/* Center on Driver */}
+        <div className="h-px bg-[#30363D] mx-1 my-0.5"></div>
+
+        {/* Center on Vehicle / GPS */}
         <button
           onClick={handleCenterVehicle}
-          title="Center on Driver"
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-[#AEF5F0] flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          title={t.centerVehicleBtn}
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-[#21262D] text-[#AEF5F0] flex items-center justify-center transition active:scale-95 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="7" />
@@ -634,140 +668,70 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         </button>
       </div>
 
-      {/* Visible Google Maps Attribution */}
-      <div className="absolute right-3 sm:right-4 bottom-2 sm:bottom-2.5 z-[990] bg-[#161B22]/90 backdrop-blur-xs text-[9px] sm:text-[11px] text-slate-300 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg border border-[#30363D] flex items-center gap-1 sm:gap-1.5 shadow-lg select-none">
-        <span>🗺️ Powered by</span>
-        <span className="text-[#AEF5F0] font-semibold">Google Maps Platform</span>
+      {/* Visible Google Maps Attribution (Bottom Right) */}
+      <div className="absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 z-[990] bg-[#161B22]/90 backdrop-blur-md text-[9px] sm:text-[10px] text-slate-400 px-2 sm:px-2.5 py-1 rounded-lg border border-[#30363D] flex items-center gap-1 shadow-md select-none">
+        <span>🗺️</span>
+        <span className="text-[#AEF5F0] font-medium">Google Maps</span>
       </div>
 
-      {/* Map Legend Overlay (Bottom Left) */}
-      <div className="hidden sm:block absolute left-4 bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] rounded-xl p-3 shadow-2xl text-[11px] text-slate-300">
-        <div className="font-semibold text-slate-200 mb-1.5 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#AEF5F0]"></span>
-          <span>Google Map Legend</span>
-        </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] border border-white"></span>
-            <span>Current Vehicle</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 border border-white"></span>
-            <span>Destination</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3.5 h-1 bg-[#AEF5F0] rounded"></span>
-            <span>Active Route</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3.5 h-0.5 border-t-2 border-dashed border-emerald-400"></span>
-            <span>Alternative Route</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-red-400 font-bold">⚠</span>
-            <span>Hazard Marker</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/40 border border-emerald-400"></span>
-            <span>Sensor Node</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Interactive Speed Controller HUD on Map (Driver Mode) */}
-      {mode === 'driver' && (journey.activeRoute || journey.isNavigating || journey.alternativeRoutes.length > 0) && (
-        <div className="absolute left-3 sm:left-4 bottom-20 sm:bottom-6 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 sm:p-3 shadow-2xl flex flex-col gap-2 select-none max-w-[92vw] sm:max-w-xs animate-fade-in">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm sm:text-base animate-pulse">⚡</span>
-              <div>
-                <div className="text-[9px] uppercase tracking-wider font-semibold text-slate-400">Vehicle Speed</div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xs sm:text-sm font-extrabold text-[#AEF5F0] font-mono leading-none">
-                    {journey.simulationSpeed || 1}x
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    ({journey.currentSpeedKmh || Math.round(45 * (journey.simulationSpeed || 1))} km/h)
-                  </span>
-                </div>
+      {/* Collapsible Map Legend (Bottom Left) - Unobtrusive & Never Blocks Road View */}
+      <div className="absolute left-3 sm:left-4 bottom-2.5 sm:bottom-3 z-[990]">
+        {isLegendOpen ? (
+          <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl text-[11px] text-slate-300 w-64 animate-fade-in space-y-2">
+            <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5">
+              <div className="font-semibold text-white flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#AEF5F0]"></span>
+                <span>{t.mapLegendTitle}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLegendOpen(false)}
+                className="text-slate-400 hover:text-white text-xs px-1 rounded cursor-pointer"
+                title={t.dismiss}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] border border-white shrink-0"></span>
+                <span className="truncate">{t.legendVehicle}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 border border-white shrink-0"></span>
+                <span className="truncate">{t.legendDestination}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-1 bg-[#AEF5F0] rounded shrink-0"></span>
+                <span className="truncate">{t.legendActiveRoute}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-0.5 border-t-2 border-dashed border-emerald-400 shrink-0"></span>
+                <span className="truncate">{t.legendAlternative}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 font-bold shrink-0">⚠</span>
+                <span className="truncate">{t.legendHazard}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/40 border border-emerald-400 shrink-0"></span>
+                <span className="truncate">{t.legendSensorNode}</span>
               </div>
             </div>
-
-            {onTogglePlayPause && (
-              <button
-                type="button"
-                onClick={onTogglePlayPause}
-                title={journey.isSimulating ? 'Pause Driving' : 'Resume Driving'}
-                className="py-1 px-2.5 rounded-xl bg-[#AEF5F0]/15 hover:bg-[#AEF5F0] text-[#AEF5F0] hover:text-slate-950 border border-[#AEF5F0]/40 flex items-center gap-1.5 text-xs font-bold transition cursor-pointer active:scale-95"
-              >
-                <span>{journey.isSimulating ? '⏸ Pause' : '▶ Drive'}</span>
-              </button>
-            )}
           </div>
-
-          {/* Granular Slider & Step Buttons */}
-          <div className="flex items-center gap-1.5 pt-1 border-t border-[#30363D]/60">
-            <button
-              type="button"
-              onClick={() => {
-                const cur = journey.simulationSpeed || 1;
-                const next = Math.max(0.25, parseFloat((cur - 0.5).toFixed(2)));
-                if (onChangeSpeed) onChangeSpeed(next);
-              }}
-              title="Decrease Speed (-0.5x)"
-              className="w-7 h-7 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-95 border border-[#30363D] text-slate-200 font-bold text-sm flex items-center justify-center transition cursor-pointer shrink-0"
-            >
-              −
-            </button>
-
-            <input
-              type="range"
-              min="0.25"
-              max="8"
-              step="0.25"
-              value={journey.simulationSpeed || 1}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                if (onChangeSpeed) onChangeSpeed(val);
-              }}
-              className="flex-1 accent-[#AEF5F0] h-1.5 bg-[#21262D] rounded-lg cursor-pointer"
-            />
-
-            <button
-              type="button"
-              onClick={() => {
-                const cur = journey.simulationSpeed || 1;
-                const next = Math.min(10, parseFloat((cur + 0.5).toFixed(2)));
-                if (onChangeSpeed) onChangeSpeed(next);
-              }}
-              title="Increase Speed (+0.5x)"
-              className="w-7 h-7 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-95 border border-[#30363D] text-[#AEF5F0] font-bold text-sm flex items-center justify-center transition cursor-pointer shrink-0"
-            >
-              +
-            </button>
-          </div>
-
-          {/* Quick Preset Buttons */}
-          <div className="flex items-center justify-between gap-1">
-            {[0.5, 1, 2, 4, 8].map((spd) => (
-              <button
-                key={spd}
-                type="button"
-                onClick={() => {
-                  if (onChangeSpeed) onChangeSpeed(spd);
-                }}
-                className={`flex-1 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer text-center ${
-                  (journey.simulationSpeed || 1) === spd
-                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-extrabold shadow-sm'
-                    : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
-                }`}
-              >
-                {spd}x
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsLegendOpen(true)}
+            title={t.mapLegendTitle}
+            className="h-7 px-2.5 rounded-lg bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] hover:border-[#AEF5F0]/40 text-slate-300 hover:text-white text-[11px] font-medium flex items-center gap-1.5 shadow-lg transition cursor-pointer select-none"
+          >
+            <span>ℹ️</span>
+            <span className="hidden sm:inline">{activeLang === 'hi' ? 'संकेतिका' : 'Legend'}</span>
+            <span className="text-[10px] text-slate-400">▴</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 };
@@ -779,7 +743,7 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = (props) => {
   const apiKey =
     (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
     (typeof window !== 'undefined' ? localStorage.getItem('routepilot_gmaps_api_key') : '') ||
-    'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
+    'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
 
   return (
     <APIProvider apiKey={apiKey} libraries={['marker', 'geometry', 'places', 'routes']}>

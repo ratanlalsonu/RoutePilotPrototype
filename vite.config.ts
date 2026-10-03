@@ -1,11 +1,173 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, Plugin} from 'vite';
+
+function placesApiProxyPlugin(): Plugin {
+  return {
+    name: 'places-api-proxy',
+    configureServer(server) {
+      // 1. Text Search API Proxy
+      server.middlewares.use('/api/places/search', async (req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          return res.end();
+        }
+
+        try {
+          const url = new URL(req.url || '', 'http://localhost:3000');
+          const query = url.searchParams.get('q') || '';
+          const USER_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
+          let apiKey = process.env.VITE_GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || USER_KEY;
+          const paramKey = url.searchParams.get('key');
+          if (paramKey && paramKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U' && paramKey.startsWith('AIzaSy')) {
+            apiKey = paramKey;
+          }
+
+          if (!query) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ error: 'Query parameter q is required' }));
+          }
+
+          // 1. Call Google Places API (New) Text Search
+          const googleRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+              'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.shortFormattedAddress',
+            },
+            body: JSON.stringify({
+              textQuery: query,
+              maxResultCount: 8,
+            }),
+          });
+
+          const data = await googleRes.json();
+          if (data.places && Array.isArray(data.places) && data.places.length > 0) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify(data));
+          }
+
+          // 2. Fallback to Autocomplete + Place Details for partial prefixes (e.g. "del", "agr", "kan")
+          const autoRes = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+            },
+            body: JSON.stringify({
+              input: query,
+            }),
+          });
+
+          if (autoRes.ok) {
+            const autoData = await autoRes.json();
+            if (autoData.suggestions && Array.isArray(autoData.suggestions) && autoData.suggestions.length > 0) {
+              const predictions = autoData.suggestions.slice(0, 5);
+              const resolvedPlaces = await Promise.all(
+                predictions.map(async (sug: any) => {
+                  const placeId = sug.placePrediction?.placeId;
+                  if (!placeId) return null;
+                  try {
+                    const detailRes = await fetch(
+                      `https://places.googleapis.com/v1/places/${placeId}?fields=displayName,formattedAddress,location,shortFormattedAddress`,
+                      {
+                        headers: {
+                          'X-Goog-Api-Key': apiKey,
+                        },
+                      }
+                    );
+                    if (detailRes.ok) {
+                      return await detailRes.json();
+                    }
+                  } catch {
+                    return null;
+                  }
+                  return null;
+                })
+              );
+
+              const validPlaces = resolvedPlaces.filter(Boolean);
+              if (validPlaces.length > 0) {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({ places: validPlaces }));
+              }
+            }
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ places: [] }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ error: err.message || 'Internal proxy error' }));
+        }
+      });
+
+      // 2. Autocomplete Suggestions API Proxy
+      server.middlewares.use('/api/places/autocomplete', async (req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          return res.end();
+        }
+
+        try {
+          const url = new URL(req.url || '', 'http://localhost:3000');
+          const input = url.searchParams.get('input') || url.searchParams.get('q') || '';
+          const USER_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
+          let apiKey = process.env.VITE_GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || USER_KEY;
+          const paramKey = url.searchParams.get('key');
+          if (paramKey && paramKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U' && paramKey.startsWith('AIzaSy')) {
+            apiKey = paramKey;
+          }
+
+          if (!input) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ error: 'Input parameter is required' }));
+          }
+
+          const googleRes = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+            },
+            body: JSON.stringify({
+              input,
+            }),
+          });
+
+          const data = await googleRes.json();
+          res.statusCode = googleRes.status;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify(data));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ error: err.message || 'Internal proxy error' }));
+        }
+      });
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), placesApiProxyPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

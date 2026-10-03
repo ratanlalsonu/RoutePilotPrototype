@@ -176,10 +176,12 @@ export interface AppSettings {
   esp32DeviceId: string;
   esp32Connected: boolean;
   googleMapsApiKey?: string;
+  placesApiKey?: string;
+  useDedicatedPlacesKey?: boolean;
   routingApiKey?: string;
   routeCommitThresholdMeters: number;
   minimumProgressMeters: number;
-  mapProvider: 'OpenStreetMap' | 'CartoDark' | 'EsriSatellite';
+  mapProvider: 'Google Maps' | 'OpenStreetMap' | 'CartoDark' | 'EsriSatellite';
   mapTheme: 'standard' | 'satellite';
   academicInfo?: AcademicInfo;
 }

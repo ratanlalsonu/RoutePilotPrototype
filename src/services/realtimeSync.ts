@@ -122,10 +122,28 @@ function getInitialState(): RoutePilotState {
     }
   }
 
-  const storedApiKey =
-    (typeof window !== 'undefined' ? localStorage.getItem('routepilot_gmaps_api_key') : null) ||
-    (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-    'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
+  const USER_VALID_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
+  let storedApiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || USER_VALID_KEY;
+  let storedPlacesApiKey = (import.meta as any).env?.VITE_GOOGLE_PLACES_API_KEY || USER_VALID_KEY;
+
+  if (typeof window !== 'undefined') {
+    try {
+      const gKey = localStorage.getItem('routepilot_gmaps_api_key');
+      const pKey = localStorage.getItem('routepilot_places_api_key');
+      if (gKey && gKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') {
+        storedApiKey = gKey;
+      } else {
+        localStorage.setItem('routepilot_gmaps_api_key', USER_VALID_KEY);
+      }
+      if (pKey && pKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') {
+        storedPlacesApiKey = pKey;
+      } else {
+        localStorage.setItem('routepilot_places_api_key', USER_VALID_KEY);
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   const rawStoredTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null;
   const storedMapTheme: 'standard' | 'satellite' = rawStoredTheme === 'satellite' ? 'satellite' : 'standard';
@@ -155,6 +173,7 @@ function getInitialState(): RoutePilotState {
       esp32DeviceId: 'ESP32-NODE-01',
       esp32Connected: false,
       googleMapsApiKey: storedApiKey,
+      placesApiKey: storedPlacesApiKey,
       routeCommitThresholdMeters: 60,
       minimumProgressMeters: 25,
       mapProvider: 'Google Maps',
@@ -1045,6 +1064,28 @@ class RealtimeSyncManager {
       driver: 'ADMIN',
       status: 'Success',
       details: 'Google Maps & Geocoding API key activated for live lookups',
+    });
+    this.notify();
+  }
+
+  /**
+   * Set API Key for Google Places API (New) / Place Search
+   */
+  public setPlacesApiKey(key: string) {
+    this.state.appSettings.placesApiKey = key;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('routepilot_places_api_key', key);
+      } catch {
+        // ignore
+      }
+    }
+    this.addRouteEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      event: 'Places API Key Configured',
+      driver: 'ADMIN',
+      status: 'Success',
+      details: 'Google Places API key activated for real-world place search',
     });
     this.notify();
   }

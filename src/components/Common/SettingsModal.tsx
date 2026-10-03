@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AppSettings } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
 import { getTranslation } from '../../services/i18n';
+import { searchPlaces } from '../../services/geocodingService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,8 +14,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const [apiKey, setApiKey] = useState(
     settings.googleMapsApiKey ||
       (typeof window !== 'undefined' ? localStorage.getItem('routepilot_gmaps_api_key') : '') ||
-      'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U'
+      'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20'
   );
+  const [placesApiKey, setPlacesApiKey] = useState(
+    settings.placesApiKey ||
+      (typeof window !== 'undefined' ? localStorage.getItem('routepilot_places_api_key') : '') ||
+      'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20'
+  );
+  const [useDedicatedPlacesKey, setUseDedicatedPlacesKey] = useState(
+    Boolean(
+      (settings.placesApiKey && settings.placesApiKey.trim().length > 0) ||
+      (typeof window !== 'undefined' && localStorage.getItem('routepilot_places_api_key'))
+    )
+  );
+  const [testQuery, setTestQuery] = useState('');
+  const [testResults, setTestResults] = useState<any[] | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
   const [language, setLanguage] = useState<'en' | 'hi'>(settings.language || 'en');
   const [voiceEnabled, setVoiceEnabled] = useState(settings.voiceEnabled ?? true);
   const [sensorMode, setSensorMode] = useState<'VIRTUAL' | 'HARDWARE'>(settings.sensorMode || 'HARDWARE');
@@ -31,15 +47,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     realtimeSync.updateSettings({ language: lang });
   };
 
+  const handleTestPlaceSearch = async () => {
+    if (!testQuery.trim()) return;
+    setIsTesting(true);
+    setTestError(null);
+    setTestResults(null);
+    try {
+      const activeKey = useDedicatedPlacesKey && placesApiKey.trim() ? placesApiKey.trim() : apiKey.trim();
+      const results = await searchPlaces(testQuery.trim(), activeKey);
+      setTestResults(results);
+      if (results.length === 0) {
+        setTestError('No results returned. Check API key permissions for Places API.');
+      }
+    } catch (err: any) {
+      setTestError(err.message || 'Error executing place search');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     const finalKey = apiKey.trim() || 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
     realtimeSync.setApiKey(finalKey);
+    const finalPlacesKey = useDedicatedPlacesKey ? placesApiKey.trim() : '';
+    realtimeSync.setPlacesApiKey(finalPlacesKey);
     if (typeof window !== 'undefined') {
       localStorage.setItem('routepilot_gmaps_api_key', finalKey);
+      if (useDedicatedPlacesKey) {
+        localStorage.setItem('routepilot_places_api_key', finalPlacesKey);
+      } else {
+        localStorage.removeItem('routepilot_places_api_key');
+      }
     }
     realtimeSync.updateSettings({
       googleMapsApiKey: finalKey,
+      placesApiKey: finalPlacesKey,
+      useDedicatedPlacesKey,
       language,
       voiceEnabled,
       sensorMode,
@@ -110,6 +154,98 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 placeholder="AIzaSy..."
                 className="w-full bg-[#161B22] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#AEF5F0]"
               />
+            </div>
+          </div>
+
+          {/* Places API Key Section */}
+          <div className="bg-[#21262D] p-3.5 rounded-xl border border-[#30363D] space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-200">Google Places API (New) Real Place Search</label>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                {useDedicatedPlacesKey && placesApiKey.trim() ? '● Dedicated Key' : '● Uses Maps Key'}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-400">
+              Powers instant real-world search for landmarks, cities, highway junctions, addresses, and hospitals across India and globally.
+            </p>
+
+            {/* Toggle between unified Maps key vs dedicated Places key */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#161B22] border border-[#30363D]/80">
+              <div>
+                <div className="text-xs font-medium text-slate-200">Use Dedicated Places API Key</div>
+                <div className="text-[10px] text-slate-400">
+                  {useDedicatedPlacesKey
+                    ? 'Enter separate key restricted to Places API'
+                    : 'Automatically using your Google Maps API key'}
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={useDedicatedPlacesKey}
+                onChange={(e) => setUseDedicatedPlacesKey(e.target.checked)}
+                className="w-4 h-4 accent-[#AEF5F0] cursor-pointer"
+              />
+            </div>
+
+            {useDedicatedPlacesKey && (
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Places API Key</label>
+                <input
+                  type="text"
+                  value={placesApiKey}
+                  onChange={(e) => setPlacesApiKey(e.target.value)}
+                  placeholder="AIzaSy... (Places API Key)"
+                  className="w-full bg-[#161B22] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#AEF5F0]"
+                />
+              </div>
+            )}
+
+            {/* Interactive Live Place Search Tester */}
+            <div className="pt-2 border-t border-[#30363D]/60 space-y-2">
+              <label className="block text-[11px] font-semibold text-slate-300">
+                Test Real Place Search
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={testQuery}
+                  onChange={(e) => setTestQuery(e.target.value)}
+                  placeholder="e.g. Taj Mahal, Connaught Place, Jhansi Fort..."
+                  className="flex-1 bg-[#161B22] border border-[#30363D] rounded-xl px-3 py-1.5 text-white text-xs focus:outline-none focus:border-[#AEF5F0]"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestPlaceSearch}
+                  disabled={isTesting || !testQuery.trim()}
+                  className="px-3 py-1.5 rounded-xl bg-[#AEF5F0]/15 hover:bg-[#AEF5F0]/25 text-[#AEF5F0] border border-[#AEF5F0]/40 font-semibold text-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  {isTesting ? 'Testing...' : 'Test'}
+                </button>
+              </div>
+
+              {testError && (
+                <div className="text-[11px] text-amber-400 bg-amber-950/30 p-2 rounded-lg border border-amber-800/40">
+                  {testError}
+                </div>
+              )}
+
+              {testResults && testResults.length > 0 && (
+                <div className="bg-[#161B22] rounded-lg p-2.5 border border-[#30363D] max-h-36 overflow-y-auto space-y-1.5">
+                  <div className="text-[10px] text-emerald-400 font-semibold flex items-center justify-between">
+                    <span>✓ Places API Active ({testResults.length} found)</span>
+                  </div>
+                  {testResults.slice(0, 3).map((res, i) => (
+                    <div key={i} className="text-[11px] border-b border-[#30363D]/40 pb-1 last:border-0 last:pb-0">
+                      <div className="font-semibold text-slate-200">{res.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{res.displayName}</div>
+                      <div className="text-[9px] font-mono text-[#AEF5F0]">
+                        GPS: {res.lat.toFixed(5)}, {res.lng.toFixed(5)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

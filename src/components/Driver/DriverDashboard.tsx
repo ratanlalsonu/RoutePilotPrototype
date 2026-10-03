@@ -8,7 +8,7 @@ import { VehicleType, HazardType, HazardSeverity, RouteStep } from '../../types'
 import { searchPlaces, reverseGeocode } from '../../services/geocodingService';
 import { VoiceService } from '../../services/voiceService';
 import { getVehicleSpeedProfile, formatDurationText } from '../../services/routingService';
-import { getTranslation } from '../../services/i18n';
+import { getTranslation, translateText } from '../../services/i18n';
 import { NotificationCenterDropdown } from '../Common/NotificationCenterDropdown';
 
 interface DriverDashboardProps {
@@ -28,6 +28,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   const [isReportHazardOpen, setIsReportHazardOpen] = useState(false);
   const [isSosOpen, setIsSosOpen] = useState(false);
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+  const [isMapClearMode, setIsMapClearMode] = useState(false);
   const [language, setLanguage] = useState<'en' | 'hi'>(state.appSettings.language || 'en');
   const [voiceEnabled, setVoiceEnabled] = useState(state.appSettings.voiceEnabled ?? true);
   const [voiceTestFeedback, setVoiceTestFeedback] = useState<string | null>(null);
@@ -119,7 +120,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
       // Debounce network requests by 200ms
       searchDebounceRef.current = setTimeout(async () => {
         try {
-          const results = await searchPlaces(trimmed, state.appSettings.googleMapsApiKey);
+          const activePlacesKey = state.appSettings.placesApiKey || state.appSettings.googleMapsApiKey;
+          const results = await searchPlaces(trimmed, activePlacesKey);
           setSearchResults(results);
         } catch {
           setSearchResults([]);
@@ -437,7 +439,15 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 </div>
 
                 {/* Destination Search & Autocomplete */}
-                <div className="space-y-2 relative">
+                <div className="space-y-1.5 relative z-30">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                      <span>Destination Search</span>
+                      <span className="text-[9px] font-bold bg-[#AEF5F0]/15 text-[#AEF5F0] border border-[#AEF5F0]/30 px-1.5 py-0.5 rounded">
+                        Google Places Live
+                      </span>
+                    </label>
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
@@ -446,7 +456,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       onFocus={() => {
                         if (searchQuery.trim().length > 0) setShowSearchResults(true);
                       }}
-                      placeholder={t.searchPlaceholder}
+                      placeholder="Search any city, landmark, station, or address..."
                       className="w-full bg-[#21262D] border border-[#30363D] rounded-xl pl-9 pr-8 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0] shadow-inner"
                     />
                     <svg className="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -469,11 +479,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                   {/* Floating Autocomplete Dropdown */}
                   {showSearchResults && (
-                    <div className="absolute top-11 left-0 right-0 z-50 bg-[#161B22] border border-[#30363D] rounded-xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-[#30363D]">
-                      {isSearching && searchResults.length === 0 && (
-                        <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <div className="absolute top-full left-0 right-0 z-[100] mt-1 bg-[#161B22] border border-[#30363D] rounded-xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-[#30363D]/80">
+                      {isSearching && (
+                        <div className="p-3 text-center text-xs text-[#AEF5F0] flex items-center justify-center gap-2 bg-[#161B22]">
                           <span className="w-3.5 h-3.5 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></span>
-                          <span>Searching live locations...</span>
+                          <span>Searching Google Places in real time...</span>
                         </div>
                       )}
 
@@ -483,16 +493,19 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           onClick={() => handleSelectDestination(item)}
                           className="p-3 hover:bg-[#21262D] cursor-pointer transition flex items-start gap-2.5 text-xs group"
                         >
-                          <span className="text-base mt-0.5 shrink-0">📍</span>
+                          <span className="text-base mt-0.5 shrink-0 text-[#AEF5F0]">📍</span>
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-white group-hover:text-[#AEF5F0] truncate">
-                              {item.name}
+                            <div className="font-bold text-white group-hover:text-[#AEF5F0] truncate flex items-center gap-2">
+                              <span>{item.name}</span>
+                              <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                Real Place
+                              </span>
                             </div>
                             <div className="text-[10px] text-slate-400 truncate mt-0.5">
                               {item.displayName || item.roadName}
                             </div>
-                            <div className="text-[9px] font-mono text-cyan-400 mt-0.5">
-                              {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
+                            <div className="text-[9px] font-mono text-cyan-400 mt-0.5 flex items-center gap-2">
+                              <span>GPS: {item.lat.toFixed(5)}, {item.lng.toFixed(5)}</span>
                             </div>
                           </div>
                           <span className="text-[10px] font-semibold text-[#AEF5F0] opacity-0 group-hover:opacity-100 transition shrink-0 self-center">
@@ -507,10 +520,10 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                             No exact place found for "{searchQuery}"
                           </p>
                           <p className="text-[10px] text-slate-500">
-                            Try searching landmark names like "Medical College", "Jhansi Fort", "Station", "Elite", "Gwalior", or "Delhi".
+                            Try searching landmark names like "Taj Mahal", "Delhi", "Agra", "Kanpur", "Mumbai", or "Jhansi Fort".
                           </p>
                           <div className="flex flex-wrap justify-center gap-1 pt-1">
-                            {['Medical College', 'Railway Station', 'Jhansi Fort', 'Elite Crossing'].map((kw) => (
+                            {['Taj Mahal', 'Delhi Airport', 'Kanpur Central', 'Jhansi Fort'].map((kw) => (
                               <button
                                 key={kw}
                                 type="button"
@@ -583,7 +596,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         }}
                         className="text-[10px] text-slate-400 hover:text-red-400 underline cursor-pointer shrink-0"
                       >
-                        Change
+                        {t.changeDestinationBtn}
                       </button>
                     )}
                   </div>
@@ -595,9 +608,9 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     <div className="w-8 h-8 rounded-full bg-[#AEF5F0]/15 text-[#AEF5F0] flex items-center justify-center mx-auto text-sm">
                       🔍
                     </div>
-                    <div className="text-xs font-bold text-slate-200">Step 1: Search & Select Destination</div>
+                    <div className="text-xs font-bold text-slate-200">{t.step1SearchSelect}</div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Search your destination in the box above. Vehicle type and optimal routes will be calculated once destination is chosen.
+                      {t.step1Desc}
                     </p>
                   </div>
                 )}
@@ -611,10 +624,10 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         <div>
                           <div className="text-xs font-bold text-white flex items-center gap-1.5">
                             <span>🚗</span>
-                            <span>Step 2: Select Vehicle Type</span>
+                            <span>{t.step2SelectVehicle}</span>
                           </div>
                           <div className="text-[10px] text-slate-400">
-                            Calculates real transit speeds & optimal paths
+                            {t.step2Desc}
                           </div>
                         </div>
                         {isCalculatingRoutes && (
@@ -624,11 +637,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                       <div className="grid grid-cols-5 gap-1.5">
                         {[
-                          { id: 'car', label: 'Car', icon: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z', speed: '~54 km/h' },
-                          { id: 'bike', label: 'Bike', icon: 'M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 6H6m6 11.5l3.5-7 3.5 2', speed: '~42 km/h' },
-                          { id: 'van', label: 'Van', icon: 'M1 5h16v12H1zM17 9l4 2v6h-4', speed: '~48 km/h' },
-                          { id: 'bus', label: 'Bus', icon: 'M4 3h16v16H4zM4 11h16', speed: '~36 km/h' },
-                          { id: 'truck', label: 'Truck', icon: 'M1 3h15v13H1zM16 8h4l3 3v5h-7z', speed: '~32 km/h' },
+                          { id: 'car', label: t.vehicleCar, icon: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z', speed: language === 'hi' ? '~54 किमी/घं' : '~54 km/h' },
+                          { id: 'bike', label: t.vehicleBike, icon: 'M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 6H6m6 11.5l3.5-7 3.5 2', speed: language === 'hi' ? '~42 किमी/घं' : '~42 km/h' },
+                          { id: 'van', label: t.vehicleVan, icon: 'M1 5h16v12H1zM17 9l4 2v6h-4', speed: language === 'hi' ? '~48 किमी/घं' : '~48 km/h' },
+                          { id: 'bus', label: t.vehicleBus, icon: 'M4 3h16v16H4zM4 11h16', speed: language === 'hi' ? '~36 किमी/घं' : '~36 km/h' },
+                          { id: 'truck', label: t.vehicleTruck, icon: 'M1 3h15v13H1zM16 8h4l3 3v5h-7z', speed: language === 'hi' ? '~32 किमी/घं' : '~32 km/h' },
                         ].map((v) => (
                           <button
                             key={v.id}
@@ -653,7 +666,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           onClick={() => handleVehicleSelect(journey.vehicleType || 'car')}
                           className="w-full py-2.5 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-[#AEF5F0]/25"
                         >
-                          <span>🔍 Find Optimal Routes for {journey.vehicleType.toUpperCase()}</span>
+                          <span>🔍 {language === 'hi' ? `${translateText(journey.vehicleType, language)} के लिए सर्वश्रेष्ठ मार्ग खोजें` : `Find Optimal Routes for ${journey.vehicleType.toUpperCase()}`}</span>
                         </button>
                       )}
                     </div>
@@ -665,16 +678,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           <div>
                             <div className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span>🗺️</span>
-                              <span>Step 3: Choose an Optimal Route</span>
+                              <span>{t.step3ChooseOptimal}</span>
                             </div>
                             <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">
-                              {journey.alternativeRoutes.length} optimal paths calculated
+                              {journey.alternativeRoutes.length} {t.step3PathsCalculated}
                             </div>
                           </div>
                         </div>
 
                         <p className="text-[10px] text-slate-400">
-                          Select one route below. <span className="text-slate-200 font-semibold">Other optimal routes will disappear</span> once selected.
+                          {t.step3OtherHidden}
                         </p>
 
                         <div className="space-y-2">
@@ -688,21 +701,21 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               <div className="min-w-0 pr-2">
                                 <div className="flex items-center gap-1.5">
                                   <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate">
-                                    {alt.name}
+                                    {translateText(alt.name, language)}
                                   </span>
                                   {alt.isRecommended && (
                                     <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/20 px-1 py-0.5 rounded shrink-0">
-                                      Fastest
+                                      {t.fastestBadge}
                                     </span>
                                   )}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                                  {alt.viaRoads?.join(' • ') || 'Main Arterial Corridor'}
+                                  {alt.viaRoads?.join(' • ') || (language === 'hi' ? 'मुख्य गलियारा' : 'Main Arterial Corridor')}
                                 </div>
                                 <div className="text-xs font-mono font-bold text-white mt-1 flex items-center gap-2">
-                                  <span className="text-cyan-400">{alt.distanceKm} km</span>
+                                  <span className="text-cyan-400">{alt.distanceKm} {language === 'hi' ? 'किमी' : 'km'}</span>
                                   <span className="text-slate-500">•</span>
-                                  <span className="text-emerald-400">{alt.durationMinutes} min</span>
+                                  <span className="text-emerald-400">{alt.durationMinutes} {language === 'hi' ? 'मिनट' : 'min'}</span>
                                 </div>
                               </div>
 
@@ -714,7 +727,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                 }}
                                 className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shrink-0 shadow-md shadow-[#AEF5F0]/25 transition cursor-pointer"
                               >
-                                Select Route →
+                                {t.selectRouteBtn}
                               </button>
                             </div>
                           ))}
@@ -982,6 +995,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 hazards={hazards}
                 sensorNodes={sensorNodes}
                 journey={journey}
+                language={language}
                 onCommitRoute={handleCommitRoute}
                 onSelectDestinationFromMap={handleMapClickForDestination}
                 theme={state.appSettings.mapTheme}
@@ -989,17 +1003,19 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
                 onChangeSpeed={handleSpeedChange}
                 onTogglePlayPause={() => realtimeSync.setSimulating(!journey.isSimulating)}
+                isMapClearMode={isMapClearMode}
+                onToggleClearMode={() => setIsMapClearMode(!isMapClearMode)}
               />
 
               {/* Top HUD Banner on Map */}
-              {journey.isNavigating && currentManeuver && (
-                <div className="absolute top-4 left-4 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl flex items-center gap-3.5 max-w-md animate-fade-in">
+              {journey.isNavigating && currentManeuver && !isMapClearMode && (
+                <div className="absolute top-4 left-4 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl flex items-center gap-3.5 max-w-md animate-fade-in pointer-events-auto">
                   <div className="w-11 h-11 rounded-xl bg-[#AEF5F0]/20 border border-[#AEF5F0] flex items-center justify-center shrink-0">
                     {getTurnIcon(currentManeuver.turnType)}
                   </div>
                   <div>
                     <div className="text-[11px] font-mono text-cyan-400 font-semibold uppercase">
-                      In {currentManeuver.distanceMeters || 200} m
+                      {language === 'hi' ? `${currentManeuver.distanceMeters || 200} मी में` : `In ${currentManeuver.distanceMeters || 200} m`}
                     </div>
                     <div className="text-xs font-bold text-white leading-snug">
                       {currentManeuver.instruction}
@@ -1012,7 +1028,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   </div>
                   <button
                     onClick={handleTestVoice}
-                    title="Repeat voice maneuver"
+                    title={t.repeatVoiceBtn}
                     className="p-2 rounded-lg bg-[#21262D] hover:bg-[#30363D] text-slate-300 hover:text-white cursor-pointer ml-auto shrink-0"
                   >
                     🔊
@@ -1180,7 +1196,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
           </div>
         )}
 
-        {/* VIEW 2: MAP (Fullscreen Immersive Navigation View with Top HUD) */}
+        {/* VIEW 2: MAP (Fullscreen Immersive Navigation View with Coordinated Non-Overlapping HUD) */}
         {activeBottomNav === 'Map' && (
           <div key="driver-tab-map" className="animate-tab-switch flex-1 relative w-full h-full min-h-0 overflow-hidden">
             <RoutePilotMap
@@ -1188,6 +1204,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               hazards={hazards}
               sensorNodes={sensorNodes}
               journey={journey}
+              language={language}
               onCommitRoute={handleCommitRoute}
               onSelectDestinationFromMap={handleMapClickForDestination}
               theme={state.appSettings.mapTheme}
@@ -1195,168 +1212,292 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
               onChangeSpeed={handleSpeedChange}
               onTogglePlayPause={() => realtimeSync.setSimulating(!journey.isSimulating)}
+              isMapClearMode={isMapClearMode}
+              onToggleClearMode={() => setIsMapClearMode(!isMapClearMode)}
             />
 
-            {/* Turn-by-Turn Maneuver HUD Banner */}
-            {journey.isNavigating && currentManeuver && (
-              <div className="absolute top-4 left-4 right-16 sm:right-auto z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl flex items-center gap-3.5 max-w-md animate-fade-in">
-                <div className="w-12 h-12 rounded-xl bg-[#AEF5F0]/20 border border-[#AEF5F0] flex items-center justify-center shrink-0">
-                  {getTurnIcon(currentManeuver.turnType)}
+            {/* When Map Clear Mode is ACTIVE: Minimal prompt pill to restore HUD */}
+            {isMapClearMode ? (
+              <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-[995] animate-fade-in pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsMapClearMode(false)}
+                  className="px-3 py-1.5 rounded-full bg-[#161B22]/95 backdrop-blur-md border border-[#AEF5F0]/60 text-white font-bold text-xs shadow-2xl flex items-center gap-2 cursor-pointer hover:bg-[#21262D] transition active:scale-95"
+                >
+                  <span>👁️</span>
+                  <span>{t.showHudToggle}</span>
+                  <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">
+                    • {t.mapClearNotice}
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* ZONE 1: TOP-LEFT — Either Destination Search (Planning) OR Turn Maneuver Banner (Driving) + Clean Map Button */}
+                <div className="absolute top-3 left-3 sm:left-4 z-[995] flex items-start gap-1.5 w-[calc(100vw-110px)] sm:w-80 md:w-92 max-w-md pointer-events-auto">
+                  {!journey.isNavigating ? (
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <div className="relative shadow-2xl">
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => handleSearch(e.target.value)}
+                          onFocus={() => {
+                            if (searchQuery.trim().length > 0) setShowSearchResults(true);
+                          }}
+                          placeholder={t.searchMapPlaceholder}
+                          className="w-full bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl pl-8 pr-7 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0] shadow-xl"
+                        />
+                        <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                        {isSearching ? (
+                          <div className="absolute right-2.5 top-2.5 w-3.5 h-3.5 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></div>
+                        ) : searchQuery ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery('');
+                              setSearchResults([]);
+                              setShowSearchResults(false);
+                            }}
+                            className="absolute right-2 top-2 text-slate-400 hover:text-white text-xs p-0.5 rounded cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {showSearchResults && (
+                        <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-[#30363D]/80 animate-fade-in">
+                          {isSearching && (
+                            <div className="p-2 text-center text-xs text-[#AEF5F0] flex items-center justify-center gap-2">
+                              <span className="w-3 h-3 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></span>
+                              <span>{t.searchingLocationsLive}</span>
+                            </div>
+                          )}
+                          {searchResults.map((item, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => handleSelectDestination(item)}
+                              className="p-2 hover:bg-[#21262D] cursor-pointer transition flex items-start gap-2 text-xs group"
+                            >
+                              <span className="text-sm mt-0.5 shrink-0 text-[#AEF5F0]">📍</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-white group-hover:text-[#AEF5F0] truncate flex items-center gap-1.5">
+                                  <span>{item.name}</span>
+                                  <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                    {t.realPlaceBadge}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                  {item.displayName || item.roadName}
+                                </div>
+                                <div className="text-[9px] font-mono text-cyan-400 mt-0.5">
+                                  GPS: {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-semibold text-[#AEF5F0] opacity-0 group-hover:opacity-100 transition shrink-0 self-center">
+                                {t.selectPlaceBtn}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : currentManeuver ? (
+                    <div className="flex-1 bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 shadow-xl flex items-center gap-2.5 animate-fade-in min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#AEF5F0]/20 border border-[#AEF5F0] flex items-center justify-center shrink-0">
+                        {getTurnIcon(currentManeuver.turnType)}
+                      </div>
+                      <div className="truncate flex-1 min-w-0">
+                        <div className="text-[10px] font-mono text-cyan-400 font-semibold uppercase">
+                          {language === 'hi' ? `${currentManeuver.distanceMeters || 200} मी में` : `In ${currentManeuver.distanceMeters || 200} m`}
+                        </div>
+                        <div className="text-xs font-bold text-white truncate">
+                          {currentManeuver.instruction}
+                        </div>
+                        {currentManeuver.roadName && (
+                          <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                            {currentManeuver.roadName}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleTestVoice}
+                        title={t.repeatVoiceBtn}
+                        className="p-1.5 rounded-lg bg-[#21262D] hover:bg-[#30363D] text-slate-200 cursor-pointer shrink-0"
+                      >
+                        🔊
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {/* Clean Map Mode Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsMapClearMode(true)}
+                    title={t.cleanMapToggle}
+                    className="p-2 rounded-xl bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-300 hover:text-white transition cursor-pointer shadow-xl shrink-0"
+                  >
+                    <span className="text-xs">👁️</span>
+                  </button>
                 </div>
-                <div className="truncate">
-                  <div className="text-[11px] font-mono text-cyan-400 font-semibold uppercase">
-                    In {currentManeuver.distanceMeters || 250} m
-                  </div>
-                  <div className="text-xs font-bold text-white truncate">
-                    {currentManeuver.instruction}
-                  </div>
-                  {currentManeuver.roadName && (
-                    <div className="text-[10px] text-slate-400 truncate">
-                      {currentManeuver.roadName}
+
+                {/* ZONE 2: TOP-RIGHT — Stacked Hazard Alert and Available Alternates (Zero Overlap Guaranteed!) */}
+                <div className="absolute top-3 right-14 sm:right-16 z-[995] w-64 sm:w-72 flex flex-col gap-2 pointer-events-auto">
+                  {/* Prominent Hazard Alert Box */}
+                  {journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED' && (
+                    <div className="bg-gradient-to-br from-red-950/95 to-[#161B22]/95 backdrop-blur-md border-2 border-red-500 rounded-2xl p-2.5 sm:p-3 shadow-2xl animate-section-smooth">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-red-400 text-base">⚠️</span>
+                        <div className="font-bold text-white text-xs uppercase tracking-wide truncate">
+                          {t.hazardDetectedAheadTitle}
+                        </div>
+                      </div>
+                      <div className="text-[11px] font-semibold text-red-200 truncate">
+                        {translateText(journey.detectedHazard.type, language)}
+                      </div>
+                      <p className="text-[10px] text-slate-300 mb-2 truncate">
+                        {journey.detectedHazard.locationName}
+                      </p>
+                      <button
+                        onClick={handleOkFindAlternates}
+                        className="w-full py-1.5 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[11px] shadow cursor-pointer transition active:scale-95"
+                      >
+                        {t.okFindAlternatesBtn}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Alternative Routes Card (Stacked below hazard alert if alert exists) */}
+                  {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
+                    <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 shadow-2xl space-y-1.5 animate-section-smooth">
+                      <div className="text-[11px] font-bold text-white flex items-center justify-between border-b border-[#30363D] pb-1">
+                        <span>{t.availableAlternatesTitle}</span>
+                        <span className="text-[9px] text-emerald-400 font-semibold font-mono">
+                          {journey.alternativeRoutes.length} {t.pathsLabel}
+                        </span>
+                      </div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {journey.alternativeRoutes.map((alt) => (
+                          <div
+                            key={alt.id}
+                            onClick={() => handleCommitRoute(alt.id)}
+                            className="p-1.5 rounded-lg bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] cursor-pointer flex items-center justify-between text-xs transition"
+                            style={{ borderLeftWidth: '3px', borderLeftColor: alt.color }}
+                          >
+                            <div className="truncate mr-2">
+                              <div className="font-bold text-white text-[10px] truncate">{translateText(alt.name, language)}</div>
+                              <div className="text-[9px] text-slate-400">
+                                {alt.distanceKm} {language === 'hi' ? 'किमी' : 'km'} • {alt.durationMinutes} {language === 'hi' ? 'मिनट' : 'min'}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleCommitRoute(alt.id); }}
+                              className="px-2 py-0.5 rounded bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[9px] cursor-pointer shrink-0 transition"
+                            >
+                              {t.followBtn}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={handleTestVoice}
-                  title="Repeat Voice Announcement"
-                  className="p-2 rounded-lg bg-[#21262D] hover:bg-[#30363D] text-slate-200 cursor-pointer ml-auto shrink-0"
-                >
-                  🔊
-                </button>
-              </div>
-            )}
 
-            {/* Speedometer & Multiplier HUD Overlay (Bottom Left) */}
-            <div className="absolute bottom-20 left-4 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 sm:p-3 shadow-2xl flex items-center gap-3">
-              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full border-3 sm:border-4 border-[#AEF5F0] bg-[#AEF5F0]/15 flex flex-col items-center justify-center text-center shrink-0">
-                <span className="text-base sm:text-lg font-extrabold text-white leading-none">
-                  {journey.isNavigating ? journey.currentSpeedKmh : 0}
-                </span>
-                <span className="text-[7px] sm:text-[8px] text-slate-400 uppercase">km/h</span>
-              </div>
-              <div className="flex flex-col gap-1 border-l border-[#30363D] pl-2.5">
-                <div className="flex items-center justify-between text-[10px] gap-2">
-                  <span className="text-slate-400 font-semibold">Speed:</span>
-                  <span className="text-[#AEF5F0] font-mono font-bold">{journey.simulationSpeed || 1}x</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const cur = journey.simulationSpeed || 1;
-                      handleSpeedChange(Math.max(0.5, parseFloat((cur - 0.5).toFixed(1))));
-                    }}
-                    title="Slow down (-0.5x)"
-                    className="w-6 h-6 rounded-md bg-[#21262D] hover:bg-[#30363D] text-slate-200 font-bold text-xs flex items-center justify-center border border-[#30363D] cursor-pointer active:scale-95"
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const cur = journey.simulationSpeed || 1;
-                      handleSpeedChange(Math.min(10, parseFloat((cur + 0.5).toFixed(1))));
-                    }}
-                    title="Speed up (+0.5x)"
-                    className="w-6 h-6 rounded-md bg-[#21262D] hover:bg-[#30363D] text-[#AEF5F0] font-bold text-xs flex items-center justify-center border border-[#30363D] cursor-pointer active:scale-95"
-                  >
-                    +
-                  </button>
-                  {[1, 2, 4].map((spd) => (
+                {/* ZONE 3: BOTTOM-CENTER — Single Unified Cockpit Drive Bar (Zero Overlap with Legend or Attributions) */}
+                <div className="absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl shadow-2xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 flex items-center gap-2 sm:gap-3.5 select-none max-w-[calc(100vw-110px)] sm:max-w-md pointer-events-auto">
+                  {/* Speed Dial */}
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-[#AEF5F0] bg-[#AEF5F0]/10 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-xs sm:text-sm font-extrabold text-white leading-none font-mono">
+                        {journey.isNavigating ? journey.currentSpeedKmh : 0}
+                      </span>
+                      <span className="text-[7px] text-slate-400 uppercase">
+                        {language === 'hi' ? 'किमी/घं' : 'km/h'}
+                      </span>
+                    </div>
+                    {journey.isNavigating && (
+                      <div className="hidden sm:block text-[10px] text-slate-400 leading-tight">
+                        <div className="text-white font-mono font-bold">
+                          {journey.remainingDistanceKm} {language === 'hi' ? 'किमी' : 'km'}
+                        </div>
+                        <div>{t.etaLabel} {journey.eta}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-6 w-px bg-[#30363D]"></div>
+
+                  {/* Speed Multiplier Controls */}
+                  <div className="flex items-center gap-1">
                     <button
-                      key={spd}
                       type="button"
-                      onClick={() => handleSpeedChange(spd)}
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition cursor-pointer ${
-                        (journey.simulationSpeed || 1) === spd
-                          ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold'
-                          : 'bg-[#21262D] border-[#30363D] text-slate-400'
+                      onClick={() => {
+                        const cur = journey.simulationSpeed || 1;
+                        handleSpeedChange(Math.max(0.25, parseFloat((cur - 0.5).toFixed(2))));
+                      }}
+                      title={t.slowerBtn}
+                      className="w-6 h-6 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-95 text-slate-200 font-bold text-xs flex items-center justify-center border border-[#30363D] cursor-pointer"
+                    >
+                      −
+                    </button>
+                    <span className="font-mono text-[11px] font-bold text-[#AEF5F0] px-1 min-w-[28px] text-center">
+                      {journey.simulationSpeed || 1}x
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = journey.simulationSpeed || 1;
+                        handleSpeedChange(Math.min(10, parseFloat((cur + 0.5).toFixed(2))));
+                      }}
+                      title={t.fasterBtn}
+                      className="w-6 h-6 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-95 text-[#AEF5F0] font-bold text-xs flex items-center justify-center border border-[#30363D] cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="h-6 w-px bg-[#30363D]"></div>
+
+                  {/* Primary Action Buttons */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={toggleNavigation}
+                      disabled={!journey.destination?.name}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 ${
+                        !journey.destination?.name
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          : journey.isNavigating
+                          ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
+                          : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shadow-md shadow-[#AEF5F0]/30'
                       }`}
                     >
-                      {spd}x
+                      <span>{journey.isNavigating ? t.pauseNavigationBtn : t.startNavigationBtn}</span>
                     </button>
-                  ))}
-                </div>
-              </div>
-            </div>
 
-            {/* Floating Hazard Alert Overlay on Map */}
-            {journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED' && (
-              <div className="absolute top-20 left-4 right-4 sm:left-auto sm:right-4 z-[1000] max-w-sm bg-gradient-to-br from-red-950/90 to-[#161B22] border-2 border-red-500 rounded-2xl p-4 shadow-2xl animate-section-smooth transition-all duration-300">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-red-400 text-lg">⚠️</span>
-                  <div className="font-bold text-white text-xs uppercase tracking-wide">
-                    Hazard Detected: {journey.detectedHazard.type}
+                    {journey.isNavigating && (
+                      <>
+                        <button
+                          onClick={handleAdvanceStep}
+                          className="px-2 py-1.5 rounded-xl bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-slate-200 text-xs font-semibold cursor-pointer active:scale-95 hidden sm:inline-flex"
+                          title={t.stepForwardBtn}
+                        >
+                          {t.stepForwardBtn}
+                        </button>
+                        <button
+                          onClick={handleStopNavigation}
+                          title={t.stopTripBtn}
+                          className="px-2.5 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95"
+                        >
+                          {t.stopTripBtn}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-300 mb-3">
-                  Located near {journey.detectedHazard.locationName}. Rerouting suggested.
-                </p>
-                <button
-                  onClick={handleOkFindAlternates}
-                  className="w-full py-2.5 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 cursor-pointer"
-                >
-                  OK – Find Alternate Routes
-                </button>
-              </div>
+              </>
             )}
-
-            {/* Floating Alternate Routes Selector on Map */}
-            {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
-              <div className="absolute top-20 right-4 z-[1000] max-w-xs bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl space-y-2">
-                <div className="text-xs font-bold text-white flex items-center justify-between border-b border-[#30363D] pb-1.5">
-                  <span>Available Alternates</span>
-                  <span className="text-[10px] text-emerald-400 font-semibold">{journey.alternativeRoutes.length} paths</span>
-                </div>
-                <div className="space-y-1.5">
-                  {journey.alternativeRoutes.map((alt) => (
-                    <div
-                      key={alt.id}
-                      onClick={() => handleCommitRoute(alt.id)}
-                      className="p-2 rounded-xl bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] cursor-pointer flex items-center justify-between text-xs"
-                      style={{ borderLeftWidth: '3px', borderLeftColor: alt.color }}
-                    >
-                      <div>
-                        <div className="font-bold text-white text-[11px]">{alt.name}</div>
-                        <div className="text-[10px] text-slate-400">{alt.distanceKm} km • {alt.durationMinutes} min</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleCommitRoute(alt.id); }}
-                        className="px-2 py-0.5 rounded bg-[#AEF5F0] text-slate-950 font-bold text-[10px] cursor-pointer"
-                      >
-                        Follow
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Bottom Floating Navigation Controls */}
-            <div className="absolute bottom-20 right-4 z-[995] flex items-center gap-2 bg-[#161B22]/90 backdrop-blur-md p-2 rounded-2xl border border-[#30363D] shadow-2xl">
-              <button
-                onClick={toggleNavigation}
-                disabled={!journey.destination?.name}
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  !journey.destination?.name
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                    : journey.isNavigating
-                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                    : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950'
-                }`}
-              >
-                <span>{journey.isNavigating ? '⏸ Pause' : '▶ Start'}</span>
-              </button>
-              <button
-                onClick={handleAdvanceStep}
-                disabled={!journey.isNavigating}
-                className="px-3 py-2 rounded-xl bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-slate-200 text-xs font-semibold cursor-pointer"
-                title="Simulate step forward"
-              >
-                Step →
-              </button>
-            </div>
           </div>
         )}
 

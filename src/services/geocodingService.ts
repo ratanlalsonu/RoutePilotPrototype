@@ -6,15 +6,34 @@ export interface GeocodedLocation {
   displayName: string;
 }
 
+const USER_PRIMARY_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
+
 /**
  * Gets API key from environment or local storage
  */
 export function getGoogleMapsApiKey(): string {
   if (typeof window !== 'undefined') {
     const fromStorage = localStorage.getItem('routepilot_gmaps_api_key');
-    if (fromStorage) return fromStorage;
+    if (fromStorage && fromStorage !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') return fromStorage;
   }
-  return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
+  return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || USER_PRIMARY_KEY;
+}
+
+/**
+ * Gets Places API key from environment, local storage, or fallback to Google Maps key
+ */
+export function getGooglePlacesApiKey(): string {
+  if (typeof window !== 'undefined') {
+    const fromStorage = localStorage.getItem('routepilot_places_api_key');
+    if (fromStorage && fromStorage.trim().length > 0 && fromStorage !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') {
+      return fromStorage.trim();
+    }
+  }
+  return (
+    (import.meta as any).env?.VITE_GOOGLE_PLACES_API_KEY ||
+    getGoogleMapsApiKey() ||
+    USER_PRIMARY_KEY
+  );
 }
 
 /**
@@ -251,38 +270,78 @@ export async function searchPlaces(
     resultsMap.set(key, item);
   });
 
-  const apiKey = customApiKey || getGoogleMapsApiKey();
+  const placesKey = customApiKey || getGooglePlacesApiKey();
 
-  // 2. Google Places / Geocoding if API key is provided
-  if (apiKey) {
+  // 2. Google Places API (New) via Proxy Server
+  if (placesKey) {
     try {
-      const gUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-        query
-      )}&key=${apiKey}`;
-      const res = await fetch(gUrl);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`/api/places/search?q=${encodeURIComponent(query)}&key=${encodeURIComponent(placesKey)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
       if (res.ok) {
         const data = await res.json();
-        if (data.results && Array.isArray(data.results)) {
-          data.results.slice(0, 6).forEach((r: any) => {
-            const roadComp = r.address_components?.find((c: any) => c.types.includes('route'));
-            const name = r.address_components?.[0]?.long_name || r.formatted_address.split(',')[0];
-            const loc: GeocodedLocation = {
-              name,
-              roadName: roadComp?.long_name || 'Main Road',
-              lat: r.geometry.location.lat,
-              lng: r.geometry.location.lng,
-              displayName: r.formatted_address,
-            };
-            resultsMap.set(`${name}-${loc.lat.toFixed(3)}`, loc);
+        if (data.places && Array.isArray(data.places)) {
+          data.places.forEach((p: any) => {
+            const name = p.displayName?.text || p.shortFormattedAddress || query;
+            const lat = p.location?.latitude;
+            const lng = p.location?.longitude;
+            if (lat != null && lng != null) {
+              const displayName = p.formattedAddress || name;
+              const roadName = p.shortFormattedAddress?.split(',')?.[0] || 'Main Corridor';
+              const key = `${name}-${lat.toFixed(3)}`;
+              resultsMap.set(key, {
+                name,
+                roadName,
+                lat,
+                lng,
+                displayName,
+              });
+            }
           });
         }
       }
     } catch {
-      // Continue to Photon / Nominatim
+      // Fallback to JS SDK / Geocoding
     }
   }
 
-  // 3. Photon Komoot API — High Speed OpenStreetMap Autocomplete with CORS
+  // 3. Browser Google Maps JS SDK Places API (New) if initialized in client
+  if (typeof window !== 'undefined' && (window as any).google?.maps?.places?.Place?.searchByText) {
+    try {
+      const { places } = await (window as any).google.maps.places.Place.searchByText({
+        textQuery: query,
+        fields: ['displayName', 'formattedAddress', 'location', 'shortFormattedAddress'],
+        maxResultCount: 8,
+      });
+      if (places && Array.isArray(places)) {
+        places.forEach((p: any) => {
+          const name = p.displayName || query;
+          const lat = typeof p.location?.lat === 'function' ? p.location.lat() : p.location?.lat;
+          const lng = typeof p.location?.lng === 'function' ? p.location.lng() : p.location?.lng;
+          if (lat != null && lng != null) {
+            const displayName = p.formattedAddress || name;
+            const roadName = p.shortFormattedAddress || 'Main Corridor';
+            const key = `${name}-${lat.toFixed(3)}`;
+            resultsMap.set(key, {
+              name,
+              roadName,
+              lat,
+              lng,
+              displayName,
+            });
+          }
+        });
+      }
+    } catch {
+      // Continue
+    }
+  }
+
+  // 4. Photon Komoot API — High Speed OpenStreetMap Autocomplete with CORS
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2800);
