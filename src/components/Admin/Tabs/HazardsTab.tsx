@@ -122,70 +122,120 @@ export const HazardsTab: React.FC<HazardsTabProps> = ({ hazards, onCreateHazardC
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#30363D] bg-[#0D1117] text-[11px] text-slate-400 uppercase font-semibold">
-                  <th className="py-3 px-4">Hazard ID</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">Severity</th>
-                  <th className="py-3 px-4">Road &amp; Location</th>
-                  <th className="py-3 px-4">Radius</th>
-                  <th className="py-3 px-4">Coordinates</th>
-                  <th className="py-3 px-4">Source</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#30363D] font-mono text-slate-300">
-                {filteredHazards.map((h) => (
-                  <tr key={h.hazardId} className="hover:bg-[#21262D]/60 transition">
-                    <td className="py-3 px-4 font-bold text-white">{h.hazardId}</td>
-                    <td className="py-3 px-4 font-sans font-medium text-slate-200">{h.type}</td>
-                    <td className="py-3 px-4">
+          <>
+            {/* Mobile Card Feed for small screens */}
+            <div className="block md:hidden divide-y divide-[#30363D]">
+              {filteredHazards.map((h) => (
+                <div key={h.hazardId} className="p-3.5 space-y-2 hover:bg-[#21262D]/40 transition">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-white text-xs">{h.hazardId}</span>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getSeverityBadge(h.severity)}`}>
                         {h.severity}
                       </span>
-                    </td>
-                    <td className="py-3 px-4 font-sans">
-                      <div className="font-semibold text-white">{h.roadName}</div>
-                      <div className="text-[10px] text-slate-400">{h.locationName}</div>
-                    </td>
-                    <td className="py-3 px-4">{h.affectedRadius}m</td>
-                    <td className="py-3 px-4 text-[11px] text-slate-400">
-                      {h.latitude.toFixed(4)}, {h.longitude.toFixed(4)}
-                    </td>
-                    <td className="py-3 px-4 font-sans text-[11px]">
-                      <span className="px-1.5 py-0.5 rounded bg-[#21262D] border border-[#30363D] text-slate-300">
-                        {h.source}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        h.status === 'ACTIVE'
-                          ? 'bg-emerald-500/20 text-emerald-400'
-                          : 'bg-slate-700/50 text-slate-400'
-                      }`}>
-                        ● {h.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-sans">
-                      {h.status === 'ACTIVE' ? (
-                        <button
-                          onClick={() => realtimeSync.resolveHazard(h.hazardId)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 border border-emerald-500/40 text-emerald-300 hover:text-white font-bold text-[11px] transition cursor-pointer"
-                        >
-                          Resolve
-                        </button>
-                      ) : (
-                        <span className="text-slate-500 text-[10px]">Resolved</span>
-                      )}
-                    </td>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      h.status === 'ACTIVE'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-slate-700/50 text-slate-400'
+                    }`}>
+                      ● {h.status}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold text-white text-xs">{h.type}</div>
+                    <div className="text-[11px] text-slate-300 mt-0.5">{h.roadName} • {h.locationName}</div>
+                    {h.description && (
+                      <div className="text-[10px] text-slate-400 mt-1">{h.description}</div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-[#21262D] text-[10px] text-slate-400">
+                    <div>
+                      <span>Radius: {h.affectedRadius}m</span> • <span>Source: {h.source}</span>
+                    </div>
+                    {h.status === 'ACTIVE' ? (
+                      <button
+                        onClick={() => realtimeSync.resolveHazard(h.hazardId)}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 border border-emerald-500/40 text-emerald-300 hover:text-white font-bold text-[11px] transition cursor-pointer"
+                      >
+                        Resolve
+                      </button>
+                    ) : (
+                      <span className="text-slate-500 font-semibold">Resolved</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop / Tablet Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#30363D] bg-[#0D1117] text-[11px] text-slate-400 uppercase font-semibold">
+                    <th className="py-3 px-4">Hazard ID</th>
+                    <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-4">Severity</th>
+                    <th className="py-3 px-4">Road &amp; Location</th>
+                    <th className="py-3 px-4">Radius</th>
+                    <th className="py-3 px-4">Coordinates</th>
+                    <th className="py-3 px-4">Source</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#30363D] font-mono text-slate-300">
+                  {filteredHazards.map((h) => (
+                    <tr key={h.hazardId} className="hover:bg-[#21262D]/60 transition">
+                      <td className="py-3 px-4 font-bold text-white">{h.hazardId}</td>
+                      <td className="py-3 px-4 font-sans font-medium text-slate-200">{h.type}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getSeverityBadge(h.severity)}`}>
+                          {h.severity}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-sans">
+                        <div className="font-semibold text-white">{h.roadName}</div>
+                        <div className="text-[10px] text-slate-400">{h.locationName}</div>
+                      </td>
+                      <td className="py-3 px-4">{h.affectedRadius}m</td>
+                      <td className="py-3 px-4 text-[11px] text-slate-400">
+                        {h.latitude.toFixed(4)}, {h.longitude.toFixed(4)}
+                      </td>
+                      <td className="py-3 px-4 font-sans text-[11px]">
+                        <span className="px-1.5 py-0.5 rounded bg-[#21262D] border border-[#30363D] text-slate-300">
+                          {h.source}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          h.status === 'ACTIVE'
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-slate-700/50 text-slate-400'
+                        }`}>
+                          ● {h.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-sans">
+                        {h.status === 'ACTIVE' ? (
+                          <button
+                            onClick={() => realtimeSync.resolveHazard(h.hazardId)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 border border-emerald-500/40 text-emerald-300 hover:text-white font-bold text-[11px] transition cursor-pointer"
+                          >
+                            Resolve
+                          </button>
+                        ) : (
+                          <span className="text-slate-500 text-[10px]">Resolved</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

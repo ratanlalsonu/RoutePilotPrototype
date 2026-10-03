@@ -242,84 +242,164 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({ sensors, sensorMode, esp
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#30363D] bg-[#0D1117] text-[11px] text-slate-400 uppercase font-semibold">
-                  <th className="py-3 px-4">Node ID</th>
-                  <th className="py-3 px-4">Name</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">Location</th>
-                  <th className="py-3 px-4">Battery</th>
-                  <th className="py-3 px-4">Last Telemetry Reading</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#30363D] font-mono text-slate-300">
-                {sensors.map((s) => (
-                  <tr key={s.id} className="hover:bg-[#21262D]/60 transition">
-                    <td className="py-3 px-4 font-bold text-white">{s.id}</td>
-                    <td className="py-3 px-4 font-sans font-medium text-slate-200">{s.name}</td>
-                    <td className="py-3 px-4 font-sans text-slate-400">{s.type}</td>
-                    <td className="py-3 px-4 font-sans">{s.location}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+          <>
+            {/* Mobile Card Feed for small screens */}
+            <div className="block md:hidden divide-y divide-[#30363D]">
+              {sensors.map((s) => (
+                <div key={s.id} className="p-3.5 space-y-2.5 hover:bg-[#21262D]/40 transition">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-white text-xs">{s.id}</span>
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#21262D] text-slate-300 border border-[#30363D]">
+                        {s.type}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                         s.battery > 50 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
                       }`}>
-                        {s.battery}%
+                        🔋 {s.battery}%
                       </span>
-                    </td>
-                    <td className="py-3 px-4 text-[11px]">
-                      {s.lastReading ? (
-                        <span>
-                          {s.lastReading.vibrationMmS !== undefined && `Vib: ${s.lastReading.vibrationMmS} mm/s `}
-                          {s.lastReading.waterLevelM !== undefined && `Lvl: ${s.lastReading.waterLevelM}m `}
-                          {s.lastReading.tiltDegrees !== undefined && `Tilt: ${s.lastReading.tiltDegrees}°`}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">Awaiting ping</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
                         ● {s.status}
                       </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-sans">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => {
-                            realtimeSync.createHazard({
-                              type: 'Bridge Damage',
-                              severity: 'CRITICAL',
-                              latitude: s.lat,
-                              longitude: s.lng,
-                              locationName: s.name,
-                              roadName: s.location,
-                              affectedRadius: 200,
-                              description: `Critical vibration threshold exceeded on node ${s.id} (4.8 mm/s)`,
-                              source: 'LIVE_HARDWARE',
-                            });
-                          }}
-                          title="Simulate high vibration telemetry trigger"
-                          className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-semibold text-[10px] transition cursor-pointer"
-                        >
-                          Simulate Spike
-                        </button>
-                        <button
-                          onClick={() => realtimeSync.removeSensorNode(s.id)}
-                          className="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white text-[10px] transition cursor-pointer"
-                        >
-                          Remove
-                        </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold text-white text-xs">{s.name}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">{s.location}</div>
+                  </div>
+
+                  {/* Telemetry Reading Pills */}
+                  <div className="bg-[#0D1117] p-2 rounded-xl border border-[#21262D] text-[11px] font-mono text-slate-300">
+                    {s.lastReading ? (
+                      <div className="flex flex-wrap gap-2 justify-between">
+                        {s.lastReading.vibrationMmS !== undefined && (
+                          <span>Vib: <strong className="text-cyan-400">{s.lastReading.vibrationMmS} mm/s</strong></span>
+                        )}
+                        {s.lastReading.waterLevelM !== undefined && (
+                          <span>Water: <strong className="text-[#AEF5F0]">{s.lastReading.waterLevelM} m</strong></span>
+                        )}
+                        {s.lastReading.tiltDegrees !== undefined && (
+                          <span>Tilt: <strong className="text-amber-400">{s.lastReading.tiltDegrees}°</strong></span>
+                        )}
                       </div>
-                    </td>
+                    ) : (
+                      <span className="text-slate-500">Awaiting ping</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#21262D]">
+                    <button
+                      onClick={() => {
+                        realtimeSync.createHazard({
+                          type: 'Bridge Damage',
+                          severity: 'CRITICAL',
+                          latitude: s.lat,
+                          longitude: s.lng,
+                          locationName: s.name,
+                          roadName: s.location,
+                          affectedRadius: 200,
+                          description: `Critical vibration threshold exceeded on node ${s.id} (4.8 mm/s)`,
+                          source: 'LIVE_HARDWARE',
+                        });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-semibold text-[11px] transition cursor-pointer"
+                    >
+                      Simulate Spike
+                    </button>
+                    <button
+                      onClick={() => realtimeSync.removeSensorNode(s.id)}
+                      className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white text-[11px] transition cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop / Tablet Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#30363D] bg-[#0D1117] text-[11px] text-slate-400 uppercase font-semibold">
+                    <th className="py-3 px-4">Node ID</th>
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-4">Location</th>
+                    <th className="py-3 px-4">Battery</th>
+                    <th className="py-3 px-4">Last Telemetry Reading</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#30363D] font-mono text-slate-300">
+                  {sensors.map((s) => (
+                    <tr key={s.id} className="hover:bg-[#21262D]/60 transition">
+                      <td className="py-3 px-4 font-bold text-white">{s.id}</td>
+                      <td className="py-3 px-4 font-sans font-medium text-slate-200">{s.name}</td>
+                      <td className="py-3 px-4 font-sans text-slate-400">{s.type}</td>
+                      <td className="py-3 px-4 font-sans">{s.location}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          s.battery > 50 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {s.battery}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-[11px]">
+                        {s.lastReading ? (
+                          <span>
+                            {s.lastReading.vibrationMmS !== undefined && `Vib: ${s.lastReading.vibrationMmS} mm/s `}
+                            {s.lastReading.waterLevelM !== undefined && `Lvl: ${s.lastReading.waterLevelM}m `}
+                            {s.lastReading.tiltDegrees !== undefined && `Tilt: ${s.lastReading.tiltDegrees}°`}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">Awaiting ping</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                          ● {s.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-sans">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => {
+                              realtimeSync.createHazard({
+                                type: 'Bridge Damage',
+                                severity: 'CRITICAL',
+                                latitude: s.lat,
+                                longitude: s.lng,
+                                locationName: s.name,
+                                roadName: s.location,
+                                affectedRadius: 200,
+                                description: `Critical vibration threshold exceeded on node ${s.id} (4.8 mm/s)`,
+                                source: 'LIVE_HARDWARE',
+                              });
+                            }}
+                            title="Simulate high vibration telemetry trigger"
+                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-semibold text-[10px] transition cursor-pointer"
+                          >
+                            Simulate Spike
+                          </button>
+                          <button
+                            onClick={() => realtimeSync.removeSensorNode(s.id)}
+                            className="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white text-[10px] transition cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

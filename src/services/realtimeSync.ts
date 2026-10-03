@@ -130,6 +130,9 @@ function getInitialState(): RoutePilotState {
   const rawStoredTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null;
   const storedMapTheme: 'standard' | 'satellite' = rawStoredTheme === 'satellite' ? 'satellite' : 'standard';
 
+  const rawStoredLang = typeof window !== 'undefined' ? localStorage.getItem('routepilot_language') : null;
+  const storedLanguage: 'en' | 'hi' = rawStoredLang === 'hi' ? 'hi' : 'en';
+
   return {
     hazards: INITIAL_HAZARDS,
     sensorNodes: INITIAL_SENSORS,
@@ -145,7 +148,7 @@ function getInitialState(): RoutePilotState {
       apiServer: 'Online',
     },
     appSettings: {
-      language: 'en',
+      language: storedLanguage,
       voiceEnabled: true,
       sensorMode: 'HARDWARE',
       esp32Endpoint: 'http://192.168.1.100:80/api/sensor',
@@ -242,7 +245,14 @@ class RealtimeSyncManager {
 
   public updateSettings(partial: Partial<AppSettings>) {
     this.state.appSettings = { ...this.state.appSettings, ...partial };
-    if (partial.language) VoiceService.setLanguage(partial.language);
+    if (partial.language) {
+      VoiceService.setLanguage(partial.language);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('routepilot_language', partial.language);
+        } catch {}
+      }
+    }
     if (partial.voiceEnabled !== undefined) VoiceService.setEnabled(partial.voiceEnabled);
     if (partial.mapTheme && typeof window !== 'undefined') {
       try {
@@ -250,6 +260,12 @@ class RealtimeSyncManager {
       } catch {}
     }
     this.notify();
+  }
+
+  public toggleLanguage(): 'en' | 'hi' {
+    const nextLang: 'en' | 'hi' = this.state.appSettings.language === 'hi' ? 'en' : 'hi';
+    this.updateSettings({ language: nextLang });
+    return nextLang;
   }
 
   public toggleMapTheme(): 'standard' | 'satellite' {
@@ -362,6 +378,11 @@ class RealtimeSyncManager {
     }
 
     this.notify();
+  }
+
+  public resolveAllHazards() {
+    const active = this.state.hazards.filter((h) => h.status === 'ACTIVE');
+    active.forEach((h) => this.resolveHazard(h.hazardId));
   }
 
   public deleteHazard(hazardId: string) {

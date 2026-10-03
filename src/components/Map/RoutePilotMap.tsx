@@ -646,64 +646,68 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
       <div className="absolute top-3 right-3 z-[990] flex items-center bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl p-1 shadow-xl gap-1">
         <button
           onClick={() => selectMapStyle('standard')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
+          className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 sm:gap-1.5 transition active:scale-95 cursor-pointer ${
             mapStyle === 'standard'
               ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
               : 'text-slate-300 hover:text-white hover:bg-[#21262D]'
           }`}
         >
-          <span>🗺️ Standard Map</span>
+          <span>🗺️</span>
+          <span className="hidden sm:inline">Standard Map</span>
+          <span className="sm:hidden">Standard</span>
         </button>
         <button
           onClick={() => selectMapStyle('satellite')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
+          className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 sm:gap-1.5 transition active:scale-95 cursor-pointer ${
             mapStyle === 'satellite'
               ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
               : 'text-slate-300 hover:text-white hover:bg-[#21262D]'
           }`}
         >
-          <span>🛰️ Satellite Mode</span>
+          <span>🛰️</span>
+          <span className="hidden sm:inline">Satellite Mode</span>
+          <span className="sm:hidden">Satellite</span>
         </button>
       </div>
 
       {/* Map Controls (Right Side) */}
-      <div className="absolute right-4 bottom-24 z-[990] flex flex-col gap-2">
+      <div className="absolute right-3 sm:right-4 bottom-14 sm:bottom-24 z-[990] flex flex-col gap-1.5 sm:gap-2">
         <button
           onClick={handleZoomIn}
           title="Zoom In"
-          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         </button>
         <button
           onClick={handleZoomOut}
           title="Zoom Out"
-          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-slate-200 flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
         </button>
         <button
           onClick={handleCenterVehicle}
           title="Center on Driver"
-          className="w-9 h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-[#AEF5F0] flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#161B22]/90 border border-[#30363D] hover:bg-[#21262D] text-[#AEF5F0] flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
         </button>
         <button
           onClick={toggleMapStyle}
           title={mapStyle === 'satellite' ? 'Switch to Standard OpenStreetMap' : 'Switch to Satellite Mode'}
-          className={`w-9 h-9 rounded-lg border flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer ${
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer ${
             mapStyle === 'satellite'
               ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/20'
               : 'bg-[#161B22]/90 border-[#30363D] hover:bg-[#21262D] text-amber-400'
           }`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </button>
       </div>
 
       {/* Visible Map Attribution */}
-      <div className="absolute right-4 bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-xs text-[11px] text-slate-300 px-3 py-1 rounded-lg border border-[#30363D] flex items-center gap-1.5 shadow-lg select-none">
+      <div className="absolute right-3 sm:right-4 bottom-3 sm:bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-xs text-[9px] sm:text-[11px] text-slate-300 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg border border-[#30363D] flex items-center gap-1 sm:gap-1.5 shadow-lg select-none">
         {mapStyle === 'satellite' ? (
           <>
             <span>🛰️ Satellite © Esri • ©</span>
@@ -727,13 +731,13 @@ export const RoutePilotMap: React.FC<RoutePilotMapProps> = ({
             >
               OpenStreetMap
             </a>
-            <span>contributors</span>
+            <span className="hidden sm:inline">contributors</span>
           </>
         )}
       </div>
 
       {/* Map Legend Overlay (Bottom Left) matching screenshot */}
-      <div className="absolute left-4 bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] rounded-xl p-3 shadow-2xl text-[11px] text-slate-300">
+      <div className="hidden sm:block absolute left-4 bottom-4 z-[990] bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] rounded-xl p-3 shadow-2xl text-[11px] text-slate-300">
         <div className="font-semibold text-slate-200 mb-1.5 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#AEF5F0]"></span>
           <span>Map Legend</span>

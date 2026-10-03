@@ -47,7 +47,66 @@ export const RoadStatusTab: React.FC<RoadStatusTabProps> = ({ roadStatuses, haza
 
       {/* Roads Table */}
       <div className="bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
+        {/* Mobile Card Feed for small screens */}
+        <div className="block md:hidden divide-y divide-[#30363D]">
+          {MONITORED_CORRIDORS.map((road) => {
+            const { status, hazard } = getRoadInfo(road);
+            return (
+              <div key={road} className="p-3.5 space-y-2 hover:bg-[#21262D]/40 transition">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white text-xs">{road}</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    status === 'Blocked'
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : status === 'Restricted'
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : status === 'Warning'
+                      ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  }`}>
+                    ● {status}
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-slate-300">
+                  {hazard ? (
+                    <div>
+                      <span className="font-semibold text-white">{hazard.type}</span>
+                      <span className="text-slate-400 text-[10px] block">{hazard.locationName}</span>
+                      <span className="text-amber-400 font-bold text-[10px] block mt-0.5">Severity: {hazard.severity}</span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-500">Normal Traffic Flow</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-[#21262D]">
+                  <button
+                    onClick={() => handleToggleStatus(road, 'Open')}
+                    className="px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-[10px] font-bold transition cursor-pointer"
+                  >
+                    Open
+                  </button>
+                  <button
+                    onClick={() => handleToggleStatus(road, 'Restricted')}
+                    className="px-2.5 py-1 rounded bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white text-[10px] font-bold transition cursor-pointer"
+                  >
+                    Restrict
+                  </button>
+                  <button
+                    onClick={() => handleToggleStatus(road, 'Blocked')}
+                    className="px-2.5 py-1 rounded bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white text-[10px] font-bold transition cursor-pointer"
+                  >
+                    Block
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop / Tablet Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#30363D] bg-[#0D1117] text-[11px] text-slate-400 uppercase font-semibold">

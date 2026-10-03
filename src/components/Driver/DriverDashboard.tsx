@@ -8,6 +8,8 @@ import { VehicleType, HazardType, HazardSeverity, RouteStep } from '../../types'
 import { searchPlaces, reverseGeocode } from '../../services/geocodingService';
 import { VoiceService } from '../../services/voiceService';
 import { getVehicleSpeedProfile, formatDurationText } from '../../services/routingService';
+import { getTranslation } from '../../services/i18n';
+import { NotificationCenterDropdown } from '../Common/NotificationCenterDropdown';
 
 interface DriverDashboardProps {
   state: RoutePilotState;
@@ -29,6 +31,17 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   const [language, setLanguage] = useState<'en' | 'hi'>(state.appSettings.language || 'en');
   const [voiceEnabled, setVoiceEnabled] = useState(state.appSettings.voiceEnabled ?? true);
   const [voiceTestFeedback, setVoiceTestFeedback] = useState<string | null>(null);
+  const [gpsNotice, setGpsNotice] = useState<string | null>(null);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+
+  const t = getTranslation(language);
+
+  // Sync internal language state whenever appSettings.language updates
+  useEffect(() => {
+    if (state.appSettings.language && state.appSettings.language !== language) {
+      setLanguage(state.appSettings.language);
+    }
+  }, [state.appSettings.language]);
 
   const { journey, hazards, sensorNodes } = state;
 
@@ -78,12 +91,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
         },
         (err) => {
           setIsAcquiringGps(false);
-          alert(`GPS Notice: ${err.message}. Ensure location permissions are allowed.`);
+          console.warn(`GPS Notice: ${err.message}. Ensure location permissions are allowed.`);
+          setGpsNotice(`GPS Notice: ${err.message}`);
+          setTimeout(() => setGpsNotice(null), 4000);
         },
         { enableHighAccuracy: true, timeout: 8000 }
       );
     } else {
-      alert('Geolocation API not supported in this browser.');
+      console.warn('Geolocation API not supported in this browser.');
+      setGpsNotice('Geolocation API not supported in this browser.');
+      setTimeout(() => setGpsNotice(null), 4000);
     }
   };
 
@@ -146,7 +163,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   };
 
   const toggleNavigation = () => {
-    realtimeSync.setNavigating(!journey.isNavigating);
+    const nextState = !journey.isNavigating;
+    realtimeSync.setNavigating(nextState);
+    if (nextState && typeof window !== 'undefined' && window.innerWidth < 768) {
+      setActiveBottomNav('Map');
+    }
   };
 
   const handleStopNavigation = () => {
@@ -248,75 +269,128 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   return (
     <div className="flex flex-col h-screen w-screen bg-[#0D1117] text-slate-100 overflow-hidden font-sans select-none">
       {/* Top Header */}
-      <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-4 flex items-center justify-between z-30 shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-1 sm:px-4 flex items-center justify-between z-30 shrink-0 gap-1 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Logo */}
-          <div className="w-8 h-8 rounded-lg bg-[#AEF5F0] flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-[#AEF5F0]/25">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#AEF5F0] flex items-center justify-center text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/25 shrink-0">
+            <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
             </svg>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-base tracking-tight text-white">RoutePilot</span>
-              <span className="text-[10px] font-mono uppercase bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
-                Driver Navigation
-              </span>
-            </div>
+          <div className="flex items-center gap-1">
+            <span className="font-extrabold text-xs sm:text-base tracking-tight text-white inline shrink-0">RoutePilot</span>
+            <span className="hidden md:inline-flex text-[10px] font-mono uppercase bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
+              {t.driverNav}
+            </span>
           </div>
         </div>
 
         {/* Center Mode Switch */}
-        <div className="flex items-center bg-[#0D1117] p-1 rounded-xl border border-[#30363D]">
+        <div className="flex items-center bg-[#0D1117] p-0.5 sm:p-1 rounded-xl border border-[#30363D] shrink-0">
           <button
             onClick={() => onSwitchMode('admin')}
-            className="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white hover:bg-[#21262D] cursor-pointer"
+            className="px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition text-slate-400 hover:text-white hover:bg-[#21262D] cursor-pointer"
           >
-            Admin Mode
+            <span className="hidden sm:inline">{t.adminMode}</span>
+            <span className="sm:hidden">{language === 'hi' ? 'एडमिन' : 'Admin'}</span>
           </button>
           <button
             onClick={() => onSwitchMode('driver')}
-            className="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/30 cursor-pointer"
+            className="px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/30 cursor-pointer"
           >
-            Driver Mode
+            <span className="hidden sm:inline">{t.driverMode}</span>
+            <span className="sm:hidden">{language === 'hi' ? 'ड्राइवर' : 'Driver'}</span>
           </button>
         </div>
 
-        {/* Right Status */}
-        <div className="flex items-center gap-2 sm:gap-3 text-xs">
-          <div className="hidden sm:flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+        {/* Right Status Badges & Controls - NEVER HIDDEN ON MOBILE */}
+        <div className="flex items-center gap-1 sm:gap-1.5 text-xs shrink-0">
+          <div className="hidden lg:flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>GPS: Connected</span>
+            <span>{t.gpsConnected}</span>
           </div>
 
           {/* Quick SOS Header Button */}
           <button
             onClick={() => setIsSosOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-400 hover:text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+            className="p-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-400 hover:text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
             title="Emergency SOS Roadside Assistance"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping"></span>
-            <span>SOS</span>
+            <span className="hidden sm:inline">{t.emergencySos}</span>
+            <span className="sm:hidden font-bold text-[10px]">SOS</span>
           </button>
 
-          {/* Map Satellite Mode Toggle */}
+          {/* Quick Language Toggle */}
           <button
+            type="button"
+            onClick={() => realtimeSync.toggleLanguage()}
+            title={language === 'hi' ? 'Switch to English' : 'हिन्दी में बदलें'}
+            className="flex items-center gap-0.5 sm:gap-1 p-1 sm:px-2 sm:py-1.5 rounded-lg border border-[#30363D] bg-[#21262D] hover:bg-[#30363D] hover:border-[#AEF5F0]/40 text-slate-200 text-xs font-bold transition cursor-pointer shrink-0"
+          >
+            <span className="text-xs">🌐</span>
+            <span className="hidden sm:inline text-[11px] font-medium">{language === 'hi' ? 'EN' : 'हिन्दी'}</span>
+          </button>
+
+          {/* Notification Icon & Dropdown Center */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setNotificationOpen(!notificationOpen)}
+              title={t.notifications}
+              className={`p-1 sm:p-2 rounded-lg border relative transition cursor-pointer flex items-center justify-center shrink-0 ${
+                notificationOpen
+                  ? 'bg-[#30363D] border-[#AEF5F0] text-white shadow-md shadow-[#AEF5F0]/20'
+                  : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-300'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {hazards.filter((h) => h.status === 'ACTIVE').length > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-red-500 text-white text-[8px] sm:text-[9px] font-bold flex items-center justify-center border-2 border-[#161B22] animate-pulse">
+                  {hazards.filter((h) => h.status === 'ACTIVE').length}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Center Dropdown */}
+            <NotificationCenterDropdown
+              isOpen={notificationOpen}
+              onClose={() => setNotificationOpen(false)}
+              hazards={hazards}
+              routeEvents={state.routeEvents}
+              language={language}
+              onNavigateTab={(tab) => {
+                if (tab === 'Hazards' || tab === 'Route Events') {
+                  setActiveBottomNav('Alerts');
+                }
+                setNotificationOpen(false);
+              }}
+            />
+          </div>
+
+          {/* Map Satellite Mode Toggle - ALWAYS VISIBLE NEXT TO BELL */}
+          <button
+            type="button"
             onClick={() => realtimeSync.toggleMapTheme()}
             title={`Map Mode: ${state.appSettings.mapTheme === 'satellite' ? 'Satellite Mode' : 'Standard Map'} (Click to switch)`}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+            className={`p-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer flex items-center justify-center shrink-0 ${
               state.appSettings.mapTheme === 'satellite'
                 ? 'bg-[#AEF5F0] text-slate-950 font-bold border-[#AEF5F0] shadow-md shadow-[#AEF5F0]/30'
                 : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-200'
             }`}
           >
-            <span>{state.appSettings.mapTheme === 'satellite' ? '🛰️ Satellite' : '🗺️ Standard'}</span>
+            <span>🛰️</span>
+            <span className="hidden md:inline ml-0.5">{state.appSettings.mapTheme === 'satellite' ? 'Satellite' : 'Standard'}</span>
           </button>
 
-          {/* Settings Icon */}
+          {/* Settings Icon - ALWAYS VISIBLE NEXT TO SATELLITE */}
           <button
+            type="button"
             onClick={() => setIsSettingsOpen(true)}
-            title="RoutePilot Settings & API Key"
-            className="p-2 rounded-lg bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 transition cursor-pointer"
+            title={t.settings}
+            className="p-1 sm:p-2 rounded-lg bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 transition cursor-pointer flex items-center justify-center shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -333,17 +407,26 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
             {/* Left Column: Destination, Vehicle, Journey Controls */}
             <div className="w-full md:w-84 lg:w-88 bg-[#161B22] border-r border-[#30363D] flex flex-col justify-between shrink-0 overflow-y-auto z-10 p-4 space-y-4">
               <div className="space-y-4">
-                {/* Navigation Card Header */}
-                <div className="flex items-center justify-between border-b border-[#30363D] pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-[#AEF5F0]/15 text-[#AEF5F0] flex items-center justify-center">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                {/* Mobile Quick Map View Button */}
+                <div className="block md:hidden bg-[#21262D] border border-[#AEF5F0]/40 rounded-xl p-2.5 shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🗺️</span>
+                      <div>
+                        <div className="text-xs font-bold text-white">Interactive Live Map</div>
+                        <div className="text-[10px] text-slate-400 truncate max-w-[150px]">
+                          {journey.activeRoute ? journey.activeRoute.name : 'View roads & GPS'}
+                        </div>
+                      </div>
                     </div>
-                    <span className="font-bold text-sm text-white">Driver Cockpit</span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveBottomNav('Map')}
+                      className="px-2.5 py-1 rounded-lg bg-[#AEF5F0] text-slate-950 font-bold text-xs shadow cursor-pointer shrink-0"
+                    >
+                      View Map →
+                    </button>
                   </div>
-                  <span className={`text-xs font-semibold ${journey.isNavigating ? 'text-emerald-400' : 'text-slate-400'}`}>
-                    ● {journey.isNavigating ? 'Navigating' : 'Standby'}
-                  </span>
                 </div>
 
                 {/* Destination Search & Autocomplete */}
@@ -356,7 +439,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       onFocus={() => {
                         if (searchQuery.trim().length > 0) setShowSearchResults(true);
                       }}
-                      placeholder="Search any place in Jhansi, Delhi, Highway..."
+                      placeholder={t.searchPlaceholder}
                       className="w-full bg-[#21262D] border border-[#30363D] rounded-xl pl-9 pr-8 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0] shadow-inner"
                     />
                     <svg className="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -466,6 +549,12 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       <span>{isAcquiringGps ? 'Locating...' : 'Refresh GPS'}</span>
                     </button>
                   </div>
+
+                  {gpsNotice && (
+                    <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded my-1">
+                      {gpsNotice}
+                    </div>
+                  )}
 
                   <div className="border-l-2 border-dashed border-[#30363D] ml-1.5 h-3"></div>
 
@@ -1622,11 +1711,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
       {/* Driver Bottom Navigation Bar */}
       <nav className="h-16 bg-[#161B22] border-t border-[#30363D] px-4 flex items-center justify-around z-30 shrink-0">
         {[
-          { id: 'Home', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-          { id: 'Map', label: 'Map', icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
-          { id: 'Route', label: 'Route', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
-          { id: 'Alerts', label: 'Alerts', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', badge: journey.detectedHazard ? 1 : hazards.length },
-          { id: 'More', label: 'More', icon: 'M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z' },
+          { id: 'Home', label: t.navHome, icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+          { id: 'Map', label: t.navMap, icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
+          { id: 'Route', label: t.navRoute, icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+          { id: 'Alerts', label: t.navAlerts, icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', badge: journey.detectedHazard ? 1 : hazards.filter(h => h.status === 'ACTIVE').length },
+          { id: 'More', label: t.navMore, icon: 'M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z' },
         ].map((tab) => (
           <button
             key={tab.id}

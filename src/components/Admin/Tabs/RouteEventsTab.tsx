@@ -82,7 +82,7 @@ export const RouteEventsTab: React.FC<RouteEventsTabProps> = ({ events }) => {
         ) : (
           <div className="divide-y divide-[#30363D] font-sans">
             {filteredEvents.map((ev) => (
-              <div key={ev.id} className="p-3.5 hover:bg-[#21262D]/60 transition flex items-start justify-between gap-4">
+              <div key={ev.id} className="p-3.5 hover:bg-[#21262D]/60 transition flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
                 <div className="flex items-start gap-3">
                   <span className="font-mono text-[11px] text-slate-400 shrink-0 mt-0.5">{ev.time}</span>
                   <div>
@@ -91,7 +91,7 @@ export const RouteEventsTab: React.FC<RouteEventsTabProps> = ({ events }) => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 pl-11 sm:pl-0">
                   <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#21262D] text-slate-300 border border-[#30363D]">
                     {ev.driver}
                   </span>

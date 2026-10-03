@@ -1,6 +1,7 @@
 import React from 'react';
 import { RoutePilotState, realtimeSync } from '../../../services/realtimeSync';
 import { RoutePilotMap } from '../../Map/RoutePilotMap';
+import { getTranslation } from '../../../services/i18n';
 
 interface DashboardViewProps {
   state: RoutePilotState;
@@ -24,6 +25,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onQuickSecondHazardAhead,
 }) => {
   const { hazards, sensorNodes, journey, routeEvents, roadStatuses, systemHealth } = state;
+  const lang = state.appSettings.language || 'en';
+  const t = getTranslation(lang);
+
   const activeHazardsCount = hazards.filter((h) => h.status === 'ACTIVE').length;
   const onlineSensorsCount = sensorNodes.filter((s) => s.status === 'Online').length;
   const blockedRoadsCount = roadStatuses.filter((r) => r.status === 'Blocked').length;
@@ -31,30 +35,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <>
       {/* Top 4 KPI Cards matching screenshot Image 2 */}
-      <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="p-3 sm:p-4 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Card 1: Active Hazards */}
         <div
           onClick={() => onNavigateTab('Hazards')}
-          className="bg-[#161B22] border border-red-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-red-500/80 transition-all duration-200"
+          className="bg-[#161B22] border border-red-500/30 rounded-2xl p-3 sm:p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-red-500/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Hazards</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">{t.activeHazards}</div>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-extrabold text-white">{activeHazardsCount}</span>
-                <span className="text-xs text-red-400 font-bold flex items-center">
+                <span className="text-2xl sm:text-3xl font-extrabold text-white">{activeHazardsCount}</span>
+                <span className="text-[10px] sm:text-xs text-red-400 font-bold flex items-center">
                   ▲ {activeHazardsCount > 0 ? `+${activeHazardsCount}` : '0'}
                 </span>
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
           </div>
-          <div className="mt-3 text-[11px] font-semibold text-red-400/90 flex items-center gap-1 group-hover:translate-x-1 transition">
-            <span>View Details</span>
+          <div className="mt-2.5 sm:mt-3 text-[10px] sm:text-[11px] font-semibold text-red-400/90 flex items-center gap-1 group-hover:translate-x-1 transition">
+            <span>{lang === 'hi' ? 'विवरण देखें' : 'View Details'}</span>
             <span>→</span>
           </div>
         </div>
@@ -62,26 +66,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 2: Active Drivers */}
         <div
           onClick={() => onNavigateTab('Active Drivers')}
-          className="bg-[#161B22] border border-[#AEF5F0]/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-[#AEF5F0]/80 transition-all duration-200"
+          className="bg-[#161B22] border border-[#AEF5F0]/30 rounded-2xl p-3 sm:p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-[#AEF5F0]/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Drivers</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">{t.tabDrivers}</div>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-extrabold text-white">1</span>
-                <span className="text-[10px] text-[#AEF5F0] font-bold bg-[#AEF5F0]/15 px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
-                  {journey.status === 'IDLE' ? 'Standby' : journey.status}
+                <span className="text-2xl sm:text-3xl font-extrabold text-white">1</span>
+                <span className="text-[9px] sm:text-[10px] text-[#AEF5F0] font-bold bg-[#AEF5F0]/15 px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
+                  {journey.status === 'IDLE' ? t.standby : journey.status}
                 </span>
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-[#AEF5F0]/15 border border-[#AEF5F0]/30 flex items-center justify-center text-[#AEF5F0]">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-[#AEF5F0]/15 border border-[#AEF5F0]/30 flex items-center justify-center text-[#AEF5F0] shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z" />
               </svg>
             </div>
           </div>
-          <div className="mt-3 text-[11px] font-semibold text-[#AEF5F0]/90 flex items-center gap-1 group-hover:translate-x-1 transition">
-            <span>Live Tracking</span>
+          <div className="mt-2.5 sm:mt-3 text-[10px] sm:text-[11px] font-semibold text-[#AEF5F0]/90 flex items-center gap-1 group-hover:translate-x-1 transition">
+            <span>{lang === 'hi' ? 'लाइव ट्रैकिंग' : 'Live Tracking'}</span>
             <span>→</span>
           </div>
         </div>
@@ -89,25 +93,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 3: Online Sensor Nodes */}
         <div
           onClick={() => onNavigateTab('Sensor Nodes')}
-          className="bg-[#161B22] border border-emerald-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-emerald-500/80 transition-all duration-200"
+          className="bg-[#161B22] border border-emerald-500/30 rounded-2xl p-3 sm:p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-emerald-500/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Online Sensor Nodes</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">{t.sensorNodesOnline}</div>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-extrabold text-white">
-                  {onlineSensorsCount} <span className="text-slate-500 text-lg font-normal">/ {sensorNodes.length}</span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-white">
+                  {onlineSensorsCount} <span className="text-slate-500 text-sm sm:text-lg font-normal">/ {sensorNodes.length}</span>
                 </span>
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34" />
               </svg>
             </div>
           </div>
-          <div className="mt-3 text-[11px] font-semibold text-emerald-400/90 flex items-center gap-1 group-hover:translate-x-1 transition">
-            <span>View Nodes</span>
+          <div className="mt-2.5 sm:mt-3 text-[10px] sm:text-[11px] font-semibold text-emerald-400/90 flex items-center gap-1 group-hover:translate-x-1 transition">
+            <span>{lang === 'hi' ? 'नोड्स देखें' : 'View Nodes'}</span>
             <span>→</span>
           </div>
         </div>
@@ -115,40 +119,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 4: Blocked Roads */}
         <div
           onClick={() => onNavigateTab('Road Status')}
-          className="bg-[#161B22] border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-500/80 transition-all duration-200"
+          className="bg-[#161B22] border border-amber-500/30 rounded-2xl p-3 sm:p-4 shadow-lg flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-500/80 transition-all duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Blocked Roads</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">{t.roadsBlocked}</div>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-extrabold text-white">{blockedRoadsCount}</span>
-                <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded">
-                  {blockedRoadsCount > 0 ? 'Traffic Restricted' : 'Corridors Normal'}
+                <span className="text-2xl sm:text-3xl font-extrabold text-white">{blockedRoadsCount}</span>
+                <span className="text-[9px] sm:text-[10px] text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[120px]">
+                  {blockedRoadsCount > 0 ? (lang === 'hi' ? 'प्रतिबंधित' : 'Restricted') : (lang === 'hi' ? 'सामान्य' : 'Normal')}
                 </span>
               </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
             </div>
           </div>
-          <div className="mt-3 text-[11px] font-semibold text-amber-400/90 flex items-center gap-1 group-hover:translate-x-1 transition">
-            <span>View Roads</span>
+          <div className="mt-2.5 sm:mt-3 text-[10px] sm:text-[11px] font-semibold text-amber-400/90 flex items-center gap-1 group-hover:translate-x-1 transition">
+            <span>{lang === 'hi' ? 'सड़कें देखें' : 'View Roads'}</span>
             <span>→</span>
           </div>
         </div>
       </div>
 
       {/* Central Workspace: Live Map + Right Monitoring Panels */}
-      <div className="px-4 pb-4 grid grid-cols-1 xl:grid-cols-4 gap-4 flex-1 min-h-[460px]">
+      <div className="px-3 sm:px-4 pb-4 grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4 flex-1">
         {/* Map Column (3 cols on XL) */}
-        <div className="xl:col-span-3 flex flex-col bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl min-h-[440px]">
+        <div className="xl:col-span-3 flex flex-col bg-[#161B22] border border-[#30363D] rounded-2xl overflow-hidden shadow-xl h-[340px] sm:h-[440px] xl:h-auto min-h-[320px]">
           {/* Map Bar: Controls & Quick Actions */}
-          <div className="px-4 py-3 border-b border-[#30363D] bg-[#161B22] flex flex-wrap items-center justify-between gap-2 z-10">
+          <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-[#30363D] bg-[#161B22] flex flex-wrap items-center justify-between gap-2 z-10">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-white">Live Map — Real Time Monitoring</span>
-              <span className="text-xs text-slate-400 hidden sm:inline">• OpenStreetMap Real Roads</span>
+              <span className="font-bold text-xs sm:text-sm text-white">
+                {lang === 'hi' ? 'लाइव मैप — वास्तविक समय निगरानी' : 'Live Map — Real Time Monitoring'}
+              </span>
+              <span className="text-[11px] text-slate-400 hidden md:inline">• OpenStreetMap Real Roads</span>
             </div>
 
             {/* Demonstration & Hazard Creation Controls */}
@@ -162,31 +168,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 }`}
               >
                 <span>+</span>
-                <span>{isCreatingHazard ? 'Click Map Point...' : 'Create Hazard Anywhere'}</span>
+                <span>{isCreatingHazard ? (lang === 'hi' ? 'मैप पर बिंदु चुनें...' : 'Click Map Point...') : t.addHazardButton}</span>
               </button>
 
               <button
                 onClick={onQuickHazardOnRoute}
                 title="Creates Hazard on active route (triggers alert)"
-                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
+                className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
               >
-                ⚠ Hazard on Driver Route
+                <span>⚠ </span>
+                <span className="hidden sm:inline">Hazard on Driver Route</span>
+                <span className="sm:hidden">On-Route</span>
               </button>
 
               <button
                 onClick={onQuickHazardAwayFromRoute}
                 title="Creates hazard far away (proves rule 13: NO driver alert)"
-                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-slate-500 text-slate-300 transition cursor-pointer"
+                className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-slate-500 text-slate-300 transition cursor-pointer"
               >
-                Hazard Away (No Alert)
+                <span className="hidden sm:inline">Hazard Away (No Alert)</span>
+                <span className="sm:hidden">Away</span>
               </button>
 
               <button
                 onClick={onQuickSecondHazardAhead}
                 title="Creates second hazard ahead on diverted route (tests repeated diversion!)"
-                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-amber-500 text-amber-300 transition cursor-pointer"
+                className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-amber-500 text-amber-300 transition cursor-pointer"
               >
-                ⚠ 2nd Hazard Ahead
+                <span>⚠ </span>
+                <span className="hidden sm:inline">2nd Hazard Ahead</span>
+                <span className="sm:hidden">2nd Hazard</span>
               </button>
 
               <button

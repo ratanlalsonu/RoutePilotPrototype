@@ -57,16 +57,16 @@ export const SystemLogsTab: React.FC<SystemLogsTabProps> = ({ systemHealth }) =>
           <span>RoutePilot Service Daemon Output</span>
           <span>STDOUT / STDERR</span>
         </div>
-        <div className="space-y-1.5 text-slate-300">
+        <div className="space-y-1.5 text-slate-300 overflow-x-auto text-[11px] sm:text-xs pb-1">
           {logs.map((l, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <span className="text-slate-400 select-none">{l.timestamp}</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+            <div key={i} className="flex items-start gap-2 sm:gap-3 min-w-[480px] sm:min-w-0">
+              <span className="text-slate-400 select-none shrink-0">{l.timestamp}</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold shrink-0 ${
                 l.level === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[#AEF5F0]/15 text-[#AEF5F0]'
               }`}>
                 {l.level}
               </span>
-              <span className="text-amber-400 font-semibold">[{l.component}]</span>
+              <span className="text-amber-400 font-semibold shrink-0">[{l.component}]</span>
               <span className="text-slate-200">{l.message}</span>
             </div>
           ))}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AppSettings } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
+import { getTranslation } from '../../services/i18n';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -15,8 +16,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const [sensorMode, setSensorMode] = useState<'VIRTUAL' | 'HARDWARE'>(settings.sensorMode || 'HARDWARE');
   const [esp32Endpoint, setEsp32Endpoint] = useState(settings.esp32Endpoint || 'http://192.168.1.100:80/api/sensor');
   const [isSaved, setIsSaved] = useState(false);
+  const [isPurged, setIsPurged] = useState(false);
 
   if (!isOpen) return null;
+
+  const t = getTranslation(language);
+
+  const handleLanguageClick = (lang: 'en' | 'hi') => {
+    setLanguage(lang);
+    realtimeSync.updateSettings({ language: lang });
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +49,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
       localStorage.clear();
     }
     realtimeSync.resetDemo();
-    alert('All dummy and cached data purged! System reset to 100% clean live baseline.');
-    onClose();
+    setIsPurged(true);
+    setTimeout(() => {
+      setIsPurged(false);
+      onClose();
+    }, 800);
   };
 
   return (
@@ -56,13 +68,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </svg>
             </div>
             <div>
-              <h3 className="font-bold text-white text-base">RoutePilot System Configuration</h3>
-              <p className="text-xs text-slate-400">API Integration, Live Sensors & Clean Baseline</p>
+              <h3 className="font-bold text-white text-base">{t.settingsTitle}</h3>
+              <p className="text-xs text-slate-400">{t.settingsSubtitle}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#21262D] transition"
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#21262D] transition cursor-pointer"
           >
             ✕
           </button>
@@ -85,11 +97,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
           {/* Language Selection */}
           <div>
-            <label className="block font-semibold text-slate-300 mb-1.5">Voice Navigation & UI Language</label>
+            <label className="block font-semibold text-slate-300 mb-1.5">{t.languageSelectLabel}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setLanguage('en')}
+                onClick={() => handleLanguageClick('en')}
                 className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   language === 'en'
                     ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
@@ -100,7 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </button>
               <button
                 type="button"
-                onClick={() => setLanguage('hi')}
+                onClick={() => handleLanguageClick('hi')}
                 className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   language === 'hi'
                     ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
@@ -115,8 +127,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           {/* Voice Alerts Toggle */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-[#21262D] border border-[#30363D]">
             <div>
-              <div className="font-semibold text-slate-200">Text-to-Speech Voice Alerts</div>
-              <div className="text-[10px] text-slate-400">Spoken warnings when hazards are detected</div>
+              <div className="font-semibold text-slate-200">{t.voiceAlertsLabel}</div>
+              <div className="text-[10px] text-slate-400">{t.voiceAlertsSub}</div>
             </div>
             <input
               type="checkbox"
@@ -128,29 +140,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
           {/* Sensor Mode Selection */}
           <div>
-            <label className="block font-semibold text-slate-300 mb-1.5">IoT Infrastructure Sensor Mode</label>
+            <label className="block font-semibold text-slate-300 mb-1.5">{t.sensorModeLabel}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setSensorMode('HARDWARE')}
-                className={`py-2 px-3 rounded-xl border font-bold transition ${
+                className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   sensorMode === 'HARDWARE'
                     ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300'
                     : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
-                External Hardware (ESP32)
+                {t.sensorModeHardware}
               </button>
               <button
                 type="button"
                 onClick={() => setSensorMode('VIRTUAL')}
-                className={`py-2 px-3 rounded-xl border font-bold transition ${
+                className={`py-2 px-3 rounded-xl border font-bold transition cursor-pointer ${
                   sensorMode === 'VIRTUAL'
                     ? 'bg-amber-600/30 border-amber-500 text-amber-300'
                     : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-white'
                 }`}
               >
-                Virtual Test Mode
+                {t.sensorModeVirtual}
               </button>
             </div>
           </div>
@@ -177,7 +189,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               className="w-full py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              <span>Purge Cache & Enforce Zero-Dummy State</span>
+              <span>{isPurged ? t.purgeSuccess : t.purgeButton}</span>
             </button>
           </div>
 
@@ -188,13 +200,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               onClick={onClose}
               className="flex-1 py-2.5 px-4 rounded-xl bg-[#21262D] hover:bg-[#30363D] text-slate-300 font-semibold transition border border-[#30363D] cursor-pointer"
             >
-              Cancel
+              {t.cancelButton}
             </button>
             <button
               type="submit"
               className="flex-1 py-2.5 px-4 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold transition shadow-lg shadow-[#AEF5F0]/25 flex items-center justify-center gap-2 cursor-pointer"
             >
-              {isSaved ? <span>✓ Saved!</span> : <span>Save Configuration</span>}
+              {isSaved ? <span>{t.savedSuccess}</span> : <span>{t.saveButton}</span>}
             </button>
           </div>
         </form>

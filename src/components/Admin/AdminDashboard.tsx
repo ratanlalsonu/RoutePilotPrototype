@@ -13,6 +13,8 @@ import { RoadStatusTab } from './Tabs/RoadStatusTab';
 import { RouteEventsTab } from './Tabs/RouteEventsTab';
 import { SystemLogsTab } from './Tabs/SystemLogsTab';
 import { AnalyticsTab } from './Tabs/AnalyticsTab';
+import { getTranslation } from '../../services/i18n';
+import { NotificationCenterDropdown } from '../Common/NotificationCenterDropdown';
 
 interface AdminDashboardProps {
   state: RoutePilotState;
@@ -26,6 +28,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
+
+  const lang = state.appSettings.language || 'en';
+  const t = getTranslation(lang);
 
   const { hazards, sensorNodes, journey, routeEvents, roadStatuses, systemHealth } = state;
 
@@ -100,93 +106,141 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   return (
     <div className="flex flex-col h-screen w-screen bg-[#0D1117] text-slate-100 overflow-hidden font-sans">
       {/* Header matching screenshot Image 2 */}
-      <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-4 flex items-center justify-between z-20 shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-1 sm:px-4 flex items-center justify-between z-20 shrink-0 gap-1 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Three-line icon to open and close sidebar (Only 3 lines) */}
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            title={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            className="p-1 sm:p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-[#21262D] transition cursor-pointer flex items-center justify-center shrink-0"
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
           {/* Logo */}
-          <div className="w-8 h-8 rounded-lg bg-[#AEF5F0] flex items-center justify-center text-slate-950 shadow-lg shadow-[#AEF5F0]/25">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#AEF5F0] flex items-center justify-center text-slate-950 shadow-md shadow-[#AEF5F0]/25 shrink-0">
+            <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
             </svg>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-base tracking-tight text-white">RoutePilot</span>
-              <span className="text-[10px] font-mono uppercase bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
-                Command Center
-              </span>
-            </div>
+          <div className="flex items-center gap-1">
+            <span className="font-extrabold text-xs sm:text-base tracking-tight text-white inline shrink-0">RoutePilot</span>
+            <span className="hidden md:inline-flex text-[10px] font-mono uppercase bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
+              {t.commandCenter}
+            </span>
           </div>
         </div>
 
         {/* Center Mode Switch */}
-        <div className="flex items-center bg-[#0D1117] p-1 rounded-xl border border-[#30363D]">
+        <div className="flex items-center bg-[#0D1117] p-0.5 sm:p-1 rounded-xl border border-[#30363D] shrink-0">
           <button
             onClick={() => onSwitchMode('admin')}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold transition bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/30"
+            className="px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition bg-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/30 cursor-pointer"
           >
-            Admin Mode
+            <span className="hidden sm:inline">{t.adminMode}</span>
+            <span className="sm:hidden">{lang === 'hi' ? 'एडमिन' : 'Admin'}</span>
           </button>
           <button
             onClick={() => onSwitchMode('driver')}
-            className="px-4 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white hover:bg-[#21262D]"
+            className="px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition text-slate-400 hover:text-white hover:bg-[#21262D] cursor-pointer"
           >
-            Driver Mode
+            <span className="hidden sm:inline">{t.driverMode}</span>
+            <span className="sm:hidden">{lang === 'hi' ? 'ड्राइवर' : 'Driver'}</span>
           </button>
         </div>
 
-        {/* Right Status Badges */}
-        <div className="flex items-center gap-4 text-xs">
+        {/* Right Status Badges & Controls - NEVER HIDDEN */}
+        <div className="flex items-center gap-1 sm:gap-1.5 text-xs shrink-0">
           <div className="hidden lg:flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>System Online</span>
+            <span>{t.systemOnline}</span>
           </div>
           <div className="hidden lg:flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Database Connected</span>
+            <span>{t.databaseConnected}</span>
           </div>
 
-          {/* Notification Icon */}
-          <div className="relative">
+          {/* Quick Language Toggle */}
+          <button
+            type="button"
+            onClick={() => realtimeSync.toggleLanguage()}
+            title={lang === 'hi' ? 'Switch to English' : 'हिन्दी में बदलें'}
+            className="flex items-center gap-0.5 sm:gap-1 p-1 sm:px-2 sm:py-1.5 rounded-lg border border-[#30363D] bg-[#21262D] hover:bg-[#30363D] hover:border-[#AEF5F0]/40 text-slate-200 text-xs font-bold transition cursor-pointer shrink-0"
+          >
+            <span className="text-xs">🌐</span>
+            <span className="hidden sm:inline text-[11px] font-semibold">{lang === 'hi' ? 'EN' : 'हिन्दी'}</span>
+          </button>
+
+          {/* Notification Icon & Dropdown Center */}
+          <div className="relative shrink-0">
             <button
+              type="button"
               onClick={() => setNotificationOpen(!notificationOpen)}
-              className="p-2 rounded-lg bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 relative transition cursor-pointer"
+              title={t.notifications}
+              className={`p-1 sm:p-2 rounded-lg border relative transition cursor-pointer flex items-center justify-center shrink-0 ${
+                notificationOpen
+                  ? 'bg-[#30363D] border-[#AEF5F0] text-white shadow-md shadow-[#AEF5F0]/20'
+                  : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-300'
+              }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-[#161B22]">
-                {activeHazardsCount}
-              </span>
+              {activeHazardsCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-red-500 text-white text-[8px] sm:text-[9px] font-bold flex items-center justify-center border-2 border-[#161B22] animate-pulse">
+                  {activeHazardsCount}
+                </span>
+              )}
             </button>
+
+            {/* Notification Center Dropdown */}
+            <NotificationCenterDropdown
+              isOpen={notificationOpen}
+              onClose={() => setNotificationOpen(false)}
+              hazards={hazards}
+              routeEvents={routeEvents}
+              language={lang}
+              onNavigateTab={(tab) => {
+                setActiveTab(tab);
+                setNotificationOpen(false);
+              }}
+            />
           </div>
 
-          <div className="text-right hidden sm:block">
+          <div className="text-right hidden xl:block">
             <div className="font-mono text-xs font-semibold text-slate-200">
               {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
             <div className="text-[10px] text-slate-400">
-              {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {new Date().toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
             </div>
           </div>
 
-          {/* Map Satellite Mode Toggle */}
+          {/* Map Satellite Mode Toggle - ALWAYS VISIBLE NEXT TO BELL */}
           <button
+            type="button"
             onClick={() => realtimeSync.toggleMapTheme()}
             title={`Map Mode: ${state.appSettings.mapTheme === 'satellite' ? 'Satellite Mode' : 'Standard Map'} (Click to switch)`}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+            className={`p-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer flex items-center justify-center shrink-0 ${
               state.appSettings.mapTheme === 'satellite'
                 ? 'bg-[#AEF5F0] text-slate-950 font-bold border-[#AEF5F0] shadow-md shadow-[#AEF5F0]/30'
                 : 'bg-[#21262D] border-[#30363D] hover:bg-[#30363D] text-slate-200'
             }`}
           >
-            <span>{state.appSettings.mapTheme === 'satellite' ? '🛰️ Satellite Mode (Active)' : '🛰️ Satellite Mode'}</span>
+            <span>🛰️</span>
+            <span className="hidden md:inline ml-0.5">{state.appSettings.mapTheme === 'satellite' ? 'Satellite' : 'Standard'}</span>
           </button>
 
-          {/* Settings Icon */}
+          {/* Settings Icon - ALWAYS VISIBLE NEXT TO SATELLITE */}
           <button
+            type="button"
             onClick={() => setIsSettingsOpen(true)}
-            title="RoutePilot Settings & API Key"
-            className="p-2 rounded-lg bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 transition cursor-pointer"
+            title={t.settings}
+            className="p-1 sm:p-2 rounded-lg bg-[#21262D] border border-[#30363D] hover:bg-[#30363D] text-slate-300 transition cursor-pointer flex items-center justify-center shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -196,61 +250,85 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       </header>
 
       {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar matching screenshot Image 2 */}
-        <aside className="w-56 bg-[#161B22] border-r border-[#30363D] flex flex-col justify-between shrink-0 hidden md:flex">
-          <nav className="p-3 space-y-1">
-            {[
-              { id: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
-              { id: 'Live Map', icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
-              { id: 'Hazards', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
-              { id: 'Sensor Nodes', icon: 'M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0' },
-              { id: 'Active Drivers', icon: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0' },
-              { id: 'Road Status', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' },
-              { id: 'A* Algorithm', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
-              { id: 'Route Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
-              { id: 'System Logs', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-              { id: 'Analytics', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-              { id: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
-            ].map((item) => (
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Backdrop for sidebar drawer */}
+        <div
+          className={`fixed inset-0 top-14 z-30 bg-black/60 backdrop-blur-xs md:hidden transition-opacity duration-300 ease-out ${
+            isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          onClick={() => setIsSidebarOpen(false)}
+        />
+
+        {/* Left Sidebar (Desktop in-flow smooth collapse/expand, Mobile slide-over drawer) */}
+        <aside
+          className={`fixed md:static top-14 bottom-0 left-0 z-40 md:z-10 bg-[#161B22] border-r border-[#30363D] flex flex-col justify-between shrink-0 shadow-2xl md:shadow-none overflow-hidden will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] md:transition-[width,opacity] md:duration-300 md:ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isSidebarOpen
+              ? 'translate-x-0 w-64 md:w-56 opacity-100 pointer-events-auto'
+              : '-translate-x-full md:translate-x-0 w-64 md:w-0 md:opacity-0 md:border-r-transparent pointer-events-none'
+          }`}
+        >
+          <div className="w-64 md:w-56 flex flex-col justify-between h-full shrink-0">
+            <nav className="p-3 space-y-1 overflow-y-auto">
+              {[
+                { id: 'Dashboard', label: t.tabDashboard, icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
+                { id: 'Live Map', label: t.tabLiveMap, icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
+                { id: 'Hazards', label: t.tabHazards, icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
+                { id: 'Sensor Nodes', label: t.tabSensors, icon: 'M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0' },
+                { id: 'Active Drivers', label: t.tabDrivers, icon: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0' },
+                { id: 'Road Status', label: t.tabRoadStatus, icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' },
+                { id: 'A* Algorithm', label: t.tabAlgorithm, icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+                { id: 'Route Events', label: t.tabRouteEvents, icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+                { id: 'System Logs', label: t.tabSystemLogs, icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+                { id: 'Analytics', label: t.tabAnalytics, icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+                { id: 'Settings', label: t.tabSettings, icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === 'Settings') {
+                      setIsSettingsOpen(true);
+                    } else {
+                      setActiveTab(item.id);
+                    }
+                    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                      setIsSidebarOpen(false);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer ${
+                    activeTab === item.id
+                      ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
+                  }`}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                  </svg>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="p-3 border-t border-[#30363D]">
               <button
-                key={item.id}
                 onClick={() => {
-                  if (item.id === 'Settings') {
-                    setIsSettingsOpen(true);
-                  } else {
-                    setActiveTab(item.id);
+                  realtimeSync.resetDemo();
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setIsSidebarOpen(false);
                   }
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer ${
-                  activeTab === item.id
-                    ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
-                }`}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition cursor-pointer"
               >
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span>{item.id}</span>
+                <span>{lang === 'hi' ? 'डेमो रीसेट करें' : 'Reset Demo State'}</span>
               </button>
-            ))}
-          </nav>
-
-          <div className="p-3 border-t border-[#30363D]">
-            <button
-              onClick={() => realtimeSync.resetDemo()}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition cursor-pointer"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span>Reset State / Logout</span>
-            </button>
+            </div>
           </div>
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 flex flex-col overflow-y-auto bg-[#0D1117] transition-all duration-300">
+        <main className="flex-1 flex flex-col overflow-y-auto bg-[#0D1117] transition-all duration-300 ease-in-out min-w-0">
           {activeTab === 'Dashboard' && (
             <div key="tab-dashboard" className="animate-tab-switch flex-1 flex flex-col">
               <DashboardView
