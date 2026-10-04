@@ -37,6 +37,37 @@ export function getGooglePlacesApiKey(): string {
  * Provides instant 0ms autocomplete matching as user types, backed by real GPS coordinates.
  */
 const REAL_KNOWN_PLACES: GeocodedLocation[] = [
+  // 30 Map Nodes (Indian States & Capitals from RoutePilot Map)
+  { name: 'Delhi', roadName: 'Yamuna Expressway & NH-44', lat: 28.6139, lng: 77.2090, displayName: 'Delhi, National Capital Territory, India' },
+  { name: 'West Bengal', roadName: 'Grand Trunk Road & NH-19', lat: 22.5726, lng: 88.3639, displayName: 'West Bengal (Kolkata), India' },
+  { name: 'Maharashtra', roadName: 'Mumbai-Pune Expressway & NH-48', lat: 19.0760, lng: 72.8777, displayName: 'Maharashtra (Mumbai), India' },
+  { name: 'Uttar Pradesh', roadName: 'Purvanchal & Agra-Lucknow Expressway', lat: 26.8467, lng: 80.9462, displayName: 'Uttar Pradesh (Lucknow), India' },
+  { name: 'Punjab', roadName: 'GT Road & NH-44', lat: 31.3260, lng: 75.5762, displayName: 'Punjab (Amritsar / Jalandhar), India' },
+  { name: 'Haryana', roadName: 'KMP Expressway & NH-44', lat: 29.0588, lng: 76.0856, displayName: 'Haryana (Rohtak / Gurugram), India' },
+  { name: 'Rajasthan', roadName: 'NH-48 Jaipur-Ajmer Highway', lat: 26.9124, lng: 75.7873, displayName: 'Rajasthan (Jaipur), India' },
+  { name: 'Gujarat', roadName: 'Ahmedabad-Vadodara Expressway & NH-48', lat: 23.0225, lng: 72.5714, displayName: 'Gujarat (Ahmedabad / Surat), India' },
+  { name: 'Madhya Pradesh', roadName: 'Bhopal-Indore Corridor & NH-46', lat: 23.2599, lng: 77.4126, displayName: 'Madhya Pradesh (Bhopal / Indore), India' },
+  { name: 'Bihar', roadName: 'Mahatma Gandhi Setu & NH-31', lat: 25.5941, lng: 85.1376, displayName: 'Bihar (Patna), India' },
+  { name: 'Jammu & Kashmir', roadName: 'NH-44 North Jammu Highway', lat: 34.0837, lng: 74.7973, displayName: 'Jammu & Kashmir (Srinagar / Jammu), India' },
+  { name: 'Himachal Pradesh', roadName: 'NH-5 Shimla-Kalka Expressway', lat: 31.1048, lng: 77.1734, displayName: 'Himachal Pradesh (Shimla), India' },
+  { name: 'Uttarakhand', roadName: 'NH-7 Dehradun-Rishikesh Highway', lat: 30.3165, lng: 78.0322, displayName: 'Uttarakhand (Dehradun), India' },
+  { name: 'Sikkim', roadName: 'NH-10 Teesta River Highway', lat: 27.3389, lng: 88.6065, displayName: 'Sikkim (Gangtok), India' },
+  { name: 'Assam', roadName: 'Saraighat Brahmaputra Highway & NH-27', lat: 26.1445, lng: 91.7362, displayName: 'Assam (Guwahati), India' },
+  { name: 'Arunachal Pradesh', roadName: 'Trans-Arunachal Highway', lat: 27.0844, lng: 93.6053, displayName: 'Arunachal Pradesh (Itanagar), India' },
+  { name: 'Nagaland', roadName: 'Dimapur-Kohima Highway & NH-29', lat: 25.6751, lng: 94.1086, displayName: 'Nagaland (Kohima), India' },
+  { name: 'Manipur', roadName: 'Imphal Valley Highway & NH-2', lat: 24.8170, lng: 93.9368, displayName: 'Manipur (Imphal), India' },
+  { name: 'Meghalaya', roadName: 'Shillong Plateau Highway & NH-6', lat: 25.5788, lng: 91.8933, displayName: 'Meghalaya (Shillong), India' },
+  { name: 'Tripura', roadName: 'Agartala Highway & NH-8', lat: 23.8315, lng: 91.2868, displayName: 'Tripura (Agartala), India' },
+  { name: 'Mizoram', roadName: 'Aizawl Mountain Expressway & NH-54', lat: 23.7271, lng: 92.7176, displayName: 'Mizoram (Aizawl), India' },
+  { name: 'Jharkhand', roadName: 'Ranchi-Jamshedpur Highway & NH-33', lat: 23.3441, lng: 85.3096, displayName: 'Jharkhand (Ranchi), India' },
+  { name: 'Chhattisgarh', roadName: 'Mahanadi Basin Highway & NH-30', lat: 21.2514, lng: 81.6296, displayName: 'Chhattisgarh (Raipur), India' },
+  { name: 'Odisha', roadName: 'Golden Triangle Coastal Highway & NH-16', lat: 20.2961, lng: 85.8245, displayName: 'Odisha (Bhubaneswar), India' },
+  { name: 'Telangana', roadName: 'Hyderabad Outer Ring Express & NH-44', lat: 17.3850, lng: 78.4867, displayName: 'Telangana (Hyderabad), India' },
+  { name: 'Andhra Pradesh', roadName: 'Amaravati-Guntur Corridor & NH-16', lat: 16.5062, lng: 80.6480, displayName: 'Andhra Pradesh (Vijayawada / Amaravati), India' },
+  { name: 'Goa', roadName: 'Zuari River Express & NH-66', lat: 15.2993, lng: 74.1240, displayName: 'Goa (Panaji / Margao), India' },
+  { name: 'Karnataka', roadName: 'Bengaluru-Mysuru Expressway & NH-48', lat: 12.9716, lng: 77.5946, displayName: 'Karnataka (Bengaluru), India' },
+  { name: 'Kerala', roadName: 'Palakkad Gap Kerala Gateway & NH-544', lat: 8.5241, lng: 76.9366, displayName: 'Kerala (Thiruvananthapuram / Kochi), India' },
+  { name: 'Tamil Nadu', roadName: 'Grand Southern Trunk Road & NH-44', lat: 13.0827, lng: 80.2707, displayName: 'Tamil Nadu (Chennai), India' },
   // Jhansi City & Surroundings
   {
     name: 'Maharani Laxmi Bai Medical College',

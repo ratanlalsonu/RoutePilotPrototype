@@ -379,7 +379,7 @@ class RealtimeSyncManager {
     // Only affects driver if it affects that driver's CURRENT ACTIVE ROUTE."
     this.checkHazardAgainstActiveRoute(newHazard);
 
-    this.notify();
+    this.notify(true, true);
     return newHazard;
   }
 
@@ -414,7 +414,7 @@ class RealtimeSyncManager {
       }
     }
 
-    this.notify();
+    this.notify(true, true);
   }
 
   public resolveAllHazards() {
@@ -424,7 +424,7 @@ class RealtimeSyncManager {
 
   public deleteHazard(hazardId: string) {
     this.state.hazards = this.state.hazards.filter((h) => h.hazardId !== hazardId);
-    this.notify();
+    this.notify(true, true);
   }
 
   /**
@@ -463,8 +463,8 @@ class RealtimeSyncManager {
       // Voice notification to driver
       VoiceService.notifyHazardDetected(hazard.type, hazard.locationName);
 
-      // Instantly trigger A* Algorithm Re-evaluation upon Hazard Detection!
-      this.reEvaluateRoutesWithAStarAfterHazard(hazard);
+      // Notify UI immediately so the "Find Other Route" alert is shown to driver
+      this.notify(true, true);
     } else {
       // Hazard does not affect current route
       this.addRouteEvent({
@@ -478,15 +478,16 @@ class RealtimeSyncManager {
   }
 
   /**
-   * Driver clicks "OK - FIND ALTERNATE ROUTES"
-   * Calculates multiple optimal routes directly on map without requiring select buttons!
+   * Driver clicks "OK - FIND ALTERNATE ROUTES" / "Find Other Route"
+   * Calculates multiple optimal routes directly on map and UI for the user to choose from
    */
   public async handleDriverConfirmFindAlternates() {
     const j = this.state.journey;
     if (!j.detectedHazard || !j.activeRoute) return;
 
+    const currentHazard = j.detectedHazard;
     j.diversionState = 'CALCULATING_ALTERNATIVES';
-    this.notify();
+    this.notify(true, true);
 
     const currentCoords: [number, number] = [j.currentLocation.lat, j.currentLocation.lng];
 
@@ -495,74 +496,54 @@ class RealtimeSyncManager {
       currentCoords[0],
       currentCoords[1],
       j.destination,
-      j.detectedHazard,
+      currentHazard,
       j.vehicleType
     );
 
+    // Evaluate with A* algorithm to score the detour routes
+    let evaluatedRoutes = alternatives;
+    if (alternatives.length > 0) {
+      try {
+        const aStarResult = evaluateRoutesWithAStar(
+          alternatives,
+          { lat: currentCoords[0], lng: currentCoords[1], name: 'Current Location' },
+          j.destination,
+          this.state.hazards,
+          j.vehicleType
+        );
+        this.state.aStarEvaluation = aStarResult;
+        evaluatedRoutes = aStarResult.routes;
+      } catch (err) {
+        console.warn('A* Evaluation note:', err);
+      }
+    }
+
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    j.alternativeRoutes = alternatives;
+    j.alternativeRoutes = evaluatedRoutes;
     j.diversionState = 'ALTERNATIVES_DISPLAYED';
-    j.handledHazardIds = [...j.handledHazardIds, j.detectedHazard.hazardId];
 
     this.addRouteEvent({
       time: nowTime,
-      event: 'Alternative routes generated on map',
+      event: 'Optimal Alternative Routes Generated',
       driver: j.driverId,
       status: 'Success',
-      details: `${alternatives.length} optimal routes calculated from current position (no select button needed)`,
+      details: `${evaluatedRoutes.length} optimal routes calculated bypassing ${currentHazard.type}. Awaiting driver selection.`,
     });
 
-    VoiceService.notifyAlternativesDisplayed(alternatives.length);
-    this.notify();
+    VoiceService.speak(
+      `${evaluatedRoutes.length} optimal detour routes found. Please select a route to proceed.`,
+      `${evaluatedRoutes.length} सर्वोत्तम वैकल्पिक मार्ग उपलब्ध हैं। कृपया यात्रा जारी रखने के लिए एक मार्ग चुनें।`
+    );
+
+    this.notify(true, true);
   }
 
   /**
-   * Driver commits to a route by vehicle movement onto it
-   * (Once vehicle enters Route B, all other alternatives disappear!)
+   * Driver commits to a route
    */
   public commitToAlternateRoute(selectedRouteId: string) {
-    const j = this.state.journey;
-    const chosenRoute = j.alternativeRoutes.find((r) => r.id === selectedRouteId);
-    if (!chosenRoute) return;
-
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // Transition state
-    j.activeRouteId = chosenRoute.id;
-    j.activeRoute = chosenRoute;
-    j.alternativeRoutes = []; // ALL OTHER ALTERNATIVES DISAPPEAR!
-    j.detectedHazard = null;
-    j.diversionState = 'NEW_ROUTE_ACTIVE';
-    j.diversionCount += 1;
-    j.status = 'DIVERTED';
-
-    // Reset vehicle index to beginning of this new route
-    j.currentLocation.pointIndex = 0;
-    j.progressMeters = 0;
-    if (chosenRoute.coordinates.length > 0) {
-      j.currentLocation.lat = chosenRoute.coordinates[0][0];
-      j.currentLocation.lng = chosenRoute.coordinates[0][1];
-    }
-
-    this.addRouteEvent({
-      time: nowTime,
-      event: `Driver entered ${chosenRoute.name}`,
-      driver: j.driverId,
-      status: 'Success',
-      details: `${chosenRoute.name} became ACTIVE route (${chosenRoute.distanceKm} km, ${chosenRoute.durationMinutes} min). Previous alternatives removed.`,
-    });
-
-    VoiceService.notifyNewRouteActive(chosenRoute.name);
-
-    setTimeout(() => {
-      if (this.state.journey.diversionState === 'NEW_ROUTE_ACTIVE') {
-        this.state.journey.diversionState = 'ROUTE_ACTIVE';
-        this.notify();
-      }
-    }, 2000);
-
-    this.notify();
+    this.selectOptimalRoute(selectedRouteId);
   }
 
   private getRouteCumulativeDistances(coords: [number, number][]): number[] {
@@ -687,17 +668,10 @@ class RealtimeSyncManager {
     // Instantly notify high-frequency vehicle listeners (Leaflet marker glides at 60fps without React overhead)
     this.vehicleListeners.forEach((cb) => cb(j.currentLocation, j.currentSpeedKmh));
 
-    // If alternatives are currently displayed, check if vehicle moved closer/onto one of them
-    if (j.diversionState === 'ALTERNATIVES_DISPLAYED' && j.alternativeRoutes.length > 0) {
-      if (idx > 2 || nextProgress > 160) {
-        this.commitToAlternateRoute(j.alternativeRoutes[0].id);
-        return;
-      }
-    }
-
-    // Continuously check active hazards ahead on route (run periodically)
+    // When alternatives are displayed or hazard detected, driver chooses when to commit.
+    // Continuously check active hazards ahead on route for new or subsequent hazards
     this.hazardCheckCounter = (this.hazardCheckCounter + 1) % 15;
-    if (this.hazardCheckCounter === 0 && j.diversionState === 'ROUTE_ACTIVE' && !j.detectedHazard) {
+    if (this.hazardCheckCounter === 0 && (j.diversionState === 'ROUTE_ACTIVE' || j.diversionState === 'NEW_ROUTE_ACTIVE') && !j.detectedHazard) {
       for (const h of this.state.hazards) {
         if (h.status === 'ACTIVE' && !j.handledHazardIds.includes(h.hazardId)) {
           const { affects, aheadOfDriver } = hazardAffectsRoute(h, coords, idx);
@@ -869,7 +843,7 @@ class RealtimeSyncManager {
 
     this.updateRoadStatusForHazard(newHazard);
     this.checkHazardAgainstActiveRoute(newHazard);
-    this.notify();
+    this.notify(true, true);
     return newHazard;
   }
 
@@ -1077,23 +1051,39 @@ class RealtimeSyncManager {
   }
 
   /**
-   * User chooses ONE optimal route -> ALL OTHER OPTIMAL PATHS DISAPPEAR!
+   * User chooses ONE optimal route -> ALL OTHER OPTIMAL PATHS DISAPPEAR & HAZARD NOTIFICATION DISAPPEARS!
    */
   public selectOptimalRoute(selectedRouteId: string) {
     const j = this.state.journey;
-    const chosenRoute = j.alternativeRoutes.find((r) => r.id === selectedRouteId) ||
+    const chosenRoute =
+      j.alternativeRoutes.find((r) => r.id === selectedRouteId) ||
+      this.state.aStarEvaluation?.routes.find((r) => r.id === selectedRouteId) ||
       (j.activeRoute?.id === selectedRouteId ? j.activeRoute : null);
 
     if (!chosenRoute) return;
 
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // CRITICAL USER REQUIREMENT:
-    // "user optimal koi ek choose karta hai to other optimal path dispear ho jaye"
+    // 1. Chosen route becomes ACTIVE
     j.activeRoute = chosenRoute;
     j.activeRouteId = chosenRoute.id;
+
+    // 2. CRITICAL USER REQUIREMENT:
+    // "uske baad other route disapear ho jaye"
     j.alternativeRoutes = []; // ALL OTHER ALTERNATIVE ROUTES DISAPPEAR!
 
+    // 3. CRITICAL USER REQUIREMENT:
+    // "uske baad hazard ka notification bhi gayab ho jaye"
+    if (j.detectedHazard) {
+      if (!j.handledHazardIds.includes(j.detectedHazard.hazardId)) {
+        j.handledHazardIds.push(j.detectedHazard.hazardId);
+      }
+    }
+    j.detectedHazard = null; // HAZARD NOTIFICATION DISAPPEARS!
+    j.diversionState = 'ROUTE_ACTIVE';
+    j.diversionCount += 1;
+
+    // 4. Update distance and ETA
     j.totalDistanceKm = chosenRoute.distanceKm;
     j.remainingDistanceKm = chosenRoute.distanceKm;
     j.remainingDurationMinutes = chosenRoute.durationMinutes;
@@ -1101,12 +1091,11 @@ class RealtimeSyncManager {
     const etaDate = new Date(Date.now() + chosenRoute.durationMinutes * 60000);
     j.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    j.diversionState = 'ROUTE_ACTIVE';
-    j.status = 'IDLE'; // Ready to navigate
+    // 5. Seamless navigation continuation
     j.progressPercent = 0;
     j.progressMeters = 0;
 
-    // Place vehicle at start of chosen route
+    // Place vehicle at the start of the chosen route
     if (chosenRoute.coordinates.length > 0) {
       j.currentLocation = {
         lat: chosenRoute.coordinates[0][0],
@@ -1116,20 +1105,26 @@ class RealtimeSyncManager {
       };
     }
 
+    if (j.isNavigating) {
+      j.status = 'DIVERTED';
+    } else {
+      j.status = 'IDLE';
+    }
+
     this.addRouteEvent({
       time: nowTime,
       event: `Active Route Chosen: ${chosenRoute.name}`,
       driver: j.driverId,
       status: 'Success',
-      details: `Distance: ${chosenRoute.distanceKm} km, Travel Time: ${chosenRoute.durationMinutes} min. Other alternatives dismissed.`,
+      details: `Distance: ${chosenRoute.distanceKm} km, Travel Time: ${chosenRoute.durationMinutes} min. Hazard cleared and all alternative routes dismissed.`,
     });
 
     VoiceService.speak(
-      `${chosenRoute.name} selected. Total distance ${chosenRoute.distanceKm} kilometers, estimated ${chosenRoute.durationMinutes} minutes. Ready to navigate.`,
-      `${chosenRoute.name} चुना गया। कुल दूरी ${chosenRoute.distanceKm} किमी, समय ${chosenRoute.durationMinutes} मिनट।`
+      `${chosenRoute.name} selected. Navigation continuing on new route.`,
+      `${chosenRoute.name} चुना गया। नए मार्ग पर यात्रा जारी है।`
     );
 
-    this.notify();
+    this.notify(true, true);
   }
 
   /**

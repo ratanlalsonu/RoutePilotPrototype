@@ -28,10 +28,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
 
   const lang = state.appSettings.language || 'en';
   const t = getTranslation(lang);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const { hazards, sensorNodes, journey, routeEvents, roadStatuses, systemHealth } = state;
 
@@ -56,7 +62,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
     description: string;
     source: any;
   }) => {
-    realtimeSync.createHazard(data);
+    const created = realtimeSync.createHazard(data);
+    showToast(`Hazard ${created.hazardId} (${data.type}) created successfully!`);
   };
 
   // Demo Shortcuts for testing and faculty evaluation
@@ -72,6 +79,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       description: 'Critical structural crack & pier displacement detected on bridge',
       source: 'ADMIN',
     });
+    showToast('Critical Hazard placed on Driver Active Route!');
   };
 
   const handleQuickHazardAwayFromRoute = () => {
@@ -86,6 +94,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       description: 'Scheduled resurfacing away from driver active corridor',
       source: 'ADMIN',
     });
+    showToast('Hazard placed away from driver corridor (no alert as expected).');
   };
 
   const handleQuickSecondHazardAhead = () => {
@@ -101,6 +110,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       description: 'Overturned trailer blocking both lanes on diverted route',
       source: 'ADMIN',
     });
+    showToast('Second Hazard placed ahead on diverted route!');
   };
 
   return (
@@ -326,6 +336,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   setActiveTab('Live Map');
                   setIsCreatingHazard(true);
                 }}
+                onOpenCreateHazardModal={() => {
+                  if (!clickedCoords) setClickedCoords({ lat: 25.4585, lng: 78.5765 });
+                  setIsModalOpen(true);
+                }}
+                onCancelCreateHazard={() => setIsCreatingHazard(false)}
                 isCreatingHazard={isCreatingHazard}
                 onMapClickForHazard={handleMapClickForHazard}
                 onQuickHazardOnRoute={handleQuickHazardOnRoute}
@@ -347,15 +362,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
                 <div className="flex items-center flex-wrap gap-2">
                   <button
-                    onClick={() => setIsCreatingHazard(!isCreatingHazard)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow cursor-pointer ${
-                      isCreatingHazard
-                        ? 'bg-red-600 text-white animate-pulse'
-                        : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30'
-                    }`}
+                    onClick={() => {
+                      if (!clickedCoords) setClickedCoords({ lat: 25.4585, lng: 78.5765 });
+                      setIsModalOpen(true);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 cursor-pointer"
                   >
                     <span>+</span>
-                    <span>{isCreatingHazard ? 'Click Map Point...' : 'Create Hazard Anywhere'}</span>
+                    <span>Create Hazard Form</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsCreatingHazard(!isCreatingHazard)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 border cursor-pointer ${
+                      isCreatingHazard
+                        ? 'bg-red-600 text-white border-red-500 animate-pulse'
+                        : 'bg-[#21262D] border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-200 hover:text-white'
+                    }`}
+                  >
+                    <span>📍</span>
+                    <span>{isCreatingHazard ? 'Click Map Point...' : 'Pick on Map'}</span>
                   </button>
 
                   <button
@@ -401,7 +427,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   journey={journey}
                   isCreatingHazard={isCreatingHazard}
                   onMapClickForHazard={handleMapClickForHazard}
-                  onResolveHazard={(id) => realtimeSync.resolveHazard(id)}
+                  onCancelCreateHazard={() => setIsCreatingHazard(false)}
+                  onResolveHazard={(id) => {
+                    realtimeSync.resolveHazard(id);
+                    showToast(`Hazard ${id} resolved.`);
+                  }}
                   onCommitRoute={(id) => realtimeSync.commitToAlternateRoute(id)}
                   theme={state.appSettings.mapTheme}
                   onToggleTheme={() => realtimeSync.toggleMapTheme()}
@@ -419,6 +449,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   setActiveTab('Live Map');
                   setIsCreatingHazard(true);
                 }}
+                onOpenCreateHazardModal={() => {
+                  if (!clickedCoords) setClickedCoords({ lat: 25.4585, lng: 78.5765 });
+                  setIsModalOpen(true);
+                }}
+                onQuickHazardOnRoute={handleQuickHazardOnRoute}
+                onQuickHazardAwayFromRoute={handleQuickHazardAwayFromRoute}
+                onQuickSecondHazardAhead={handleQuickSecondHazardAhead}
               />
             </div>
           )}
@@ -478,6 +515,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateHazardSubmit}
+        onPickOnMap={() => {
+          setActiveTab('Live Map');
+          setIsCreatingHazard(true);
+        }}
       />
 
       {/* Settings & API Key Modal */}
@@ -486,6 +527,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         onClose={() => setIsSettingsOpen(false)}
         settings={state.appSettings}
       />
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-16 right-4 z-[3000] bg-[#161B22]/95 border border-[#AEF5F0]/60 text-white px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-2.5 animate-fade-in pointer-events-none">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="text-xs font-semibold">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };

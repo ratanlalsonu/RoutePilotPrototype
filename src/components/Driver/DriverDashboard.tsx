@@ -456,6 +456,75 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   </div>
                 </div>
 
+                {/* Mobile Hazard Alert Banner */}
+                {journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED' && (
+                  <div className="block lg:hidden bg-gradient-to-br from-red-950/95 to-[#161B22] border-2 border-red-500 rounded-xl p-3 shadow-xl animate-pulse">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-red-400 text-lg">⚠️</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-extrabold text-red-200 uppercase truncate">
+                          {language === 'hi' ? 'सड़क पर आगे खतरा!' : 'HAZARD DETECTED AHEAD!'}
+                        </div>
+                        <div className="text-[11px] text-slate-300 font-medium truncate">
+                          {translateText(journey.detectedHazard.type, language)} • {journey.detectedHazard.locationName}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleOkFindAlternates();
+                        setActiveBottomNav('Map');
+                      }}
+                      className="w-full mt-1.5 py-2.5 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <span>🔍</span>
+                      <span>{language === 'hi' ? 'अन्य मार्ग खोजें' : 'Find Other Route'}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Mobile Alternative Routes Selection List */}
+                {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
+                  <div className="block lg:hidden bg-[#21262D] border border-[#AEF5F0]/50 rounded-xl p-3 shadow-xl space-y-2">
+                    <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5">
+                      <span className="text-xs font-bold text-[#AEF5F0]">
+                        ⚡ {language === 'hi' ? 'उपलब्ध सर्वोत्तम मार्ग' : 'Optimal Routes Available'}
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                        {journey.alternativeRoutes.length} {language === 'hi' ? 'मार्ग' : 'routes'}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {journey.alternativeRoutes.map((alt) => (
+                        <div
+                          key={alt.id}
+                          onClick={() => handleCommitRoute(alt.id)}
+                          className="p-2 rounded-lg bg-[#161B22] border border-[#30363D] flex items-center justify-between text-xs cursor-pointer hover:border-[#AEF5F0] transition"
+                          style={{ borderLeftWidth: '3px', borderLeftColor: alt.color }}
+                        >
+                          <div className="min-w-0 mr-2">
+                            <div className="font-bold text-white text-xs truncate">{translateText(alt.name, language)}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              {alt.distanceKm} km • {alt.durationMinutes} min
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCommitRoute(alt.id);
+                            }}
+                            className="px-2.5 py-1 rounded bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[10px] cursor-pointer shrink-0"
+                          >
+                            {language === 'hi' ? 'यह मार्ग चुनें' : 'Select Route'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Destination Search & Autocomplete */}
                 <div className="space-y-1.5 relative z-30">
                   <div className="flex items-center justify-between">
@@ -1215,28 +1284,33 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     {/* OK - Find Alternate Routes Action */}
                     <button
                       onClick={handleOkFindAlternates}
-                      className="w-full py-3 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 transition cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+                      className="w-full py-3 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 transition cursor-pointer flex items-center justify-center gap-2 active:scale-98 animate-pulse"
                     >
-                      <span>OK – Find Alternate Routes</span>
+                      <span>🔍</span>
+                      <span>{language === 'hi' ? 'अन्य मार्ग खोजें' : 'Find Other Route'}</span>
                     </button>
                   </div>
                 )}
 
                 {/* 2. Alternative Routes Section */}
                 {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
-                  <div className="bg-[#21262D] border border-[#30363D] rounded-2xl p-4 shadow-lg space-y-3">
+                  <div className="bg-[#21262D] border border-[#AEF5F0]/40 rounded-2xl p-4 shadow-lg space-y-3">
                     <div className="flex items-center justify-between border-b border-[#30363D] pb-2">
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-                        <span className="font-bold text-xs text-white">Alternative Routes</span>
+                        <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                        <span className="font-bold text-xs text-white">
+                          ⚡ {language === 'hi' ? 'उपलब्ध सर्वोत्तम मार्ग' : 'Optimal Routes Available'}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-emerald-400 font-semibold">
-                        {journey.alternativeRoutes.length} available
+                      <span className="text-[10px] text-emerald-400 font-semibold font-mono">
+                        {journey.alternativeRoutes.length} {language === 'hi' ? 'मार्ग' : 'routes'}
                       </span>
                     </div>
 
                     <div className="text-[10px] text-slate-400">
-                      Routes are displayed on the map. Select below or move onto a route to commit.
+                      {language === 'hi'
+                        ? 'खतरे से बचने के लिए नीचे दिए गए सर्वोत्तम मार्गों में से कोई एक चुनें:'
+                        : 'Select one of the optimal routes below to safely bypass the hazard:'}
                     </div>
 
                     {/* List of alternative route options */}
@@ -1245,21 +1319,28 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         <div
                           key={alt.id}
                           onClick={() => handleCommitRoute(alt.id)}
-                          className="p-2.5 rounded-xl border border-[#30363D] bg-[#161B22] hover:border-slate-500 cursor-pointer transition flex items-center justify-between"
+                          className="p-3 rounded-xl border border-[#30363D] bg-[#161B22] hover:border-[#AEF5F0] cursor-pointer transition flex items-center justify-between group"
                           style={{ borderLeftWidth: '4px', borderLeftColor: alt.color }}
                         >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs text-white">{alt.name}</span>
+                          <div className="min-w-0 mr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate">
+                                {translateText(alt.name, language)}
+                              </span>
                               {alt.isRecommended && (
-                                <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">
-                                  Recommended
+                                <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/20 px-1 py-0.2 rounded border border-emerald-500/30">
+                                  ⭐ {language === 'hi' ? 'अनुशंसित' : 'Recommended'}
                                 </span>
                               )}
                             </div>
                             <div className="text-[11px] text-slate-300 font-mono mt-0.5">
                               {alt.distanceKm} km • {alt.durationMinutes} min
                             </div>
+                            {alt.viaRoads && (
+                              <div className="text-[9px] text-slate-400 truncate mt-0.5">
+                                Via {alt.viaRoads.join(', ')}
+                              </div>
+                            )}
                           </div>
 
                           <button
@@ -1268,9 +1349,9 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               e.stopPropagation();
                               handleCommitRoute(alt.id);
                             }}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#21262D] hover:bg-[#AEF5F0] text-slate-200 hover:text-slate-950 font-bold border border-[#30363D] transition cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 transition cursor-pointer shrink-0 shadow-sm active:scale-95"
                           >
-                            Follow Route
+                            {language === 'hi' ? 'यह मार्ग चुनें' : 'Select Route'}
                           </button>
                         </div>
                       ))}
@@ -1518,42 +1599,52 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       </p>
                       <button
                         onClick={handleOkFindAlternates}
-                        className="w-full py-1.5 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[11px] shadow cursor-pointer transition active:scale-95"
+                        className="w-full py-2 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs shadow cursor-pointer transition active:scale-95 flex items-center justify-center gap-1.5 animate-pulse"
                       >
-                        {t.okFindAlternatesBtn}
+                        <span>🔍</span>
+                        <span>{language === 'hi' ? 'अन्य मार्ग खोजें' : 'Find Other Route'}</span>
                       </button>
                     </div>
                   )}
 
                   {/* Alternative Routes Card (Stacked below hazard alert if alert exists) */}
                   {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
-                    <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 shadow-2xl space-y-1.5 animate-section-smooth">
+                    <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#AEF5F0]/50 rounded-2xl p-2.5 shadow-2xl space-y-1.5 animate-section-smooth">
                       <div className="text-[11px] font-bold text-white flex items-center justify-between border-b border-[#30363D] pb-1">
-                        <span>{t.availableAlternatesTitle}</span>
+                        <span className="text-[#AEF5F0]">⚡ {language === 'hi' ? 'उपलब्ध सर्वोत्तम मार्ग' : 'Optimal Routes'}</span>
                         <span className="text-[9px] text-emerald-400 font-semibold font-mono">
                           {journey.alternativeRoutes.length} {t.pathsLabel}
                         </span>
                       </div>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
                         {journey.alternativeRoutes.map((alt) => (
                           <div
                             key={alt.id}
                             onClick={() => handleCommitRoute(alt.id)}
-                            className="p-1.5 rounded-lg bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] cursor-pointer flex items-center justify-between text-xs transition"
+                            className="p-2 rounded-lg bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] hover:border-[#AEF5F0] cursor-pointer flex items-center justify-between text-xs transition group"
                             style={{ borderLeftWidth: '3px', borderLeftColor: alt.color }}
                           >
-                            <div className="truncate mr-2">
-                              <div className="font-bold text-white text-[10px] truncate">{translateText(alt.name, language)}</div>
-                              <div className="text-[9px] text-slate-400">
+                            <div className="truncate mr-2 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="font-bold text-white text-[10px] group-hover:text-[#AEF5F0] truncate">
+                                  {translateText(alt.name, language)}
+                                </span>
+                                {alt.isRecommended && (
+                                  <span className="text-[8px] bg-emerald-500/20 text-emerald-400 font-bold px-1 rounded">
+                                    ⭐ Best
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[9px] text-slate-400 font-mono">
                                 {alt.distanceKm} {language === 'hi' ? 'किमी' : 'km'} • {alt.durationMinutes} {language === 'hi' ? 'मिनट' : 'min'}
                               </div>
                             </div>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleCommitRoute(alt.id); }}
-                              className="px-2 py-0.5 rounded bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[9px] cursor-pointer shrink-0 transition"
+                              className="px-2.5 py-1 rounded bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[9px] cursor-pointer shrink-0 transition active:scale-95 shadow-sm"
                             >
-                              {t.followBtn}
+                              {language === 'hi' ? 'यह मार्ग चुनें' : 'Select'}
                             </button>
                           </div>
                         ))}
@@ -1879,10 +1970,14 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 </div>
 
                 <button
-                  onClick={handleOkFindAlternates}
-                  className="w-full py-3 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 cursor-pointer transition"
+                  onClick={() => {
+                    handleOkFindAlternates();
+                    setActiveBottomNav('Map');
+                  }}
+                  className="w-full py-3 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#AEF5F0]/25 cursor-pointer transition flex items-center justify-center gap-2 animate-pulse active:scale-98"
                 >
-                  OK – Find Alternate Routes Now
+                  <span>🔍</span>
+                  <span>{language === 'hi' ? 'अन्य मार्ग खोजें' : 'Find Other Route'}</span>
                 </button>
               </div>
             )}

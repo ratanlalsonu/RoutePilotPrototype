@@ -194,3 +194,13 @@
   filter: none !important;
 }
 
+/* Hazard placement crosshair cursor */
+.is-creating-hazard,
+.is-creating-hazard .leaflet-container,
+.is-creating-hazard .leaflet-pane,
+.is-creating-hazard .leaflet-tile-pane,
+.is-creating-hazard svg,
+.is-creating-hazard path {
+  cursor: crosshair !important;
+}
+

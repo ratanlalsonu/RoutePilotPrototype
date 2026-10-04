@@ -7,6 +7,8 @@ interface DashboardViewProps {
   state: RoutePilotState;
   onNavigateTab: (tab: string) => void;
   onOpenCreateHazard: () => void;
+  onOpenCreateHazardModal?: () => void;
+  onCancelCreateHazard?: () => void;
   isCreatingHazard: boolean;
   onMapClickForHazard: (lat: number, lng: number) => void;
   onQuickHazardOnRoute: () => void;
@@ -18,6 +20,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   state,
   onNavigateTab,
   onOpenCreateHazard,
+  onOpenCreateHazardModal,
+  onCancelCreateHazard,
   isCreatingHazard,
   onMapClickForHazard,
   onQuickHazardOnRoute,
@@ -159,16 +163,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Demonstration & Hazard Creation Controls */}
             <div className="flex items-center flex-wrap gap-2">
+              {onOpenCreateHazardModal && (
+                <button
+                  type="button"
+                  onClick={onOpenCreateHazardModal}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 cursor-pointer"
+                >
+                  <span>+</span>
+                  <span>{lang === 'hi' ? 'खतरा दर्ज करें' : 'Create Hazard'}</span>
+                </button>
+              )}
+
               <button
+                type="button"
                 onClick={onOpenCreateHazard}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 border cursor-pointer ${
                   isCreatingHazard
-                    ? 'bg-red-600 text-white animate-pulse'
-                    : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30'
+                    ? 'bg-red-600 text-white border-red-500 animate-pulse'
+                    : 'bg-[#21262D] border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-200 hover:text-white'
                 }`}
               >
-                <span>+</span>
-                <span>{isCreatingHazard ? (lang === 'hi' ? 'मैप पर बिंदु चुनें...' : 'Click Map Point...') : t.addHazardButton}</span>
+                <span>📍</span>
+                <span>{isCreatingHazard ? (lang === 'hi' ? 'मैप पर क्लिक करें...' : 'Click Map Point...') : (lang === 'hi' ? 'मैप पर चुनें' : 'Pick on Map')}</span>
               </button>
 
               <button
@@ -219,6 +235,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               journey={journey}
               isCreatingHazard={isCreatingHazard}
               onMapClickForHazard={onMapClickForHazard}
+              onCancelCreateHazard={onCancelCreateHazard}
               onResolveHazard={(id) => realtimeSync.resolveHazard(id)}
               onCommitRoute={(id) => realtimeSync.commitToAlternateRoute(id)}
               theme={state.appSettings.mapTheme}

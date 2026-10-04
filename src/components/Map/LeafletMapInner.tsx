@@ -43,6 +43,7 @@ interface LeafletMapInnerProps {
   language?: 'en' | 'hi';
   isCreatingHazard?: boolean;
   onMapClickForHazard?: (lat: number, lng: number) => void;
+  onCancelCreateHazard?: () => void;
   onSelectDestinationFromMap?: (lat: number, lng: number) => void;
   onResolveHazard?: (hazardId: string) => void;
   onCommitRoute?: (routeId: string) => void;
@@ -64,6 +65,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   language,
   isCreatingHazard,
   onMapClickForHazard,
+  onCancelCreateHazard,
   onSelectDestinationFromMap,
   onResolveHazard,
   onCommitRoute,
@@ -87,6 +89,11 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   const sensorsLayerRef = useRef<L.LayerGroup | null>(null);
   const vehicleMarkerRef = useRef<L.Marker | null>(null);
   const tempMarkerRef = useRef<L.Marker | null>(null);
+
+  // User map exploration / free-pan state (prevents vehicle follow from snapping map while user drags)
+  const isUserPanningRef = useRef<boolean>(false);
+  const [isUserPanning, setIsUserPanning] = useState<boolean>(false);
+  const panResumeTimerRef = useRef<any>(null);
 
   const activeLang = language || realtimeSync.getState().appSettings.language || 'en';
   const t = getTranslation(activeLang);
@@ -235,7 +242,61 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     }, 50);
   }, [mapStyle]);
 
-  // Click handler
+  // Track user map exploration/pan so vehicle movement does not hijack camera while user is dragging
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleUserInteraction = () => {
+      isUserPanningRef.current = true;
+      setIsUserPanning(true);
+      if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
+      if (mode === 'driver' && journey.isNavigating) {
+        panResumeTimerRef.current = setTimeout(() => {
+          isUserPanningRef.current = false;
+          setIsUserPanning(false);
+        }, 12000);
+      }
+    };
+
+    map.on('dragstart', handleUserInteraction);
+    map.on('wheel', handleUserInteraction);
+    map.on('touchmove', handleUserInteraction);
+
+    return () => {
+      map.off('dragstart', handleUserInteraction);
+      map.off('wheel', handleUserInteraction);
+      map.off('touchmove', handleUserInteraction);
+      if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
+    };
+  }, [mode, journey.isNavigating]);
+
+  // Synchronize cursor and Escape key for hazard placement
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const container = map.getContainer();
+    if (isCreatingHazard) {
+      container.classList.add('is-creating-hazard');
+    } else {
+      container.classList.remove('is-creating-hazard');
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isCreatingHazard && onCancelCreateHazard) {
+        onCancelCreateHazard();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      container.classList.remove('is-creating-hazard');
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCreatingHazard, onCancelCreateHazard]);
+
+  // Click & Context Menu handlers
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -250,9 +311,18 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       }
     };
 
+    const handleContextMenu = (e: L.LeafletMouseEvent) => {
+      if (mode === 'admin' && onMapClickForHazard) {
+        e.originalEvent?.preventDefault();
+        onMapClickForHazard(e.latlng.lat, e.latlng.lng);
+      }
+    };
+
     map.on('click', handleMapClick);
+    map.on('contextmenu', handleContextMenu);
     return () => {
       map.off('click', handleMapClick);
+      map.off('contextmenu', handleContextMenu);
     };
   }, [isCreatingHazard, onMapClickForHazard, mode, journey.isNavigating, onSelectDestinationFromMap]);
 
@@ -321,6 +391,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     }
 
     // 3. Active Route Polylines (Dotted Point Road Path from Source to Destination)
+    // Note: interactive: false ensures road clicks pass through to map for hazard placement!
     if (journey.activeRoute && journey.activeRoute.coordinates.length > 1) {
       const coords: [number, number][] = journey.activeRoute.coordinates.map(([lat, lng]) => [lat, lng]);
 
@@ -331,6 +402,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         opacity: 0.35,
         lineCap: 'round',
         lineJoin: 'round',
+        interactive: false,
       }).addTo(routesLayer);
 
       // Glowing circular dotted points halo along the exact road
@@ -341,6 +413,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         dashArray: '0, 18',
         lineCap: 'round',
         lineJoin: 'round',
+        interactive: false,
       }).addTo(routesLayer);
 
       // Main prominent circular dotted points on the road path
@@ -351,6 +424,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         dashArray: '0, 18',
         lineCap: 'round',
         lineJoin: 'round',
+        interactive: false,
       }).addTo(routesLayer);
 
       // High-contrast bright inner core for each road dotted point
@@ -361,6 +435,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         dashArray: '0, 18',
         lineCap: 'round',
         lineJoin: 'round',
+        interactive: false,
       }).addTo(routesLayer);
     }
 
@@ -379,6 +454,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           opacity: 0.3,
           lineCap: 'round',
           lineJoin: 'round',
+          interactive: false,
         }).addTo(routesLayer);
 
         // Circular dotted points along the alternative road path
@@ -389,6 +465,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           dashArray: '0, 18',
           lineCap: 'round',
           lineJoin: 'round',
+          interactive: false,
         }).addTo(routesLayer);
 
         // Inner core dots
@@ -399,7 +476,19 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           dashArray: '0, 18',
           lineCap: 'round',
           lineJoin: 'round',
+          interactive: false,
         }).addTo(routesLayer);
+
+        // Clickable hit zone for the alternative route
+        const routeHitZone = L.polyline(coords, {
+          weight: 28,
+          opacity: 0,
+          interactive: true,
+        }).addTo(routesLayer);
+
+        routeHitZone.on('click', () => {
+          if (onCommitRoute) onCommitRoute(altRoute.id);
+        });
 
         // Midpoint badge
         const midIdx = Math.floor(coords.length / 2);
@@ -480,6 +569,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         fillOpacity: 0.22,
         color: borderColor,
         weight: 1.5,
+        interactive: false,
       }).addTo(hazardsLayer);
 
       // Warning Marker
@@ -638,8 +728,8 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
       createVehicleMarker(currentLoc);
 
-      // Smooth camera follow when navigating
-      if (journey.isNavigating && mapRef.current) {
+      // Smooth camera follow when navigating ONLY in driver mode AND ONLY when user is not manually panning
+      if (mode === 'driver' && journey.isNavigating && mapRef.current && !isUserPanningRef.current) {
         try {
           const mapInstance = mapRef.current;
           const bounds = mapInstance.getBounds();
@@ -676,7 +766,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         // Defensive ignore
       }
     };
-  }, [journey.isNavigating, journey.vehicleType]);
+  }, [mode, journey.isNavigating, journey.vehicleType]);
 
   // Fit bounds when active route is initialized
   useEffect(() => {
@@ -698,6 +788,9 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   };
 
   const handleCenterVehicle = () => {
+    isUserPanningRef.current = false;
+    setIsUserPanning(false);
+    if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
     if (mapRef.current && vehiclePos) {
       mapRef.current.setView([vehiclePos.lat, vehiclePos.lng], 16, { animate: true });
     }
@@ -720,11 +813,37 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
       {/* Hazard creation banner when placing hazard */}
       {isCreatingHazard && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-red-600/90 backdrop-blur-md text-white px-5 py-2 rounded-full border border-red-400 shadow-2xl flex items-center gap-2.5 animate-bounce pointer-events-none">
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-red-600/95 backdrop-blur-md text-white px-4 py-2 rounded-full border border-red-400 shadow-2xl flex items-center gap-3 animate-bounce pointer-events-auto">
           <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
           <span className="text-xs font-bold uppercase tracking-wider">
             {t.clickMapPointText || 'Click ANYWHERE on Map to place hazard'}
           </span>
+          {onCancelCreateHazard && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancelCreateHazard();
+              }}
+              className="ml-1 px-2.5 py-0.5 rounded-full bg-black/40 hover:bg-black/60 text-white text-[11px] font-semibold border border-white/30 transition cursor-pointer"
+            >
+              ✕ Cancel
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Floating Re-center button when driver is navigating and exploring the map */}
+      {mode === 'driver' && journey.isNavigating && isUserPanning && (
+        <div className="absolute bottom-16 sm:bottom-14 left-1/2 -translate-x-1/2 z-[995]">
+          <button
+            type="button"
+            onClick={handleCenterVehicle}
+            className="px-4 py-2 rounded-full bg-[#161B22]/95 hover:bg-[#21262D] text-[#AEF5F0] hover:text-white border border-[#AEF5F0]/60 shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2 transition transform active:scale-95 cursor-pointer animate-fade-in"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-ping"></span>
+            <span>{activeLang === 'hi' ? '🎯 वाहन पर केंद्रित करें' : '🎯 Re-center on Vehicle'}</span>
+          </button>
         </div>
       )}
 

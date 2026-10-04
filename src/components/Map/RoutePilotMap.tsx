@@ -23,6 +23,7 @@ interface RoutePilotMapProps {
   language?: 'en' | 'hi';
   isCreatingHazard?: boolean;
   onMapClickForHazard?: (lat: number, lng: number) => void;
+  onCancelCreateHazard?: () => void;
   onSelectDestinationFromMap?: (lat: number, lng: number) => void;
   onResolveHazard?: (hazardId: string) => void;
   onCommitRoute?: (routeId: string) => void;
@@ -98,6 +99,32 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   // Collapsible legend state (default collapsed for crystal clear map visibility)
   const [isLegendOpen, setIsLegendOpen] = useState(false);
 
+  // User map exploration / free-pan state (prevents vehicle follow from snapping map while user drags)
+  const isUserPanningRef = useRef<boolean>(false);
+  const [isUserPanning, setIsUserPanning] = useState<boolean>(false);
+  const panResumeTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!map) return;
+    const listener = map.addListener('dragstart', () => {
+      isUserPanningRef.current = true;
+      setIsUserPanning(true);
+      if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
+      if (mode === 'driver' && journey.isNavigating) {
+        panResumeTimerRef.current = setTimeout(() => {
+          isUserPanningRef.current = false;
+          setIsUserPanning(false);
+        }, 12000);
+      }
+    });
+    return () => {
+      if (typeof google !== 'undefined' && google.maps && google.maps.event) {
+        google.maps.event.removeListener(listener);
+      }
+      if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
+    };
+  }, [map, mode, journey.isNavigating]);
+
   useEffect(() => {
     if (theme === 'satellite' || theme === 'standard') {
       setMapStyle(theme);
@@ -131,8 +158,8 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         heading: currentLoc.heading || 0,
       });
 
-      // Smooth camera follow without choppy map.panTo animation
-      if (journey.isNavigating && map) {
+      // Smooth camera follow without choppy map.panTo animation - ONLY in driver mode when not panning
+      if (mode === 'driver' && journey.isNavigating && map && !isUserPanningRef.current) {
         const bounds = map.getBounds();
         if (bounds) {
           const ne = bounds.getNorthEast();
@@ -158,7 +185,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     });
 
     return () => unsubscribe();
-  }, [map, journey.isNavigating]);
+  }, [map, mode, journey.isNavigating]);
 
   // Fit bounds when active route is selected
   useEffect(() => {
@@ -221,6 +248,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   };
 
   const handleCenterVehicle = () => {
+    isUserPanningRef.current = false;
+    setIsUserPanning(false);
+    if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
     if (map && vehiclePos) {
       map.setCenter({ lat: vehiclePos.lat, lng: vehiclePos.lng });
       map.setZoom(16);
