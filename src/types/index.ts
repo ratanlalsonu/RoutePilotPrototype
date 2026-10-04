@@ -58,9 +58,21 @@ export interface RouteStep {
   turnType?: 'straight' | 'left' | 'right' | 'slight-left' | 'slight-right' | 'u-turn' | 'arrive';
 }
 
+export interface AStarMetrics {
+  gCost: number; // Actual path traversal cost g(n) (km & time adjusted)
+  hCost: number; // Admissible heuristic cost h(n) (straight-line distance to goal)
+  hazardPenalty: number; // Penalty based on detected hazards / obstacles along path
+  totalFCost: number; // f(n) = g(n) + h(n) + hazardPenalty
+  rank: number; // 1 (optimal), 2, 3
+  isOptimal: boolean;
+  status: 'OPTIMAL' | 'ALTERNATIVE' | 'HAZARD_BLOCKED' | 'CAUTION';
+  explanation: string;
+  evaluatedNodesCount: number;
+}
+
 export interface RouteOption {
   id: string;
-  name: string; // e.g. "Route B", "Route C", "Route D"
+  name: string; // e.g. "Route A", "Route B", "Route C"
   color: string;
   distanceKm: number;
   durationMinutes: number;
@@ -73,6 +85,7 @@ export interface RouteOption {
     icon?: string;
   };
   steps?: RouteStep[];
+  aStarMetrics?: AStarMetrics;
 }
 
 export type RouteDiversionState =

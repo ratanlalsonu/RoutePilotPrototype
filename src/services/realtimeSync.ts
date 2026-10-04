@@ -25,6 +25,7 @@ import {
   calculateBearing,
   getDistanceMeters,
 } from '../algorithms/hazardRouteIntersection';
+import { evaluateRoutesWithAStar, AStarEvaluationResult } from '../algorithms/aStarPathEvaluator';
 import { VoiceService } from './voiceService';
 
 const CHANNEL_NAME = 'routepilot_sync_channel';
@@ -39,6 +40,7 @@ export interface RoutePilotState {
   systemHealth: SystemHealth;
   appSettings: AppSettings;
   activeMode: 'admin' | 'driver';
+  aStarEvaluation: AStarEvaluationResult | null;
 }
 
 // Zero dummy data baseline - live sensors populate from ESP32/IoT hardware or Admin virtual triggers
@@ -122,24 +124,15 @@ function getInitialState(): RoutePilotState {
     }
   }
 
-  const USER_VALID_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
-  let storedApiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || USER_VALID_KEY;
-  let storedPlacesApiKey = (import.meta as any).env?.VITE_GOOGLE_PLACES_API_KEY || USER_VALID_KEY;
+  let storedApiKey = '';
+  let storedPlacesApiKey = '';
 
   if (typeof window !== 'undefined') {
     try {
-      const gKey = localStorage.getItem('routepilot_gmaps_api_key');
-      const pKey = localStorage.getItem('routepilot_places_api_key');
-      if (gKey && gKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') {
-        storedApiKey = gKey;
-      } else {
-        localStorage.setItem('routepilot_gmaps_api_key', USER_VALID_KEY);
-      }
-      if (pKey && pKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') {
-        storedPlacesApiKey = pKey;
-      } else {
-        localStorage.setItem('routepilot_places_api_key', USER_VALID_KEY);
-      }
+      localStorage.removeItem('routepilot_gmaps_api_key');
+      localStorage.removeItem('routepilot_places_api_key');
+      localStorage.removeItem('routepilot_key_expired');
+      localStorage.setItem('routepilot_map_engine', 'osm');
     } catch {
       // ignore
     }
@@ -190,6 +183,7 @@ function getInitialState(): RoutePilotState {
       },
     },
     activeMode: 'admin',
+    aStarEvaluation: null,
   };
 }
 
@@ -467,6 +461,9 @@ class RealtimeSyncManager {
 
       // Voice notification to driver
       VoiceService.notifyHazardDetected(hazard.type, hazard.locationName);
+
+      // Instantly trigger A* Algorithm Re-evaluation upon Hazard Detection!
+      this.reEvaluateRoutesWithAStarAfterHazard(hazard);
     } else {
       // Hazard does not affect current route
       this.addRouteEvent({
@@ -886,21 +883,34 @@ class RealtimeSyncManager {
   }
 
   /**
-   * Set Destination: Clears old routes and prompts for vehicle type / optimal route selection
+   * Set Destination:
+   * Sets the source to current device location, sets destination,
+   * and IMMEDIATELY generates and highlights the real-road path on the map!
    */
   public async setDestination(dest: { name: string; lat: number; lng: number }) {
+    if (!dest || !dest.name || dest.lat === 0) {
+      this.state.journey.destination = { name: '', lat: 0, lng: 0 };
+      this.state.journey.activeRoute = null;
+      this.state.journey.activeRouteId = '';
+      this.state.journey.alternativeRoutes = [];
+      this.state.journey.status = 'IDLE';
+      this.state.journey.diversionState = 'IDLE';
+      this.notify();
+      return;
+    }
+
+    // Set Origin to device's actual current location!
+    const currentLoc = this.state.journey.currentLocation;
+    this.state.journey.origin = {
+      name: this.state.journey.origin?.name || 'Device Current Location',
+      lat: currentLoc.lat,
+      lng: currentLoc.lng,
+    };
     this.state.journey.destination = dest;
-    this.state.journey.activeRoute = null;
-    this.state.journey.activeRouteId = '';
-    this.state.journey.alternativeRoutes = [];
     this.state.journey.status = 'IDLE';
-    this.state.journey.diversionState = 'IDLE';
+    this.state.journey.diversionState = 'CALCULATING_ALTERNATIVES';
     this.state.journey.progressPercent = 0;
     this.state.journey.currentSpeedKmh = 0;
-    this.state.journey.totalDistanceKm = 0;
-    this.state.journey.remainingDistanceKm = 0;
-    this.state.journey.remainingDurationMinutes = 0;
-    this.state.journey.eta = '--:--';
 
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     this.addRouteEvent({
@@ -908,21 +918,31 @@ class RealtimeSyncManager {
       event: `Destination Selected: ${dest.name}`,
       driver: this.state.journey.driverId,
       status: 'Info',
-      details: 'Select vehicle type to calculate real-world optimal routes and travel times.',
+      details: 'Calculating real-world road path from device current location...',
     });
 
-    // Notify so UI immediately presents Step 2: Vehicle Type
     this.notify();
+
+    // Immediately calculate and highlight the path on the map!
+    await this.generateAndDisplayOptimalRoutes(this.state.journey.vehicleType || 'car');
   }
 
   /**
-   * Calculates and displays multiple optimal paths tailored to the selected vehicle type
+   * Calculates and displays 3 candidate paths tailored to the selected vehicle type.
+   * Evaluates all 3 paths using the A* Search Algorithm f(n) = g(n) + h(n) + HazardPenalty.
+   * Immediately sets the A* optimal winner as activeRoute!
    */
   public async generateAndDisplayOptimalRoutes(vehicleType?: Journey['vehicleType']) {
     const vType = vehicleType || this.state.journey.vehicleType || 'car';
     this.state.journey.vehicleType = vType;
 
-    const origin = this.state.journey.origin;
+    const currentLoc = this.state.journey.currentLocation;
+    const origin = {
+      name: this.state.journey.origin?.name || 'Device Current Location',
+      lat: currentLoc.lat,
+      lng: currentLoc.lng,
+    };
+    this.state.journey.origin = origin;
     const dest = this.state.journey.destination;
 
     if (!dest || !dest.name || dest.lat === 0) return;
@@ -930,26 +950,114 @@ class RealtimeSyncManager {
     this.state.journey.diversionState = 'CALCULATING_ALTERNATIVES';
     this.notify();
 
-    // Calculate multiple optimal routes (Fastest, Bypass, Arterial)
+    // 1. Calculate 3 distinct candidate real-road routes (Fastest, Outer Bypass, Arterial Link)
     const routes = await calculateMultipleOptimalRoutes(origin, dest, vType);
 
-    this.state.journey.alternativeRoutes = routes;
-    this.state.journey.activeRoute = null;
-    this.state.journey.activeRouteId = '';
-    this.state.journey.diversionState = 'ALTERNATIVES_DISPLAYED';
+    if (routes && routes.length > 0) {
+      // 2. Run A* Search Algorithm Evaluation on the 3 paths
+      const aStarResult = evaluateRoutesWithAStar(
+        routes,
+        origin,
+        dest,
+        this.state.hazards,
+        vType
+      );
+
+      this.state.aStarEvaluation = aStarResult;
+
+      // The A* optimal winner is set as activeRoute!
+      const optimal = aStarResult.optimalRoute;
+      this.state.journey.activeRoute = optimal;
+      this.state.journey.activeRouteId = optimal.id;
+      // The other paths are displayed as alternatives so all 3 show on map & UI!
+      this.state.journey.alternativeRoutes = aStarResult.alternativeRoutes;
+
+      this.state.journey.totalDistanceKm = optimal.distanceKm;
+      this.state.journey.remainingDistanceKm = optimal.distanceKm;
+      this.state.journey.remainingDurationMinutes = optimal.durationMinutes;
+
+      const etaDate = new Date(Date.now() + optimal.durationMinutes * 60000);
+      this.state.journey.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.state.journey.diversionState = 'ALTERNATIVES_DISPLAYED';
+
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.addRouteEvent({
+        time: nowTime,
+        event: `A* Evaluated 3 Paths: ${optimal.name} Selected`,
+        driver: this.state.journey.driverId,
+        status: 'Success',
+        details: `f(n)=${optimal.aStarMetrics?.totalFCost} [g=${optimal.aStarMetrics?.gCost}, h=${optimal.aStarMetrics?.hCost}] • ${optimal.distanceKm} km • ${optimal.durationMinutes} min`,
+      });
+
+      VoiceService.speak(
+        `A* Algorithm evaluated 3 routes for your ${vType}. ${optimal.name} chosen as optimal with lowest cost.`,
+        `${vType} के लिए A* एल्गोरिथ्म ने 3 मार्गों का मूल्यांकन किया। न्यूनतम लागत के साथ ${optimal.name} को सर्वोत्तम चुना गया।`
+      );
+    } else {
+      this.state.journey.alternativeRoutes = [];
+      this.state.journey.diversionState = 'IDLE';
+    }
+
+    this.notify();
+  }
+
+  /**
+   * Re-evaluates all 3 candidate paths using A* Search Algorithm upon Hazard Detection.
+   * Immediately penalizes the blocked route (+9999) and shifts optimal pointer to the best clear detour!
+   */
+  public async reEvaluateRoutesWithAStarAfterHazard(hazard: Hazard) {
+    const j = this.state.journey;
+    const vType = j.vehicleType || 'car';
+    const origin = {
+      name: 'Current Vehicle Position',
+      lat: j.currentLocation.lat,
+      lng: j.currentLocation.lng,
+    };
+    const dest = j.destination;
+
+    if (!dest || !dest.name || dest.lat === 0) return;
+
+    // 1. Calculate 3 candidate routes from current position to destination
+    const routes = await calculateMultipleOptimalRoutes(origin, dest, vType);
+
+    // 2. Evaluate with A* including the newly detected hazard!
+    const aStarResult = evaluateRoutesWithAStar(
+      routes,
+      origin,
+      dest,
+      this.state.hazards,
+      vType
+    );
+
+    this.state.aStarEvaluation = aStarResult;
+
+    // The new optimal route (which safely bypasses the hazard)
+    const newOptimal = aStarResult.optimalRoute;
+    j.activeRoute = newOptimal;
+    j.activeRouteId = newOptimal.id;
+    j.alternativeRoutes = aStarResult.alternativeRoutes;
+
+    j.totalDistanceKm = newOptimal.distanceKm;
+    j.remainingDistanceKm = newOptimal.distanceKm;
+    j.remainingDurationMinutes = newOptimal.durationMinutes;
+    j.diversionState = 'ALTERNATIVES_DISPLAYED';
+    j.diversionCount += 1;
+    if (!j.handledHazardIds.includes(hazard.hazardId)) {
+      j.handledHazardIds.push(hazard.hazardId);
+    }
 
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     this.addRouteEvent({
       time: nowTime,
-      event: `Optimal Paths Generated (${routes.length} options)`,
-      driver: this.state.journey.driverId,
+      event: `A* Hazard Reroute: ${newOptimal.name} Chosen`,
+      driver: j.driverId,
       status: 'Success',
-      details: `Tailored for ${vType.toUpperCase()} with real travel distance & time. Choose a route to activate.`,
+      details: `Hazard detected on previous path. A* assigned +9999 penalty to blocked corridor and selected safe optimal detour (f=${newOptimal.aStarMetrics?.totalFCost}).`,
     });
 
     VoiceService.speak(
-      `${routes.length} optimal routes found for your ${vType}. Please choose your preferred route.`,
-      `${vType} के लिए ${routes.length} सर्वोत्तम मार्ग मिले हैं। कृपया अपना पसंदीदा मार्ग चुनें।`
+      `Hazard detected! A* Algorithm re-evaluated 3 routes and safely rerouted vehicle to ${newOptimal.name}.`,
+      `सड़क पर खतरा पाया गया! A* एल्गोरिथ्म ने 3 मार्गों का पुनर्मूल्यांकन कर ${newOptimal.name} को नया सुरक्षित मार्ग चुना।`
     );
 
     this.notify();

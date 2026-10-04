@@ -21,10 +21,9 @@ function placesApiProxyPlugin(): Plugin {
         try {
           const url = new URL(req.url || '', 'http://localhost:3000');
           const query = url.searchParams.get('q') || '';
-          const USER_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
-          let apiKey = process.env.VITE_GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || USER_KEY;
+          let apiKey = process.env.VITE_GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '';
           const paramKey = url.searchParams.get('key');
-          if (paramKey && paramKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U' && paramKey.startsWith('AIzaSy')) {
+          if (paramKey && paramKey.startsWith('AIzaSy')) {
             apiKey = paramKey;
           }
 
@@ -32,6 +31,12 @@ function placesApiProxyPlugin(): Plugin {
             res.statusCode = 400;
             res.setHeader('Content-Type', 'application/json');
             return res.end(JSON.stringify({ error: 'Query parameter q is required' }));
+          }
+
+          if (!apiKey) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ places: [] }));
           }
 
           // 1. Call Google Places API (New) Text Search
@@ -127,10 +132,9 @@ function placesApiProxyPlugin(): Plugin {
         try {
           const url = new URL(req.url || '', 'http://localhost:3000');
           const input = url.searchParams.get('input') || url.searchParams.get('q') || '';
-          const USER_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
-          let apiKey = process.env.VITE_GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || USER_KEY;
+          let apiKey = process.env.VITE_GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '';
           const paramKey = url.searchParams.get('key');
-          if (paramKey && paramKey !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U' && paramKey.startsWith('AIzaSy')) {
+          if (paramKey && paramKey.startsWith('AIzaSy')) {
             apiKey = paramKey;
           }
 
@@ -138,6 +142,12 @@ function placesApiProxyPlugin(): Plugin {
             res.statusCode = 400;
             res.setHeader('Content-Type', 'application/json');
             return res.end(JSON.stringify({ error: 'Input parameter is required' }));
+          }
+
+          if (!apiKey) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ suggestions: [] }));
           }
 
           const googleRes = await fetch('https://places.googleapis.com/v1/places:autocomplete', {

@@ -6,34 +6,30 @@ export interface GeocodedLocation {
   displayName: string;
 }
 
-const USER_PRIMARY_KEY = 'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
-
 /**
- * Gets API key from environment or local storage
+ * Gets API key from environment or local storage (optional)
  */
 export function getGoogleMapsApiKey(): string {
   if (typeof window !== 'undefined') {
     const fromStorage = localStorage.getItem('routepilot_gmaps_api_key');
-    if (fromStorage && fromStorage !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') return fromStorage;
+    if (fromStorage && fromStorage.trim().length > 0) return fromStorage.trim();
   }
-  return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || USER_PRIMARY_KEY;
+  return ((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '').trim();
 }
 
 /**
- * Gets Places API key from environment, local storage, or fallback to Google Maps key
+ * Gets Places API key from environment or local storage (optional)
  */
 export function getGooglePlacesApiKey(): string {
   if (typeof window !== 'undefined') {
     const fromStorage = localStorage.getItem('routepilot_places_api_key');
-    if (fromStorage && fromStorage.trim().length > 0 && fromStorage !== 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U') {
+    if (fromStorage && fromStorage.trim().length > 0) {
       return fromStorage.trim();
     }
   }
-  return (
-    (import.meta as any).env?.VITE_GOOGLE_PLACES_API_KEY ||
-    getGoogleMapsApiKey() ||
-    USER_PRIMARY_KEY
-  );
+  const placesEnv = ((import.meta as any).env?.VITE_GOOGLE_PLACES_API_KEY || '').trim();
+  if (placesEnv) return placesEnv;
+  return getGoogleMapsApiKey();
 }
 
 /**

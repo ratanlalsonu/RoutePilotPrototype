@@ -199,9 +199,9 @@ const OSRM_ENDPOINTS = [
 function getMapsApiKey(): string {
   if (typeof window !== 'undefined') {
     const fromStorage = localStorage.getItem('routepilot_gmaps_api_key');
-    if (fromStorage) return fromStorage;
+    if (fromStorage && fromStorage.trim().length > 0) return fromStorage.trim();
   }
-  return (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
+  return ((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '').trim();
 }
 
 /**

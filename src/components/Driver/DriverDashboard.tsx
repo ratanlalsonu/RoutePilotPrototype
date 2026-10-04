@@ -737,8 +737,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   </div>
                 )}
 
-                {/* STAGE 3: Route IS Chosen -> Show Active Route Telemetry, Navigation, and Drive Controls */}
-                {journey.activeRoute && journey.alternativeRoutes.length === 0 && (
+                {/* STAGE 3: Route IS Active -> Show Active Route Telemetry, Navigation, and Drive Controls */}
+                {journey.activeRoute && (
                   <div key="stage-step4-active" className="animate-section-smooth space-y-3">
                     {/* Chosen Route Info Banner */}
                     <div className="bg-[#21262D] border border-[#AEF5F0]/50 rounded-xl p-3 space-y-2 shadow-lg">
@@ -769,16 +769,27 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         </div>
                       </div>
 
-                      {!journey.isNavigating && (
-                        <div className="pt-1 flex items-center justify-between">
-                          <span className="text-[10px] text-slate-400">Other routes hidden</span>
-                          <button
-                            type="button"
-                            onClick={() => realtimeSync.showOptimalRoutesAgain()}
-                            className="text-[10px] text-[#AEF5F0] hover:text-white font-semibold underline cursor-pointer"
-                          >
-                            ⇄ Compare Other Routes
-                          </button>
+                      {!journey.isNavigating && journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
+                        <div className="pt-2 border-t border-[#30363D]/60 space-y-1.5">
+                          <span className="text-[10px] text-slate-400 font-semibold block">Alternative Routes:</span>
+                          <div className="flex flex-col gap-1.5">
+                            {journey.alternativeRoutes.map((alt) => (
+                              <button
+                                key={alt.id}
+                                type="button"
+                                onClick={() => handleSelectOptimalRoute(alt.id)}
+                                className="w-full text-left p-2 rounded-lg bg-[#161B22] hover:bg-[#1c222b] border border-[#30363D] hover:border-[#AEF5F0] flex items-center justify-between transition cursor-pointer text-xs"
+                              >
+                                <div className="truncate pr-2">
+                                  <span className="font-bold text-white">{translateText(alt.name, language)}</span>
+                                  <span className="text-[10px] text-slate-400 block truncate">{alt.viaRoads?.join(', ')}</span>
+                                </div>
+                                <span className="text-[11px] font-mono font-bold text-cyan-400 shrink-0">
+                                  {alt.distanceKm} km • {alt.durationMinutes} min
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @layer base {
   html,
@@ -182,3 +183,14 @@
   animation: modalPopScale 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: opacity, transform;
 }
+
+/* OpenStreetMap Dark Mode Tile Filter */
+.osm-dark-tiles {
+  filter: brightness(0.75) invert(1) contrast(2) hue-rotate(195deg) saturate(0.3) !important;
+}
+
+/* Esri Satellite imagery - 100% natural, crisp full color */
+.esri-satellite-tiles {
+  filter: none !important;
+}
+

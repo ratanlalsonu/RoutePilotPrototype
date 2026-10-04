@@ -13,6 +13,7 @@ import {
 import { Hazard, SensorNode, RouteOption, VehicleType, Journey } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
 import { getTranslation, translateText } from '../../services/i18n';
+import { LeafletMapInner } from './LeafletMapInner';
 
 interface RoutePilotMapProps {
   mode: 'admin' | 'driver';
@@ -32,6 +33,7 @@ interface RoutePilotMapProps {
   onTogglePlayPause?: () => void;
   isMapClearMode?: boolean;
   onToggleClearMode?: () => void;
+  onSwitchEngine?: () => void;
 }
 
 // Sleek dark vector map styles matching RoutePilot Command Center (#0D1117)
@@ -74,6 +76,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   onTogglePlayPause,
   isMapClearMode,
   onToggleClearMode,
+  onSwitchEngine,
 }) => {
   const map = useMap();
   const activeLang = language || realtimeSync.getState().appSettings.language || 'en';
@@ -668,10 +671,21 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         </button>
       </div>
 
-      {/* Visible Google Maps Attribution (Bottom Right) */}
-      <div className="absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 z-[990] bg-[#161B22]/90 backdrop-blur-md text-[9px] sm:text-[10px] text-slate-400 px-2 sm:px-2.5 py-1 rounded-lg border border-[#30363D] flex items-center gap-1 shadow-md select-none">
-        <span>🗺️</span>
-        <span className="text-[#AEF5F0] font-medium">Google Maps</span>
+      {/* Visible Google Maps Attribution & Engine Switcher (Bottom Right) */}
+      <div className="absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 z-[990] flex items-center gap-1.5 select-none">
+        <div className="bg-[#161B22]/90 backdrop-blur-md text-[9px] sm:text-[10px] text-slate-300 px-2 sm:px-2.5 py-1 rounded-lg border border-[#30363D] flex items-center gap-1 shadow-md">
+          <span>🗺️</span>
+          <span className="text-[#AEF5F0] font-medium">Google Maps</span>
+        </div>
+        {onSwitchEngine && (
+          <button
+            onClick={onSwitchEngine}
+            title="Switch to OpenStreetMap Real Roads"
+            className="bg-[#161B22]/90 hover:bg-[#21262D] text-[9px] sm:text-[10px] text-slate-300 hover:text-white px-2 py-1 rounded-lg border border-[#30363D] shadow-md transition cursor-pointer"
+          >
+            OpenStreetMap
+          </button>
+        )}
       </div>
 
       {/* Collapsible Map Legend (Bottom Left) - Unobtrusive & Never Blocks Road View */}
@@ -737,17 +751,15 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 };
 
 /**
- * Main Export wrapped in Google Maps APIProvider
+ * Main Export: Pure High-Fidelity OpenStreetMap Engine
+ * - Zero external API key dependencies
+ * - Real roads, hazards, sensors, and GPS simulation
+ * - Standard Dark & Satellite modes supported natively
  */
 export const RoutePilotMap: React.FC<RoutePilotMapProps> = (props) => {
-  const apiKey =
-    (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-    (typeof window !== 'undefined' ? localStorage.getItem('routepilot_gmaps_api_key') : '') ||
-    'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20';
-
   return (
-    <APIProvider apiKey={apiKey} libraries={['marker', 'geometry', 'places', 'routes']}>
-      <GoogleMapInner {...props} />
-    </APIProvider>
+    <div className="relative w-full h-full">
+      <LeafletMapInner {...props} />
+    </div>
   );
 };

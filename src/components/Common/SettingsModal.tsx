@@ -11,16 +11,17 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings }) => {
-  const [apiKey, setApiKey] = useState(
-    settings.googleMapsApiKey ||
-      (typeof window !== 'undefined' ? localStorage.getItem('routepilot_gmaps_api_key') : '') ||
-      'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20'
-  );
-  const [placesApiKey, setPlacesApiKey] = useState(
-    settings.placesApiKey ||
-      (typeof window !== 'undefined' ? localStorage.getItem('routepilot_places_api_key') : '') ||
-      'AIzaSyBObczQp756Keb5PfXtXS3wx9o5bNHnj20'
-  );
+  const getInitialKey = (key?: string, storageKey = 'routepilot_gmaps_api_key') => {
+    if (key && key.trim().length > 0) return key.trim();
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(storageKey);
+      if (stored && stored.trim().length > 0) return stored.trim();
+    }
+    return '';
+  };
+
+  const [apiKey, setApiKey] = useState(getInitialKey(settings.googleMapsApiKey, 'routepilot_gmaps_api_key'));
+  const [placesApiKey, setPlacesApiKey] = useState(getInitialKey(settings.placesApiKey, 'routepilot_places_api_key'));
   const [useDedicatedPlacesKey, setUseDedicatedPlacesKey] = useState(
     Boolean(
       (settings.placesApiKey && settings.placesApiKey.trim().length > 0) ||
@@ -68,13 +69,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const finalKey = apiKey.trim() || 'AIzaSyDqGrmco0xOLvPmuB_DXuuWpHIDOI7ts2U';
+    const finalKey = apiKey.trim();
     realtimeSync.setApiKey(finalKey);
     const finalPlacesKey = useDedicatedPlacesKey ? placesApiKey.trim() : '';
     realtimeSync.setPlacesApiKey(finalPlacesKey);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('routepilot_gmaps_api_key', finalKey);
-      if (useDedicatedPlacesKey) {
+      if (finalKey) {
+        localStorage.setItem('routepilot_gmaps_api_key', finalKey);
+      } else {
+        localStorage.removeItem('routepilot_gmaps_api_key');
+      }
+      if (useDedicatedPlacesKey && finalPlacesKey) {
         localStorage.setItem('routepilot_places_api_key', finalPlacesKey);
       } else {
         localStorage.removeItem('routepilot_places_api_key');
@@ -162,7 +167,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             <div className="flex items-center justify-between">
               <label className="font-semibold text-slate-200">Google Places API (New) Real Place Search</label>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                {useDedicatedPlacesKey && placesApiKey.trim() ? '● Dedicated Key' : '● Uses Maps Key'}
+                ● Places API Integrated & Active
               </span>
             </div>
 
@@ -170,36 +175,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               Powers instant real-world search for landmarks, cities, highway junctions, addresses, and hospitals across India and globally.
             </p>
 
-            {/* Toggle between unified Maps key vs dedicated Places key */}
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#161B22] border border-[#30363D]/80">
-              <div>
-                <div className="text-xs font-medium text-slate-200">Use Dedicated Places API Key</div>
-                <div className="text-[10px] text-slate-400">
-                  {useDedicatedPlacesKey
-                    ? 'Enter separate key restricted to Places API'
-                    : 'Automatically using your Google Maps API key'}
-                </div>
-              </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">Google Places API Key</label>
               <input
-                type="checkbox"
-                checked={useDedicatedPlacesKey}
-                onChange={(e) => setUseDedicatedPlacesKey(e.target.checked)}
-                className="w-4 h-4 accent-[#AEF5F0] cursor-pointer"
+                type="text"
+                value={placesApiKey}
+                onChange={(e) => setPlacesApiKey(e.target.value)}
+                placeholder="AIzaSy... (Google Places API Key)"
+                className="w-full bg-[#161B22] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#AEF5F0]"
               />
             </div>
-
-            {useDedicatedPlacesKey && (
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Places API Key</label>
-                <input
-                  type="text"
-                  value={placesApiKey}
-                  onChange={(e) => setPlacesApiKey(e.target.value)}
-                  placeholder="AIzaSy... (Places API Key)"
-                  className="w-full bg-[#161B22] border border-[#30363D] rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#AEF5F0]"
-                />
-              </div>
-            )}
 
             {/* Interactive Live Place Search Tester */}
             <div className="pt-2 border-t border-[#30363D]/60 space-y-2">
@@ -211,16 +196,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   type="text"
                   value={testQuery}
                   onChange={(e) => setTestQuery(e.target.value)}
-                  placeholder="e.g. Taj Mahal, Connaught Place, Jhansi Fort..."
-                  className="flex-1 bg-[#161B22] border border-[#30363D] rounded-xl px-3 py-1.5 text-white text-xs focus:outline-none focus:border-[#AEF5F0]"
+                  placeholder="e.g. Jhansi Railway Station, Gwalior, Delhi..."
+                  className="flex-1 bg-[#161B22] border border-[#30363D] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#AEF5F0]"
                 />
                 <button
                   type="button"
                   onClick={handleTestPlaceSearch}
-                  disabled={isTesting || !testQuery.trim()}
-                  className="px-3 py-1.5 rounded-xl bg-[#AEF5F0]/15 hover:bg-[#AEF5F0]/25 text-[#AEF5F0] border border-[#AEF5F0]/40 font-semibold text-xs transition cursor-pointer disabled:opacity-50"
+                  disabled={isTesting}
+                  className="px-3 py-1.5 bg-[#AEF5F0] hover:bg-[#8eede6] text-slate-950 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
                 >
-                  {isTesting ? 'Testing...' : 'Test'}
+                  {isTesting ? 'Testing...' : 'Test Search'}
                 </button>
               </div>
 

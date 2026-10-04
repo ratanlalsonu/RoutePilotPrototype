@@ -74,7 +74,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl sm:text-3xl font-extrabold text-white">1</span>
                 <span className="text-[9px] sm:text-[10px] text-[#AEF5F0] font-bold bg-[#AEF5F0]/15 px-1.5 py-0.5 rounded border border-[#AEF5F0]/30">
-                  {journey.status === 'IDLE' ? t.standby : journey.status}
+                  {journey.status === 'IDLE' ? t.standbyStatus : journey.status}
                 </span>
               </div>
             </div>

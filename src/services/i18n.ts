@@ -729,7 +729,7 @@ export const translations: Record<SupportedLanguage, Translations> = {
     liveScenarioSubtitle: 'तत्काल स्वचालित डायवर्जन देखने के लिए लाइव खतरा उत्पन्न करें',
     testCivilLinesBtn: 'सिविल लाइन्स ब्रिज बंद करें',
     testSecondaryDiversionBtn: 'मार्ग B पर दूसरा डायवर्जन',
-    testOffRouteHighwayBtn: 'राजमार्ग पर दूरस्थ खतरा',
+    testOffRouteHazardBtn: 'राजमार्ग पर दूरस्थ खतरा',
     resetTripBaselineBtn: 'यात्रा व खतरा स्थिति रीसेट करें',
 
     fullScreenMapTitle: 'फुल-स्क्रीन इंटरैक्टिव मैप और मार्ग नेविगेशन',
