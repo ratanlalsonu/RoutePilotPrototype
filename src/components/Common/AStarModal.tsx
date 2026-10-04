@@ -109,16 +109,16 @@ export const AStarModal: React.FC<AStarModalProps> = ({
             </div>
           </div>
 
-          {/* 3 Paths Comparison Table */}
+          {/* Paths Comparison Table */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span className="font-bold uppercase tracking-wider text-[11px] text-white">
-                {isHi ? '3 मार्गों का तुलनात्मक स्कोरकार्ड' : 'Comparative Scorecard of Evaluated Paths'}
+                {routes.length} {isHi ? 'मार्गों का तुलनात्मक स्कोरकार्ड' : 'Evaluated Paths Comparative Scorecard'}
               </span>
               <span>{isHi ? 'न्यूनतम f(n) = सर्वश्रेष्ठ' : 'Lowest f(n) = Winner'}</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${routes.length === 1 ? 'grid-cols-1' : routes.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
               {routes.map((r, idx) => {
                 const m = r.aStarMetrics;
                 const isWinner = m?.isOptimal;

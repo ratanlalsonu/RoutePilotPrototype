@@ -300,49 +300,79 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
           </AdvancedMarker>
         )}
 
-        {/* Active Route Polylines */}
+        {/* Active Route Polylines (Dotted Point Road Path) */}
         {activeRoutePath.length > 1 && (
           <>
-            {/* Glowing Casing */}
-            <Polyline
-              path={activeRoutePath}
-              strokeColor="#AEF5F0"
-              strokeOpacity={0.35}
-              strokeWeight={12}
-            />
-            {/* Main Active Route Line */}
+            {/* Base road casing underlay */}
             <Polyline
               path={activeRoutePath}
               strokeColor={journey.activeRoute?.color || '#AEF5F0'}
-              strokeOpacity={0.95}
-              strokeWeight={6}
+              strokeOpacity={0.35}
+              strokeWeight={4}
+            />
+            {/* Road Dotted Points */}
+            <Polyline
+              path={activeRoutePath}
+              strokeColor={journey.activeRoute?.color || '#AEF5F0'}
+              strokeOpacity={0}
+              icons={[
+                {
+                  icon: {
+                    path: typeof google !== 'undefined' && google.maps && google.maps.SymbolPath ? google.maps.SymbolPath.CIRCLE : 'M 0,0 m -4,0 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0',
+                    scale: 4,
+                    fillColor: journey.activeRoute?.color || '#AEF5F0',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 1.5,
+                  },
+                  offset: '0',
+                  repeat: '18px',
+                },
+              ]}
             />
           </>
         )}
 
-        {/* Alternative Routes Polylines */}
+        {/* Alternative Routes Polylines (Dotted Point Paths) */}
         {journey.alternativeRoutes &&
           journey.alternativeRoutes.map((route) => {
             if (!route.coordinates || route.coordinates.length < 2) return null;
             const path = route.coordinates.map(([lat, lng]) => ({ lat, lng }));
             const midIndex = Math.floor(route.coordinates.length / 2);
             const midPt = route.coordinates[midIndex];
+            const isBlocked = route.aStarMetrics?.status === 'HAZARD_BLOCKED';
+            const dotColor = isBlocked ? '#ef4444' : route.color;
+            const aStarScore = route.aStarMetrics?.totalFCost;
+            const isOptimal = route.aStarMetrics?.isOptimal;
 
             return (
               <React.Fragment key={route.id}>
-                {/* Glow casing */}
+                {/* Corridor trace */}
                 <Polyline
                   path={path}
-                  strokeColor={route.color}
-                  strokeOpacity={0.25}
-                  strokeWeight={10}
+                  strokeColor={dotColor}
+                  strokeOpacity={0.3}
+                  strokeWeight={3}
                 />
-                {/* Alternative dashed route */}
+                {/* Dotted points along road */}
                 <Polyline
                   path={path}
-                  strokeColor={route.color}
-                  strokeOpacity={0.95}
-                  strokeWeight={5}
+                  strokeColor={dotColor}
+                  strokeOpacity={0}
+                  icons={[
+                    {
+                      icon: {
+                        path: typeof google !== 'undefined' && google.maps && google.maps.SymbolPath ? google.maps.SymbolPath.CIRCLE : 'M 0,0 m -3.5,0 a 3.5,3.5 0 1,0 7,0 a 3.5,3.5 0 1,0 -7,0',
+                        scale: 3.5,
+                        fillColor: dotColor,
+                        fillOpacity: 1,
+                        strokeColor: '#ffffff',
+                        strokeWeight: 1,
+                      },
+                      offset: '0',
+                      repeat: '18px',
+                    },
+                  ]}
                 />
                 {/* Clickable Route Commitment Badge */}
                 <AdvancedMarker
@@ -354,14 +384,17 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     className="px-2.5 py-1 rounded-md text-xs font-bold border shadow-xl flex items-center gap-1.5 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition"
                     style={{
                       backgroundColor: '#161B22',
-                      borderColor: route.color,
-                      color: route.color,
+                      borderColor: dotColor,
+                      color: dotColor,
                     }}
                   >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: route.color }}></span>
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: dotColor }}></span>
                     <span>{translateText(route.name, activeLang)}</span>
+                    {isBlocked && <span className="text-red-400 font-mono text-[10px] bg-red-950/60 px-1 py-0.2 rounded border border-red-500/40">🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>}
+                    {isOptimal && <span className="text-emerald-400 font-mono text-[10px] bg-emerald-950/60 px-1 py-0.2 rounded border border-emerald-500/40">⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>}
                     <span className="text-slate-300 font-normal">
                       • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
+                      {aStarScore ? <span className="text-cyan-400 font-mono ml-1">[f={aStarScore}]</span> : null}
                     </span>
                   </div>
                 </AdvancedMarker>

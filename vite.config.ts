@@ -171,6 +171,40 @@ function placesApiProxyPlugin(): Plugin {
           return res.end(JSON.stringify({ error: err.message || 'Internal proxy error' }));
         }
       });
+
+      // 3. High-Speed OSRM Routing Proxy (bypasses browser CORS & adblockers)
+      server.middlewares.use('/api/osrm/route', async (req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          return res.end();
+        }
+
+        try {
+          const url = new URL(req.url || '', 'http://localhost:3000');
+          const coords = url.searchParams.get('coords') || '';
+          const alternatives = url.searchParams.get('alternatives') || '3';
+          if (!coords) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ error: 'coords parameter required' }));
+          }
+
+          const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=${alternatives}`;
+          const osrmRes = await fetch(osrmUrl);
+          const data = await osrmRes.json();
+          res.statusCode = osrmRes.status;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify(data));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ error: err.message || 'Routing proxy error' }));
+        }
+      });
     },
   };
 }
@@ -180,7 +214,7 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss(), placesApiProxyPlugin()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve('.'),
       },
     },
     server: {

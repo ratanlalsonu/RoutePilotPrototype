@@ -320,60 +320,83 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       L.marker([journey.destination.lat, journey.destination.lng], { icon: destIcon }).addTo(routesLayer);
     }
 
-    // 3. Active Route Polylines (Highlighted Neon Cyan Path from Source to Destination)
+    // 3. Active Route Polylines (Dotted Point Road Path from Source to Destination)
     if (journey.activeRoute && journey.activeRoute.coordinates.length > 1) {
       const coords: [number, number][] = journey.activeRoute.coordinates.map(([lat, lng]) => [lat, lng]);
 
-      // Outer Glow Halo
+      // Base subtle road corridor underlay
+      L.polyline(coords, {
+        color: journey.activeRoute.color || '#AEF5F0',
+        weight: 4,
+        opacity: 0.35,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(routesLayer);
+
+      // Glowing circular dotted points halo along the exact road
       L.polyline(coords, {
         color: '#00f2fe',
         weight: 14,
         opacity: 0.4,
+        dashArray: '0, 18',
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(routesLayer);
 
-      // Core Highlight Path
+      // Main prominent circular dotted points on the road path
       L.polyline(coords, {
         color: journey.activeRoute.color || '#AEF5F0',
-        weight: 6,
+        weight: 9,
         opacity: 1,
+        dashArray: '0, 18',
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(routesLayer);
 
-      // Directional Flow Centerline
+      // High-contrast bright inner core for each road dotted point
       L.polyline(coords, {
         color: '#ffffff',
-        weight: 2,
-        opacity: 0.85,
-        dashArray: '10, 15',
+        weight: 4,
+        opacity: 0.95,
+        dashArray: '0, 18',
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(routesLayer);
     }
 
-    // 4. Alternative Routes Polylines + Badges
+    // 4. Alternative Routes Polylines + Badges (Dotted Point Paths along roads)
     if (journey.alternativeRoutes && journey.alternativeRoutes.length > 0) {
       journey.alternativeRoutes.forEach((altRoute) => {
         if (!altRoute.coordinates || altRoute.coordinates.length < 2) return;
         const coords: [number, number][] = altRoute.coordinates.map(([lat, lng]) => [lat, lng]);
+        const isBlocked = altRoute.aStarMetrics?.status === 'HAZARD_BLOCKED';
+        const dotColor = isBlocked ? '#ef4444' : altRoute.color;
 
-        // Glow
+        // Base corridor trace
         L.polyline(coords, {
-          color: altRoute.color,
-          weight: 10,
-          opacity: 0.25,
+          color: dotColor,
+          weight: 3,
+          opacity: 0.3,
           lineCap: 'round',
           lineJoin: 'round',
         }).addTo(routesLayer);
 
-        // Dashed alternative route line
+        // Circular dotted points along the alternative road path
         L.polyline(coords, {
-          color: altRoute.color,
-          weight: 5,
+          color: dotColor,
+          weight: 8,
           opacity: 0.95,
-          dashArray: '8, 8',
+          dashArray: '0, 18',
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(routesLayer);
+
+        // Inner core dots
+        L.polyline(coords, {
+          color: '#ffffff',
+          weight: 3,
+          opacity: 0.85,
+          dashArray: '0, 18',
           lineCap: 'round',
           lineJoin: 'round',
         }).addTo(routesLayer);
@@ -382,22 +405,28 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         const midIdx = Math.floor(coords.length / 2);
         const midPt = coords[midIdx];
         if (midPt) {
+          const aStarScore = altRoute.aStarMetrics?.totalFCost;
+          const isOptimal = altRoute.aStarMetrics?.isOptimal;
+
           const badgeIcon = L.divIcon({
             className: 'alt-route-badge-container',
             html: `
               <div
                 class="px-2.5 py-1 rounded-md text-xs font-bold border shadow-xl flex items-center gap-1.5 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition"
-                style="background-color: #161B22; border-color: ${altRoute.color}; color: ${altRoute.color};"
+                style="background-color: #161B22; border-color: ${dotColor}; color: ${dotColor};"
               >
-                <span class="w-2 h-2 rounded-full" style="background-color: ${altRoute.color};"></span>
+                <span class="w-2 h-2 rounded-full" style="background-color: ${dotColor};"></span>
                 <span>${translateText(altRoute.name, activeLang)}</span>
+                ${isBlocked ? `<span class="text-red-400 font-mono font-bold text-[10px] bg-red-950/60 px-1 py-0.2 rounded border border-red-500/40">🛑 ${activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>` : ''}
+                ${isOptimal ? `<span class="text-emerald-400 font-mono font-bold text-[10px] bg-emerald-950/60 px-1 py-0.2 rounded border border-emerald-500/40">⭐ A* ${activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>` : ''}
                 <span class="text-slate-300 font-normal">
                   • ${altRoute.distanceKm} ${activeLang === 'hi' ? 'किमी' : 'km'} • ${altRoute.durationMinutes} ${activeLang === 'hi' ? 'मिनट' : 'min'}
+                  ${aStarScore ? `<span class="text-cyan-400 font-mono ml-1">[f=${aStarScore}]</span>` : ''}
                 </span>
               </div>
             `,
-            iconSize: [160, 30],
-            iconAnchor: [80, 15],
+            iconSize: [220, 30],
+            iconAnchor: [110, 15],
           });
 
           const badgeMarker = L.marker(midPt, { icon: badgeIcon }).addTo(routesLayer);

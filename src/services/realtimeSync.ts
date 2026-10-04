@@ -432,7 +432,8 @@ class RealtimeSyncManager {
    */
   public checkHazardAgainstActiveRoute(hazard: Hazard) {
     const j = this.state.journey;
-    if (!j.activeRoute || j.status !== 'ON_ROUTE') return;
+    // Check whenever an active route exists (both while navigating and during route planning)
+    if (!j.activeRoute) return;
 
     // Check if already handled
     if (j.handledHazardIds.includes(hazard.hazardId)) return;
@@ -440,12 +441,12 @@ class RealtimeSyncManager {
     const { affects, minDistanceMeters, segmentIndex, aheadOfDriver } = hazardAffectsRoute(
       hazard,
       j.activeRoute.coordinates,
-      j.currentLocation.pointIndex
+      j.currentLocation.pointIndex || 0
     );
 
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    if (affects && aheadOfDriver) {
+    if (affects && (aheadOfDriver || j.status === 'IDLE')) {
       // HAZARD INTERSECTS ROUTE!
       this.addRouteEvent({
         time: nowTime,
@@ -1002,7 +1003,7 @@ class RealtimeSyncManager {
   }
 
   /**
-   * Re-evaluates all 3 candidate paths using A* Search Algorithm upon Hazard Detection.
+   * Re-evaluates all candidate paths using A* Search Algorithm upon Hazard Detection.
    * Immediately penalizes the blocked route (+9999) and shifts optimal pointer to the best clear detour!
    */
   public async reEvaluateRoutesWithAStarAfterHazard(hazard: Hazard) {
@@ -1017,12 +1018,24 @@ class RealtimeSyncManager {
 
     if (!dest || !dest.name || dest.lat === 0) return;
 
-    // 1. Calculate 3 candidate routes from current position to destination
-    const routes = await calculateMultipleOptimalRoutes(origin, dest, vType);
+    // 1. Calculate 3 candidate detour routes bypassing the hazard
+    const detourRoutes = await calculateAlternativeRoutes(origin.lat, origin.lng, dest, hazard, vType);
+
+    // Include previous route so A* algorithm explicitly evaluates and shows why it is blocked
+    const candidateRoutes: RouteOption[] = [...detourRoutes];
+    if (j.activeRoute) {
+      const prev = {
+        ...j.activeRoute,
+        id: 'blocked_prev_route',
+        name: `${j.activeRoute.name} (Obstructed)`,
+        color: '#ef4444',
+      };
+      candidateRoutes.unshift(prev);
+    }
 
     // 2. Evaluate with A* including the newly detected hazard!
     const aStarResult = evaluateRoutesWithAStar(
-      routes,
+      candidateRoutes,
       origin,
       dest,
       this.state.hazards,
@@ -1035,7 +1048,7 @@ class RealtimeSyncManager {
     const newOptimal = aStarResult.optimalRoute;
     j.activeRoute = newOptimal;
     j.activeRouteId = newOptimal.id;
-    j.alternativeRoutes = aStarResult.alternativeRoutes;
+    j.alternativeRoutes = aStarResult.routes.filter((r) => r.id !== newOptimal.id);
 
     j.totalDistanceKm = newOptimal.distanceKm;
     j.remainingDistanceKm = newOptimal.distanceKm;

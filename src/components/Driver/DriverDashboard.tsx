@@ -4,7 +4,8 @@ import { RoutePilotMap } from '../Map/RoutePilotMap';
 import { SettingsModal } from '../Common/SettingsModal';
 import { ReportHazardModal } from './ReportHazardModal';
 import { EmergencySosModal } from './EmergencySosModal';
-import { VehicleType, HazardType, HazardSeverity, RouteStep } from '../../types';
+import { AStarModal } from '../Common/AStarModal';
+import { VehicleType, HazardType, HazardSeverity, RouteStep, RouteOption } from '../../types';
 import { searchPlaces, reverseGeocode } from '../../services/geocodingService';
 import { VoiceService } from '../../services/voiceService';
 import { getVehicleSpeedProfile, formatDurationText } from '../../services/routingService';
@@ -27,6 +28,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isReportHazardOpen, setIsReportHazardOpen] = useState(false);
   const [isSosOpen, setIsSosOpen] = useState(false);
+  const [isAStarModalOpen, setIsAStarModalOpen] = useState(false);
+  const [showInlineAStarBreakdown, setShowInlineAStarBreakdown] = useState(false);
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
   const [isMapClearMode, setIsMapClearMode] = useState(false);
   const [language, setLanguage] = useState<'en' | 'hi'>(state.appSettings.language || 'en');
@@ -45,6 +48,21 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   }, [state.appSettings.language]);
 
   const { journey, hazards, sensorNodes } = state;
+
+  // Gather all 3 candidate paths (or detours) for presentation
+  const candidateRoutesList: RouteOption[] = useMemo(() => {
+    if (state.aStarEvaluation && state.aStarEvaluation.routes && state.aStarEvaluation.routes.length > 0) {
+      return state.aStarEvaluation.routes;
+    }
+    const list: RouteOption[] = [];
+    if (journey.activeRoute) list.push(journey.activeRoute);
+    if (journey.alternativeRoutes) {
+      journey.alternativeRoutes.forEach((r) => {
+        if (!list.some((existing) => existing.id === r.id)) list.push(r);
+      });
+    }
+    return list;
+  }, [state.aStarEvaluation, journey.activeRoute, journey.alternativeRoutes]);
 
   // Auto-acquire real live GPS on component mount so the driver's real position appears as Source
   useEffect(() => {
@@ -615,10 +633,10 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   </div>
                 )}
 
-                {/* STAGE 2: Destination IS selected, but route not yet active -> Prompt Vehicle Type & Show Optimal Routes */}
-                {journey.destination?.name && !journey.activeRoute && (
-                  <div key="stage-step2" className="animate-section-smooth space-y-3">
-                    {/* Vehicle Selection */}
+                {/* STAGE 2: Destination IS selected -> Prompt Vehicle Type, Show 3 Candidate Paths & A* Optimal Evaluation */}
+                {journey.destination?.name && (
+                  <div key="stage-step2-routes" className="animate-section-smooth space-y-3">
+                    {/* Vehicle Type Selection Bar */}
                     <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
@@ -627,7 +645,9 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                             <span>{t.step2SelectVehicle}</span>
                           </div>
                           <div className="text-[10px] text-slate-400">
-                            {t.step2Desc}
+                            {language === 'hi'
+                              ? 'वाहन प्रकार चुनें — गति और सड़क प्रतिबंधों के आधार पर 3 मार्ग विश्लेषित होंगे'
+                              : 'Select vehicle — 3 paths will be analyzed based on speed and road limits'}
                           </div>
                         </div>
                         {isCalculatingRoutes && (
@@ -659,172 +679,267 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           </button>
                         ))}
                       </div>
-
-                      {journey.alternativeRoutes.length === 0 && !isCalculatingRoutes && (
-                        <button
-                          type="button"
-                          onClick={() => handleVehicleSelect(journey.vehicleType || 'car')}
-                          className="w-full py-2.5 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-[#AEF5F0]/25"
-                        >
-                          <span>🔍 {language === 'hi' ? `${translateText(journey.vehicleType, language)} के लिए सर्वश्रेष्ठ मार्ग खोजें` : `Find Optimal Routes for ${journey.vehicleType.toUpperCase()}`}</span>
-                        </button>
-                      )}
                     </div>
 
-                    {/* Step 3: Optimal Routes Choice */}
-                    {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
-                      <div key="stage-step3-routes" className="animate-section-smooth bg-[#21262D] border border-[#AEF5F0]/40 rounded-xl p-3 space-y-2.5 shadow-xl">
-                        <div className="flex items-center justify-between border-b border-[#30363D] pb-2">
+                    {/* Prominent Hazard Alert Box if hazard detected on active route */}
+                    {journey.detectedHazard && (
+                      <div className="bg-gradient-to-br from-red-950/80 via-[#1c0f18] to-[#161B22] border-2 border-red-500 rounded-xl p-3 shadow-2xl space-y-2 animate-section-smooth">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl animate-bounce">⚠️</span>
+                          <div>
+                            <div className="text-xs font-bold text-red-200 uppercase tracking-wide">
+                              {language === 'hi' ? 'सड़क पर खतरा पाया गया!' : 'HAZARD DETECTED ON ROUTE'}
+                            </div>
+                            <div className="text-[11px] text-red-300">
+                              {journey.detectedHazard.type} near {journey.detectedHazard.locationName}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-300 leading-relaxed bg-[#0D1117]/80 p-2 rounded border border-red-500/30">
+                          {language === 'hi'
+                            ? 'A* एल्गोरिथ्म ने अवरुद्ध मार्ग को +9999 दंड देकर खारिज किया और सुरक्षित बायपास का पुनर्मूल्यांकन कर नया सर्वोत्तम मार्ग चुना।'
+                            : 'A* Algorithm applied +9999 penalty to the blocked corridor and dynamically rerouted to the safest optimal detour.'}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Step 3: 3 Candidate Paths Evaluated by A* Algorithm */}
+                    {candidateRoutesList && candidateRoutesList.length > 0 && (
+                      <div className="bg-[#21262D] border border-[#AEF5F0]/40 rounded-xl p-3 space-y-3 shadow-xl">
+                        <div className="flex items-center justify-between border-b border-[#30363D] pb-2.5">
                           <div>
                             <div className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span>🗺️</span>
-                              <span>{t.step3ChooseOptimal}</span>
+                              <span>
+                                {language === 'hi'
+                                  ? `A* एल्गोरिथ्म द्वारा ${candidateRoutesList.length} मार्गों का मूल्यांकन`
+                                  : `${candidateRoutesList.length} Paths Evaluated by A* Algorithm`}
+                              </span>
                             </div>
                             <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">
-                              {journey.alternativeRoutes.length} {t.step3PathsCalculated}
+                              {language === 'hi'
+                                ? 'न्यूनतम लागत f(n) = g(n) + h(n) वाला मार्ग चुना गया'
+                                : 'Optimal route selected via minimum f(n) cost'}
                             </div>
                           </div>
+
+                          {/* How A* Works Interactive Button */}
+                          <button
+                            type="button"
+                            onClick={() => setIsAStarModalOpen(true)}
+                            className="px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-300 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                            title="Open A* Algorithm Decision Engine Breakdown"
+                          >
+                            <span>🧠</span>
+                            <span>{language === 'hi' ? 'A* निर्णय तर्क देखें' : 'How A* Chose'}</span>
+                          </button>
                         </div>
 
-                        <p className="text-[10px] text-slate-400">
-                          {t.step3OtherHidden}
-                        </p>
-
-                        <div className="space-y-2">
-                          {journey.alternativeRoutes.map((alt) => (
-                            <div
-                              key={alt.id}
-                              onClick={() => handleSelectOptimalRoute(alt.id)}
-                              className="p-2.5 rounded-xl border border-[#30363D] bg-[#161B22] hover:border-[#AEF5F0] hover:bg-[#1c222b] cursor-pointer transition flex items-center justify-between group"
-                              style={{ borderLeftWidth: '4px', borderLeftColor: alt.color }}
+                        {/* Quick Inline A* Decision Explanation Banner */}
+                        <div className="p-2.5 rounded-lg bg-[#161B22] border border-[#30363D] text-[11px] flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-[#AEF5F0] flex items-center gap-1">
+                              <span>⚡</span>
+                              <span>{language === 'hi' ? 'A* चयन तर्क (A* Decision Logic):' : 'A* Decision Logic:'}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowInlineAStarBreakdown(!showInlineAStarBreakdown)}
+                              className="text-[10px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer"
                             >
-                              <div className="min-w-0 pr-2">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate">
-                                    {translateText(alt.name, language)}
-                                  </span>
-                                  {alt.isRecommended && (
-                                    <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/20 px-1 py-0.5 rounded shrink-0">
-                                      {t.fastestBadge}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                                  {alt.viaRoads?.join(' • ') || (language === 'hi' ? 'मुख्य गलियारा' : 'Main Arterial Corridor')}
-                                </div>
-                                <div className="text-xs font-mono font-bold text-white mt-1 flex items-center gap-2">
-                                  <span className="text-cyan-400">{alt.distanceKm} {language === 'hi' ? 'किमी' : 'km'}</span>
-                                  <span className="text-slate-500">•</span>
-                                  <span className="text-emerald-400">{alt.durationMinutes} {language === 'hi' ? 'मिनट' : 'min'}</span>
-                                </div>
+                              {showInlineAStarBreakdown
+                                ? (language === 'hi' ? 'संक्षिप्त करें ▲' : 'Collapse ▲')
+                                : (language === 'hi' ? 'विस्तार से देखें ▼' : 'View Formula ▼')}
+                            </button>
+                          </div>
+                          <p className="text-slate-300 text-[10px] leading-relaxed">
+                            {language === 'hi'
+                              ? state.aStarEvaluation?.evaluationSummary?.decisionReasonHi || 'A* ने न्यूनतम यात्रा समय और शून्य जोखिम के आधार पर सर्वोत्तम मार्ग चुना।'
+                              : state.aStarEvaluation?.evaluationSummary?.decisionReason || 'A* selected optimal route with lowest travel time and zero hazard risk.'}
+                          </p>
+
+                          {/* Expandable Formula & Scorecard Table */}
+                          {showInlineAStarBreakdown && (
+                            <div className="pt-2 border-t border-[#30363D] space-y-2 animate-section-smooth">
+                              <div className="bg-[#0D1117] p-2 rounded font-mono text-[10px] text-center border border-[#30363D] text-slate-200">
+                                f(n) = g(n) [रोड लागत] + h(n) [सीधी दूरी] + HazardPenalty
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSelectOptimalRoute(alt.id);
+                              <div
+                                className="gap-1.5 text-[10px] text-center font-mono"
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: `repeat(${Math.max(1, candidateRoutesList.length)}, minmax(0, 1fr))`,
                                 }}
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shrink-0 shadow-md shadow-[#AEF5F0]/25 transition cursor-pointer"
                               >
-                                {t.selectRouteBtn}
-                              </button>
+                                {candidateRoutesList.map((r) => {
+                                  const isOpt = r.aStarMetrics?.isOptimal;
+                                  const isBlk = r.aStarMetrics?.status === 'HAZARD_BLOCKED';
+                                  return (
+                                    <div
+                                      key={r.id}
+                                      className={`p-1.5 rounded border ${
+                                        isOpt
+                                          ? 'bg-cyan-950/40 border-cyan-400 text-cyan-300'
+                                          : isBlk
+                                          ? 'bg-red-950/40 border-red-500 text-red-300'
+                                          : 'bg-[#161B22] border-[#30363D] text-slate-300'
+                                      }`}
+                                    >
+                                      <div className="font-bold truncate text-[9px]">{r.name.split('—')[0]}</div>
+                                      <div className="text-[11px] font-bold mt-0.5">f = {r.aStarMetrics?.totalFCost ?? '--'}</div>
+                                      <div className="text-[8px] opacity-75">{r.distanceKm} km • {r.durationMinutes}m</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          ))}
+                          )}
+                        </div>
+
+                        {/* List of 3 Candidate Routes with Full Information */}
+                        <div className="space-y-2">
+                          {candidateRoutesList.map((route, idx) => {
+                            const isSelected = journey.activeRoute?.id === route.id;
+                            const isOptimal = route.aStarMetrics?.isOptimal;
+                            const isBlocked = route.aStarMetrics?.status === 'HAZARD_BLOCKED';
+                            const cardBorder = isSelected
+                              ? 'border-[#AEF5F0] ring-1 ring-[#AEF5F0]/60 bg-[#1c222b]'
+                              : isBlocked
+                              ? 'border-red-500/50 bg-red-950/15'
+                              : 'border-[#30363D] bg-[#161B22] hover:border-[#AEF5F0]/60';
+
+                            return (
+                              <div
+                                key={route.id}
+                                onClick={() => handleSelectOptimalRoute(route.id)}
+                                className={`p-2.5 rounded-xl border transition flex items-center justify-between group cursor-pointer ${cardBorder}`}
+                                style={{ borderLeftWidth: '5px', borderLeftColor: isBlocked ? '#ef4444' : route.color }}
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate">
+                                      {translateText(route.name, language)}
+                                    </span>
+                                    {isOptimal && (
+                                      <span className="text-[8px] font-extrabold text-slate-950 bg-[#AEF5F0] px-1.5 py-0.5 rounded shadow-sm shadow-[#AEF5F0]/40 shrink-0">
+                                        ⭐ {language === 'hi' ? 'A* सर्वोत्तम' : 'A* BEST'}
+                                      </span>
+                                    )}
+                                    {isBlocked && (
+                                      <span className="text-[8px] font-bold text-red-200 bg-red-600 px-1.5 py-0.5 rounded shrink-0">
+                                        🛑 {language === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}
+                                      </span>
+                                    )}
+                                    {isSelected && !isOptimal && (
+                                      <span className="text-[8px] font-bold text-cyan-300 bg-cyan-900/60 px-1.5 py-0.5 rounded border border-cyan-400/40 shrink-0">
+                                        ✓ {language === 'hi' ? 'सक्रिय' : 'ACTIVE'}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                    {route.viaRoads?.join(' • ') || (language === 'hi' ? 'मुख्य गलियारा' : 'Main Corridor')}
+                                  </div>
+
+                                  <div className="text-xs font-mono font-bold text-white mt-1 flex items-center gap-2">
+                                    <span className="text-cyan-400">{route.distanceKm} {language === 'hi' ? 'किमी' : 'km'}</span>
+                                    <span className="text-slate-500">•</span>
+                                    <span className="text-emerald-400">{route.durationMinutes} {language === 'hi' ? 'मिनट' : 'min'}</span>
+                                    {route.aStarMetrics?.totalFCost !== undefined && (
+                                      <>
+                                        <span className="text-slate-500">•</span>
+                                        <span className="text-amber-300 font-normal text-[10px]">
+                                          f(n)={route.aStarMetrics.totalFCost}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectOptimalRoute(route.id);
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                                      : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shadow-md shadow-[#AEF5F0]/25'
+                                  }`}
+                                >
+                                  {isSelected ? (language === 'hi' ? 'चयनित ✓' : 'Selected ✓') : (language === 'hi' ? 'चुनें' : 'Select')}
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* STAGE 3: Route IS Active -> Show Active Route Telemetry, Navigation, and Drive Controls */}
-                {journey.activeRoute && (
-                  <div key="stage-step4-active" className="animate-section-smooth space-y-3">
-                    {/* Chosen Route Info Banner */}
-                    <div className="bg-[#21262D] border border-[#AEF5F0]/50 rounded-xl p-3 space-y-2 shadow-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-pulse"></span>
-                          <span className="font-bold text-xs text-white truncate max-w-[170px]">
-                            {journey.activeRoute.name}
+                    {/* Active Navigation Telemetry & Drive Controls */}
+                    {journey.activeRoute && (
+                      <div className="bg-[#21262D] border border-[#AEF5F0]/50 rounded-xl p-3 space-y-2.5 shadow-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-pulse"></span>
+                            <span className="font-bold text-xs text-white truncate max-w-[170px]">
+                              {journey.activeRoute.name}
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-bold bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30 uppercase">
+                            {journey.vehicleType}
                           </span>
                         </div>
-                        <span className="text-[9px] font-bold bg-[#AEF5F0]/15 text-[#AEF5F0] px-1.5 py-0.5 rounded border border-[#AEF5F0]/30 uppercase">
-                          {journey.vehicleType}
-                        </span>
-                      </div>
 
-                      <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#30363D] text-xs font-mono">
-                        <div>
-                          <span className="text-[9px] text-slate-400 block font-sans">Distance</span>
-                          <span className="font-bold text-white">{journey.remainingDistanceKm} km</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-400 block font-sans">Est. Time</span>
-                          <span className="font-bold text-emerald-400">{journey.remainingDurationMinutes} min</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-400 block font-sans">ETA</span>
-                          <span className="font-bold text-cyan-400">{journey.eta}</span>
-                        </div>
-                      </div>
-
-                      {!journey.isNavigating && journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (
-                        <div className="pt-2 border-t border-[#30363D]/60 space-y-1.5">
-                          <span className="text-[10px] text-slate-400 font-semibold block">Alternative Routes:</span>
-                          <div className="flex flex-col gap-1.5">
-                            {journey.alternativeRoutes.map((alt) => (
-                              <button
-                                key={alt.id}
-                                type="button"
-                                onClick={() => handleSelectOptimalRoute(alt.id)}
-                                className="w-full text-left p-2 rounded-lg bg-[#161B22] hover:bg-[#1c222b] border border-[#30363D] hover:border-[#AEF5F0] flex items-center justify-between transition cursor-pointer text-xs"
-                              >
-                                <div className="truncate pr-2">
-                                  <span className="font-bold text-white">{translateText(alt.name, language)}</span>
-                                  <span className="text-[10px] text-slate-400 block truncate">{alt.viaRoads?.join(', ')}</span>
-                                </div>
-                                <span className="text-[11px] font-mono font-bold text-cyan-400 shrink-0">
-                                  {alt.distanceKm} km • {alt.durationMinutes} min
-                                </span>
-                              </button>
-                            ))}
+                        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#30363D] text-xs font-mono">
+                          <div>
+                            <span className="text-[9px] text-slate-400 block font-sans">Distance</span>
+                            <span className="font-bold text-white">{journey.remainingDistanceKm} km</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-400 block font-sans">Est. Time</span>
+                            <span className="font-bold text-emerald-400">{journey.remainingDurationMinutes} min</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-400 block font-sans">ETA</span>
+                            <span className="font-bold text-cyan-400">{journey.eta}</span>
                           </div>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Primary Navigation Controls */}
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={toggleNavigation}
-                          className={`flex-1 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer active:scale-98 ${
-                            journey.isNavigating
-                              ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
-                              : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shadow-md shadow-[#AEF5F0]/25'
-                          }`}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                            {journey.isNavigating ? (
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            ) : (
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                            )}
-                          </svg>
-                          <span>{journey.isNavigating ? 'Pause Navigation' : 'Start Navigation'}</span>
-                        </button>
-
-                        {journey.isNavigating && (
+                        {/* Navigation Controls */}
+                        <div className="pt-2 border-t border-[#30363D]/60 flex gap-2">
                           <button
-                            onClick={handleStopNavigation}
-                            title="Cancel & Reset Trip"
-                            className="px-3 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                            onClick={toggleNavigation}
+                            className={`flex-1 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer active:scale-98 ${
+                              journey.isNavigating
+                                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
+                                : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shadow-md shadow-[#AEF5F0]/25'
+                            }`}
                           >
-                            Stop
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                              {journey.isNavigating ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              )}
+                            </svg>
+                            <span>{journey.isNavigating ? (language === 'hi' ? 'नेविगेशन रोकें' : 'Pause Navigation') : (language === 'hi' ? 'नेविगेशन शुरू करें' : 'Start Navigation')}</span>
                           </button>
-                        )}
+
+                          {journey.isNavigating && (
+                            <button
+                              onClick={handleStopNavigation}
+                              title="Cancel & Reset Trip"
+                              className="px-3 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                            >
+                              Stop
+                            </button>
+                          )}
+                        </div>
                       </div>
+                    )}
 
                       {/* Simulation Controls & Speed Controller */}
                       <div className="bg-[#21262D] p-3 rounded-xl border border-[#30363D] space-y-2.5">
@@ -924,7 +1039,6 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           </button>
                         </div>
                       </div>
-                    </div>
 
                     {/* Current Journey Stats Card & Speedometer */}
                     <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3">
@@ -1045,6 +1159,21 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     🔊
                   </button>
                 </div>
+              )}
+
+              {/* Floating A* Decision Badge on Map */}
+              {state.aStarEvaluation && !isMapClearMode && (
+                <button
+                  type="button"
+                  onClick={() => setIsAStarModalOpen(true)}
+                  className="absolute top-4 right-4 z-[995] bg-[#161B22]/95 hover:bg-[#21262D] backdrop-blur-md border border-[#AEF5F0]/50 text-white rounded-xl px-3 py-2 shadow-2xl flex items-center gap-2 cursor-pointer transition active:scale-95 pointer-events-auto"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-pulse"></span>
+                  <span className="text-xs font-bold text-[#AEF5F0]">⚡ A* {language === 'hi' ? 'निर्णय तर्क' : 'Decision'}</span>
+                  <span className="text-[10px] text-slate-300 font-mono">
+                    [f={state.aStarEvaluation.optimalRoute.aStarMetrics?.totalFCost}]
+                  </span>
+                </button>
               )}
             </div>
 
@@ -1355,6 +1484,23 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                 {/* ZONE 2: TOP-RIGHT — Stacked Hazard Alert and Available Alternates (Zero Overlap Guaranteed!) */}
                 <div className="absolute top-3 right-14 sm:right-16 z-[995] w-64 sm:w-72 flex flex-col gap-2 pointer-events-auto">
+                  {/* Floating A* Decision Pill */}
+                  {state.aStarEvaluation && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAStarModalOpen(true)}
+                      className="w-full bg-[#161B22]/95 hover:bg-[#21262D] backdrop-blur-md border border-[#AEF5F0]/50 text-white rounded-xl px-2.5 py-1.5 shadow-xl flex items-center justify-between cursor-pointer transition active:scale-95"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#AEF5F0] animate-pulse"></span>
+                        <span className="text-[11px] font-bold text-[#AEF5F0]">⚡ A* {language === 'hi' ? 'निर्णय तर्क' : 'Decision'}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-300 font-mono">
+                        [f={state.aStarEvaluation.optimalRoute.aStarMetrics?.totalFCost}]
+                      </span>
+                    </button>
+                  )}
+
                   {/* Prominent Hazard Alert Box */}
                   {journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED' && (
                     <div className="bg-gradient-to-br from-red-950/95 to-[#161B22]/95 backdrop-blur-md border-2 border-red-500 rounded-2xl p-2.5 sm:p-3 shadow-2xl animate-section-smooth">
@@ -2071,6 +2217,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
         lat={journey.currentLocation.lat}
         lng={journey.currentLocation.lng}
         driverId={journey.driverId}
+      />
+
+      {/* A* Algorithm Path Decision Engine Modal */}
+      <AStarModal
+        isOpen={isAStarModalOpen}
+        onClose={() => setIsAStarModalOpen(false)}
+        evaluationResult={state.aStarEvaluation}
+        language={language}
+        vehicleType={journey.vehicleType}
+        onSelectRoute={(routeId) => handleSelectOptimalRoute(routeId)}
       />
     </div>
   );
