@@ -105,14 +105,9 @@ const INITIAL_JOURNEY: Journey = {
   startedAt: '',
 };
 
-export function applyDocumentTheme(theme: 'dark' | 'light' | 'system') {
+export function applyDocumentTheme(theme: 'dark' | 'light') {
   if (typeof window === 'undefined') return;
-  const effectiveTheme =
-    theme === 'system'
-      ? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-        ? 'light'
-        : 'dark'
-      : theme;
+  const effectiveTheme = theme === 'light' ? 'light' : 'dark';
 
   document.documentElement.setAttribute('data-theme', effectiveTheme);
   document.body.setAttribute('data-theme', effectiveTheme);
@@ -126,14 +121,32 @@ export function applyDocumentTheme(theme: 'dark' | 'light' | 'system') {
 }
 
 function getInitialState(): RoutePilotState {
+  const envMapsKey = ((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const envPlacesKey = ((import.meta as any).env?.VITE_GOOGLE_PLACES_API_KEY || '').trim();
+
   if (typeof window !== 'undefined') {
     try {
+      if (envMapsKey) {
+        localStorage.setItem('routepilot_gmaps_api_key', envMapsKey);
+        if (!localStorage.getItem('routepilot_map_engine')) {
+          localStorage.setItem('routepilot_map_engine', 'google');
+        }
+      }
+      if (envPlacesKey) {
+        localStorage.setItem('routepilot_places_api_key', envPlacesKey);
+      }
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.hazards && parsed.journey) {
           if (parsed.appSettings && parsed.appSettings.mapTheme !== 'satellite') {
             parsed.appSettings.mapTheme = 'standard';
+          }
+          if (envMapsKey) {
+            parsed.appSettings.googleMapsApiKey = envMapsKey;
+          }
+          if (envPlacesKey || envMapsKey) {
+            parsed.appSettings.placesApiKey = envPlacesKey || envMapsKey;
           }
           return parsed;
         }
@@ -143,26 +156,34 @@ function getInitialState(): RoutePilotState {
     }
   }
 
-  let storedApiKey = '';
-  let storedPlacesApiKey = '';
+  let storedApiKey = envMapsKey;
+  let storedPlacesApiKey = envPlacesKey || envMapsKey;
 
   if (typeof window !== 'undefined') {
     try {
-      localStorage.removeItem('routepilot_gmaps_api_key');
-      localStorage.removeItem('routepilot_places_api_key');
-      localStorage.removeItem('routepilot_key_expired');
-      localStorage.setItem('routepilot_map_engine', 'osm');
+      const localMaps = localStorage.getItem('routepilot_gmaps_api_key');
+      if (localMaps && localMaps.trim()) {
+        storedApiKey = localMaps.trim();
+      }
+      const localPlaces = localStorage.getItem('routepilot_places_api_key');
+      if (localPlaces && localPlaces.trim()) {
+        storedPlacesApiKey = localPlaces.trim();
+      }
+      // If valid API key is present and engine hasn't been explicitly configured, prefer google
+      if (storedApiKey && !localStorage.getItem('routepilot_map_engine')) {
+        localStorage.setItem('routepilot_map_engine', 'google');
+      }
     } catch {
       // ignore
     }
   }
 
   const rawStoredTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null;
-  const storedMapTheme: 'standard' | 'satellite' = rawStoredTheme === 'satellite' ? 'satellite' : 'standard';
+  const storedMapTheme: 'standard' | 'dark' | 'satellite' =
+    rawStoredTheme === 'satellite' || rawStoredTheme === 'dark' ? rawStoredTheme : 'standard';
 
   const rawStoredAppTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_app_theme') : null;
-  const storedAppTheme: 'dark' | 'light' | 'system' =
-    rawStoredAppTheme === 'light' || rawStoredAppTheme === 'system' ? rawStoredAppTheme : 'dark';
+  const storedAppTheme: 'dark' | 'light' = rawStoredAppTheme === 'light' ? 'light' : 'dark';
 
   const rawStoredMapStyle = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_style') : null;
   const storedMapStyle: 'standard' | 'dark' | 'satellite' | 'terrain' =
@@ -354,7 +375,7 @@ class RealtimeSyncManager {
     return nextTheme;
   }
 
-  public setMapTheme(theme: 'standard' | 'satellite') {
+  public setMapTheme(theme: 'standard' | 'dark' | 'satellite') {
     this.state.appSettings.mapTheme = theme;
     if (typeof window !== 'undefined') {
       try {
@@ -364,9 +385,24 @@ class RealtimeSyncManager {
     this.notify();
   }
 
-  public setAppTheme(theme: 'dark' | 'light' | 'system') {
+  public setAppTheme(theme: 'dark' | 'light') {
     this.state.appSettings.appTheme = theme;
     applyDocumentTheme(theme);
+    if (theme === 'light' && this.state.appSettings.mapTheme === 'dark') {
+      this.state.appSettings.mapTheme = 'standard';
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('routepilot_map_theme', 'standard');
+        } catch {}
+      }
+    } else if (theme === 'dark' && this.state.appSettings.mapTheme === 'standard') {
+      this.state.appSettings.mapTheme = 'dark';
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('routepilot_map_theme', 'dark');
+        } catch {}
+      }
+    }
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('routepilot_app_theme', theme);

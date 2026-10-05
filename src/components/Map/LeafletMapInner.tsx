@@ -47,9 +47,9 @@ interface LeafletMapInnerProps {
   onSelectDestinationFromMap?: (lat: number, lng: number) => void;
   onResolveHazard?: (hazardId: string) => void;
   onCommitRoute?: (routeId: string) => void;
-  theme?: 'standard' | 'satellite';
+  theme?: 'standard' | 'dark' | 'satellite';
   onToggleTheme?: () => void;
-  onChangeTheme?: (theme: 'standard' | 'satellite') => void;
+  onChangeTheme?: (theme: 'standard' | 'dark' | 'satellite') => void;
   onChangeSpeed?: (speed: number) => void;
   onTogglePlayPause?: () => void;
   isMapClearMode?: boolean;
@@ -98,12 +98,11 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   const activeLang = language || realtimeSync.getState().appSettings.language || 'en';
   const t = getTranslation(activeLang);
 
-  const [mapStyle, setMapStyle] = useState<'standard' | 'satellite'>(() => {
-    if (theme === 'satellite') return 'satellite';
-    if (theme === 'standard') return 'standard';
+  const [mapStyle, setMapStyle] = useState<'standard' | 'dark' | 'satellite'>(() => {
+    if (theme === 'satellite' || theme === 'dark' || theme === 'standard') return theme;
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('routepilot_map_theme');
-      if (saved === 'satellite') return 'satellite';
+      if (saved === 'satellite' || saved === 'dark' || saved === 'standard') return saved as any;
     }
     return 'standard';
   });
@@ -135,7 +134,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
   // Sync theme
   useEffect(() => {
-    if (theme === 'satellite' || theme === 'standard') {
+    if (theme === 'satellite' || theme === 'dark' || theme === 'standard') {
       setMapStyle(theme);
     }
   }, [theme]);
@@ -214,7 +213,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     };
   }, []);
 
-  // Smooth base layer switching between Standard and Satellite
+  // Smooth base layer switching between Standard (Light), Dark, and Satellite
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !standardLayerRef.current || !satelliteLayerRef.current) return;
@@ -235,12 +234,34 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         standardLayerRef.current.addTo(map);
         standardLayerRef.current.bringToBack();
       }
+      const container = standardLayerRef.current.getContainer();
+      if (container) {
+        if (mapStyle === 'dark') {
+          container.classList.add('osm-dark-tiles');
+          container.classList.remove('osm-light-tiles');
+        } else {
+          container.classList.add('osm-light-tiles');
+          container.classList.remove('osm-dark-tiles');
+        }
+      }
     }
 
     setTimeout(() => {
       map.invalidateSize();
     }, 50);
   }, [mapStyle]);
+
+  const handleSelectMapStyle = (style: 'standard' | 'dark' | 'satellite') => {
+    setMapStyle(style);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('routepilot_map_theme', style);
+      } catch {}
+    }
+    if (onChangeTheme) {
+      onChangeTheme(style);
+    }
+  };
 
   // Track user map exploration/pan so vehicle movement does not hijack camera while user is dragging
   useEffect(() => {
@@ -848,31 +869,68 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       )}
 
       {/* Vertical Map Utility Dock (Right Side Center) */}
-      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-[#30363D] shadow-2xl p-1 gap-1">
-        {/* Satellite Mode Toggle */}
-        <button
-          onClick={toggleMapStyle}
-          title={mapStyle === 'satellite' ? t.satelliteActiveBadge : t.satelliteModeTitle}
-          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
-            mapStyle === 'satellite'
-              ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
-              : 'hover:bg-[#21262D] text-slate-200 hover:text-white'
-          }`}
-          aria-label="Toggle Satellite Mode"
-        >
-          <span className="text-sm select-none">🛰️</span>
-          <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-[#0D1117] text-white text-[10px] whitespace-nowrap border border-[#30363D] shadow-xl z-50">
-            {mapStyle === 'satellite' ? t.satelliteActiveBadge : t.satelliteModeTitle}
-          </span>
-        </button>
+      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-white/95 dark:bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-slate-300 dark:border-[#30363D] shadow-2xl p-1 gap-1">
+        {/* Map View Modes: Light Map (directly above Satellite), Satellite Mode, Dark Map */}
+        <div className="flex flex-col gap-1">
+          {/* Light Mode Map Button - Directly above Satellite Mode */}
+          <button
+            onClick={() => handleSelectMapStyle('standard')}
+            title={activeLang === 'hi' ? 'दिन का लाइट मैप (स्वच्छ सड़क मैप)' : 'Light Map (Clean Daytime Streets)'}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
+              mapStyle === 'standard'
+                ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
+                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+            }`}
+            aria-label="Light Map Mode"
+          >
+            <span className="text-sm select-none">☀️</span>
+            <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap border border-slate-700 shadow-xl z-50">
+              {activeLang === 'hi' ? 'लाइट मैप (दिन)' : 'Light Map (Day)'}
+            </span>
+          </button>
 
-        <div className="h-px bg-[#30363D] mx-1 my-0.5"></div>
+          {/* Satellite Mode Toggle */}
+          <button
+            onClick={() => handleSelectMapStyle('satellite')}
+            title={mapStyle === 'satellite' ? t.satelliteActiveBadge : t.satelliteModeTitle}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
+              mapStyle === 'satellite'
+                ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
+                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+            }`}
+            aria-label="Toggle Satellite Mode"
+          >
+            <span className="text-sm select-none">🛰️</span>
+            <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap border border-slate-700 shadow-xl z-50">
+              {mapStyle === 'satellite' ? t.satelliteActiveBadge : t.satelliteModeTitle}
+            </span>
+          </button>
+
+          {/* Dark Mode Map Button */}
+          <button
+            onClick={() => handleSelectMapStyle('dark')}
+            title={activeLang === 'hi' ? 'डार्क मैप (रात का नेविगेशन मैप)' : 'Dark Map (Night Navigation)'}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
+              mapStyle === 'dark'
+                ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
+                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+            }`}
+            aria-label="Dark Map Mode"
+          >
+            <span className="text-sm select-none">🌙</span>
+            <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap border border-slate-700 shadow-xl z-50">
+              {activeLang === 'hi' ? 'डार्क मैप (रात)' : 'Dark Map (Night)'}
+            </span>
+          </button>
+        </div>
+
+        <div className="h-px bg-slate-200 dark:bg-[#30363D] mx-1 my-0.5"></div>
 
         {/* Zoom In (+) */}
         <button
           onClick={handleZoomIn}
           title={t.zoomInBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-[#21262D] text-slate-200 hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" />
@@ -883,7 +941,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         <button
           onClick={handleZoomOut}
           title={t.zoomOutBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-[#21262D] text-slate-200 hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M5 12h14" />
@@ -912,6 +970,17 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           <span className="font-semibold text-white">OpenStreetMap</span>
           <span className="text-slate-400 hidden sm:inline">• Real Roads & Satellite</span>
         </div>
+        {onSwitchEngine && (
+          <button
+            type="button"
+            onClick={onSwitchEngine}
+            title="Switch to Google Maps"
+            className="bg-[#161B22]/90 hover:bg-[#21262D] text-[9px] sm:text-[10px] text-[#AEF5F0] hover:text-white px-2.5 py-1 rounded-lg border border-[#AEF5F0]/40 shadow-md transition cursor-pointer flex items-center gap-1 font-medium"
+          >
+            <span>🗺️</span>
+            <span>Google Maps</span>
+          </button>
+        )}
       </div>
 
       {/* Collapsible Map Legend (Bottom Left) */}

@@ -27,14 +27,15 @@ interface RoutePilotMapProps {
   onSelectDestinationFromMap?: (lat: number, lng: number) => void;
   onResolveHazard?: (hazardId: string) => void;
   onCommitRoute?: (routeId: string) => void;
-  theme?: 'standard' | 'satellite';
+  theme?: 'standard' | 'dark' | 'satellite';
   onToggleTheme?: () => void;
-  onChangeTheme?: (theme: 'standard' | 'satellite') => void;
+  onChangeTheme?: (theme: 'standard' | 'dark' | 'satellite') => void;
   onChangeSpeed?: (speed: number) => void;
   onTogglePlayPause?: () => void;
   isMapClearMode?: boolean;
   onToggleClearMode?: () => void;
   onSwitchEngine?: () => void;
+  googleMapsApiKey?: string;
 }
 
 // Sleek dark vector map styles matching RoutePilot Command Center (#0D1117)
@@ -86,12 +87,11 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   const [selectedSensor, setSelectedSensor] = useState<SensorNode | null>(null);
   const [tempMarkerPos, setTempMarkerPos] = useState<{ lat: number; lng: number } | null>(null);
 
-  const [mapStyle, setMapStyle] = useState<'standard' | 'satellite'>(() => {
-    if (theme === 'satellite') return 'satellite';
-    if (theme === 'standard') return 'standard';
+  const [mapStyle, setMapStyle] = useState<'standard' | 'dark' | 'satellite'>(() => {
+    if (theme === 'satellite' || theme === 'dark' || theme === 'standard') return theme;
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('routepilot_map_theme');
-      if (saved === 'satellite') return 'satellite';
+      if (saved === 'satellite' || saved === 'dark' || saved === 'standard') return saved as any;
     }
     return 'standard';
   });
@@ -126,21 +126,38 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   }, [map, mode, journey.isNavigating]);
 
   useEffect(() => {
-    if (theme === 'satellite' || theme === 'standard') {
+    if (theme === 'satellite' || theme === 'dark' || theme === 'standard') {
       setMapStyle(theme);
     }
   }, [theme]);
 
-  // Sync Google Map type (Roadmap vs Hybrid Satellite)
+  // Sync Google Map type (Roadmap vs Hybrid Satellite) and dark vs light styling
   useEffect(() => {
     if (!map) return;
     map.setMapTypeId(mapStyle === 'satellite' ? 'hybrid' : 'roadmap');
+    if (mapStyle === 'dark') {
+      map.setOptions({ styles: DARK_MAP_STYLES });
+    } else {
+      map.setOptions({ styles: [] });
+    }
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('routepilot_map_theme', mapStyle);
       } catch {}
     }
   }, [map, mapStyle]);
+
+  const handleSelectMapStyle = (style: 'standard' | 'dark' | 'satellite') => {
+    setMapStyle(style);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('routepilot_map_theme', style);
+      } catch {}
+    }
+    if (onChangeTheme) {
+      onChangeTheme(style);
+    }
+  };
 
   // Live Vehicle Position state (updated at 60fps/120fps via high-frequency subscriber)
   const [vehiclePos, setVehiclePos] = useState<{ lat: number; lng: number; heading: number }>({
@@ -288,7 +305,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         gestureHandling="greedy"
         disableDefaultUI={true}
         mapTypeId={mapStyle === 'satellite' ? 'hybrid' : 'roadmap'}
-        styles={mapStyle === 'satellite' ? undefined : DARK_MAP_STYLES}
+        styles={mapStyle === 'dark' ? (DARK_MAP_STYLES as any) : undefined}
         onClick={handleMapClick}
         className="w-full h-full"
         style={{ width: '100%', height: '100%' }}
@@ -651,7 +668,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
       )}
 
       {/* Vertical Map Utility Dock (Right Side Center) - Always Clean & Non-Overlapping */}
-      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-[#30363D] shadow-2xl p-1 gap-1">
+      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-white/95 dark:bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-slate-300 dark:border-[#30363D] shadow-2xl p-1 gap-1">
         {/* Clean Map Mode Toggle (Hides floating cards for unobstructed road clarity) */}
         {onToggleClearMode && (
           <>
@@ -660,48 +677,85 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               title={isMapClearMode ? t.showHudToggle : t.cleanMapToggle}
               className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
                 isMapClearMode
-                  ? 'bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-400/30'
-                  : 'hover:bg-[#21262D] text-slate-200 hover:text-white'
+                  ? 'bg-amber-500 text-white font-bold shadow-md shadow-amber-500/30'
+                  : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
               }`}
               aria-label="Toggle Clean Map View"
             >
               <span className="text-sm select-none">{isMapClearMode ? '👁️' : '🗺️'}</span>
-              <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-[#0D1117] text-white text-[10px] whitespace-nowrap border border-[#30363D] shadow-xl z-50">
+              <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap border border-slate-700 shadow-xl z-50">
                 {isMapClearMode ? t.showHudToggle : t.cleanMapToggle}
               </span>
             </button>
-            <div className="h-px bg-[#30363D] mx-1 my-0.5"></div>
+            <div className="h-px bg-slate-200 dark:bg-[#30363D] mx-1 my-0.5"></div>
           </>
         )}
 
-        {/* Satellite Mode Toggle */}
-        <button
-          onClick={toggleMapStyle}
-          title={
-            mapStyle === 'satellite'
-              ? t.satelliteActiveBadge
-              : t.satelliteModeTitle
-          }
-          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
-            mapStyle === 'satellite'
-              ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
-              : 'hover:bg-[#21262D] text-slate-200 hover:text-white'
-          }`}
-          aria-label="Toggle Satellite Mode"
-        >
-          <span className="text-sm select-none">🛰️</span>
-          <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-[#0D1117] text-white text-[10px] whitespace-nowrap border border-[#30363D] shadow-xl z-50">
-            {mapStyle === 'satellite' ? t.satelliteActiveBadge : t.satelliteModeTitle}
-          </span>
-        </button>
+        {/* Map View Modes: Light Map (directly above Satellite), Satellite Mode, Dark Map */}
+        <div className="flex flex-col gap-1">
+          {/* Light Mode Map Button - Directly above Satellite Mode */}
+          <button
+            onClick={() => handleSelectMapStyle('standard')}
+            title={activeLang === 'hi' ? 'दिन का लाइट मैप (स्वच्छ सड़क मैप)' : 'Light Map (Clean Daytime Streets)'}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
+              mapStyle === 'standard'
+                ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
+                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+            }`}
+            aria-label="Light Map Mode"
+          >
+            <span className="text-sm select-none">☀️</span>
+            <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap border border-slate-700 shadow-xl z-50">
+              {activeLang === 'hi' ? 'लाइट मैप (दिन)' : 'Light Map (Day)'}
+            </span>
+          </button>
 
-        <div className="h-px bg-[#30363D] mx-1 my-0.5"></div>
+          {/* Satellite Mode Toggle */}
+          <button
+            onClick={() => handleSelectMapStyle('satellite')}
+            title={
+              mapStyle === 'satellite'
+                ? t.satelliteActiveBadge
+                : t.satelliteModeTitle
+            }
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
+              mapStyle === 'satellite'
+                ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
+                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+            }`}
+            aria-label="Satellite Map Mode"
+          >
+            <span className="text-sm select-none">🛰️</span>
+            <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap border border-slate-700 shadow-xl z-50">
+              {mapStyle === 'satellite' ? t.satelliteActiveBadge : t.satelliteModeTitle}
+            </span>
+          </button>
+
+          {/* Dark Mode Map Button */}
+          <button
+            onClick={() => handleSelectMapStyle('dark')}
+            title={activeLang === 'hi' ? 'डार्क मैप (रात का नेविगेशन मैप)' : 'Dark Map (Night Navigation)'}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
+              mapStyle === 'dark'
+                ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
+                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+            }`}
+            aria-label="Dark Map Mode"
+          >
+            <span className="text-sm select-none">🌙</span>
+            <span className="pointer-events-none absolute right-full mr-2 hidden group-hover:flex items-center px-2 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap border border-slate-700 shadow-xl z-50">
+              {activeLang === 'hi' ? 'डार्क मैप (रात)' : 'Dark Map (Night)'}
+            </span>
+          </button>
+        </div>
+
+        <div className="h-px bg-slate-200 dark:bg-[#30363D] mx-1 my-0.5"></div>
 
         {/* Zoom In (+) */}
         <button
           onClick={handleZoomIn}
           title={t.zoomInBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-[#21262D] text-slate-200 hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" />
@@ -712,7 +766,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         <button
           onClick={handleZoomOut}
           title={t.zoomOutBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-[#21262D] text-slate-200 hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M5 12h14" />
@@ -813,16 +867,101 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   );
 };
 
+interface GoogleMapContainerProps extends RoutePilotMapProps {
+  apiKey: string;
+  onFallbackToOsm: () => void;
+  onSwitchToOsm: () => void;
+}
+
+const GoogleMapContainer: React.FC<GoogleMapContainerProps> = ({
+  apiKey,
+  onFallbackToOsm,
+  onSwitchToOsm,
+  ...restProps
+}) => {
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  if (loadFailed) {
+    return <LeafletMapInner {...restProps} onSwitchEngine={undefined} />;
+  }
+
+  return (
+    <APIProvider
+      apiKey={apiKey}
+      libraries={['places', 'geometry', 'routes']}
+      onError={(err) => {
+        console.warn('[RoutePilot] Google Maps initialization error, falling back to OSM:', err);
+        setLoadFailed(true);
+        onFallbackToOsm();
+      }}
+    >
+      <GoogleMapInner {...restProps} onSwitchEngine={onSwitchToOsm} />
+    </APIProvider>
+  );
+};
+
 /**
- * Main Export: Pure High-Fidelity OpenStreetMap Engine
- * - Zero external API key dependencies
- * - Real roads, hazards, sensors, and GPS simulation
- * - Standard Dark & Satellite modes supported natively
+ * Main Export: Dual-Engine RoutePilot Map
+ * - Native Google Maps with AdvancedMarkerElement, Satellite & Dark styles
+ * - Instant toggle to High-Fidelity OpenStreetMap engine
+ * - Seamless automatic fallback if offline or API quota reached
  */
 export const RoutePilotMap: React.FC<RoutePilotMapProps> = (props) => {
+  const envMapsKey = ((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const activeKey = (
+    props.googleMapsApiKey ||
+    realtimeSync.getState().appSettings.googleMapsApiKey ||
+    envMapsKey
+  ).trim();
+
+  const [engine, setEngine] = useState<'google' | 'osm'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('routepilot_map_engine');
+      if (saved === 'osm') return 'osm';
+      if (saved === 'google') return 'google';
+    }
+    return activeKey ? 'google' : 'osm';
+  });
+
+  const handleSwitchToOsm = () => {
+    setEngine('osm');
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('routepilot_map_engine', 'osm');
+      } catch {}
+    }
+    if (props.onSwitchEngine) props.onSwitchEngine();
+  };
+
+  const handleSwitchToGoogle = () => {
+    setEngine('google');
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('routepilot_map_engine', 'google');
+      } catch {}
+    }
+    if (props.onSwitchEngine) props.onSwitchEngine();
+  };
+
+  if (engine === 'google' && activeKey) {
+    return (
+      <div className="relative w-full h-full">
+        <GoogleMapContainer
+          {...props}
+          apiKey={activeKey}
+          onSwitchToOsm={handleSwitchToOsm}
+          onFallbackToOsm={handleSwitchToOsm}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full h-full">
-      <LeafletMapInner {...props} />
+      <LeafletMapInner
+        {...props}
+        onSwitchEngine={activeKey ? handleSwitchToGoogle : undefined}
+      />
     </div>
   );
 };

@@ -182,7 +182,7 @@ export interface AcademicInfo {
   batch: string;
 }
 
-export type AppThemeMode = 'dark' | 'light' | 'system';
+export type AppThemeMode = 'dark' | 'light';
 export type MapStyleMode = 'standard' | 'dark' | 'satellite' | 'terrain';
 
 export interface AppSettings {
@@ -201,6 +201,6 @@ export interface AppSettings {
   routeCommitThresholdMeters: number;
   minimumProgressMeters: number;
   mapProvider: 'Google Maps' | 'OpenStreetMap' | 'CartoDark' | 'EsriSatellite';
-  mapTheme: 'standard' | 'satellite';
+  mapTheme: 'standard' | 'dark' | 'satellite';
   academicInfo?: AcademicInfo;
 }

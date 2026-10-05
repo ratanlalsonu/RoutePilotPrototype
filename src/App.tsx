@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { realtimeSync, RoutePilotState } from './services/realtimeSync';
+import { realtimeSync, RoutePilotState, applyDocumentTheme } from './services/realtimeSync';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { DriverDashboard } from './components/Driver/DriverDashboard';
 
@@ -20,6 +20,10 @@ export function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    applyDocumentTheme(state.appSettings.appTheme || 'dark');
+  }, [state.appSettings.appTheme]);
 
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
@@ -50,7 +54,7 @@ export function App() {
   };
 
   return (
-    <div className="w-full h-full h-[100dvh] bg-[#0D1117] text-slate-100 flex flex-col font-sans select-none overflow-hidden min-h-0">
+    <div className={`w-full h-full h-[100dvh] ${state.appSettings.appTheme === 'light' ? 'bg-[#f8fafc] text-slate-900' : 'bg-[#0D1117] text-slate-100'} flex flex-col font-sans select-none overflow-hidden min-h-0`}>
       {activeMode === 'admin' ? (
         <div key="mode-admin" className="animate-tab-switch flex-1 flex flex-col w-full h-full min-h-0 overflow-hidden">
           <AdminDashboard state={state} onSwitchMode={handleSwitchMode} />

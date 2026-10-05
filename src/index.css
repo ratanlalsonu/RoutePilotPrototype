@@ -238,88 +238,345 @@ body[data-theme='light'] {
   color-scheme: light;
 }
 
-[data-theme='light'] body {
-  background-color: #f8fafc;
-  color: #0f172a;
+[data-theme='light'] body,
+[data-theme='light'] #root,
+html.light body,
+html.light #root {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
 }
 
-[data-theme='light'] ::-webkit-scrollbar-track {
+[data-theme='light'] ::-webkit-scrollbar-track,
+html.light ::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
 
-[data-theme='light'] ::-webkit-scrollbar-thumb {
+[data-theme='light'] ::-webkit-scrollbar-thumb,
+html.light ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
 }
 
-[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover,
+html.light ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-/* Surfaces */
-[data-theme='light'] .bg-\[\#0D1117\] {
+/* Base Surfaces - 100% Crisp Light Backgrounds */
+[data-theme='light'] .bg-\[\#0D1117\],
+[data-theme='light'] [class*="bg-[#0D1117]"],
+[data-theme='light'] .bg-\[\#090d14\],
+[data-theme='light'] [class*="bg-[#090d14]"],
+[data-theme='light'] .bg-\[\#0a0e14\],
+[data-theme='light'] [class*="bg-[#0a0e14]"],
+html.light .bg-\[\#0D1117\],
+html.light [class*="bg-[#0D1117]"] {
   background-color: #f8fafc !important;
 }
 
-[data-theme='light'] .bg-\[\#161B22\] {
+/* Main Cards, Headers, Drawers & Sidebars - Pure Crisp White */
+[data-theme='light'] .bg-\[\#161B22\],
+[data-theme='light'] [class*="bg-[#161B22]"],
+html.light .bg-\[\#161B22\],
+html.light [class*="bg-[#161B22]"] {
   background-color: #ffffff !important;
 }
 
-[data-theme='light'] .bg-\[\#161B22\]\/95 {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-}
-
-[data-theme='light'] .bg-\[\#161B22\]\/90 {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-}
-
-[data-theme='light'] .bg-\[\#21262D\] {
+/* Secondary Panels, Sub-cards, Inputs & Table Headers */
+[data-theme='light'] .bg-\[\#21262D\],
+[data-theme='light'] [class*="bg-[#21262D]"],
+[data-theme='light'] .bg-\[\#1c222b\],
+[data-theme='light'] [class*="bg-[#1c222b]"],
+html.light .bg-\[\#21262D\],
+html.light [class*="bg-[#21262D]"] {
   background-color: #f1f5f9 !important;
 }
 
-[data-theme='light'] .bg-\[\#21262D\]\/90 {
-  background-color: rgba(241, 245, 249, 0.9) !important;
+[data-theme='light'] .bg-\[\#30363D\],
+[data-theme='light'] [class*="bg-[#30363D]"],
+[data-theme='light'] .bg-\[\#282E38\],
+[data-theme='light'] [class*="bg-[#282E38]"],
+html.light .bg-\[\#30363D\],
+html.light [class*="bg-[#30363D]"] {
+  background-color: #e2e8f0 !important;
 }
 
-/* Borders */
-[data-theme='light'] .border-\[\#30363D\] {
-  border-color: #e2e8f0 !important;
+/* Slate Dark Surface Overrides */
+[data-theme='light'] .bg-slate-950,
+[data-theme='light'] [class*="bg-slate-950"],
+[data-theme='light'] .bg-slate-900,
+[data-theme='light'] [class*="bg-slate-900"],
+html.light .bg-slate-950,
+html.light .bg-slate-900 {
+  background-color: #ffffff !important;
 }
 
-[data-theme='light'] .border-\[\#30363D\]\/60,
-[data-theme='light'] .border-\[\#30363D\]\/40 {
+[data-theme='light'] .bg-slate-800,
+[data-theme='light'] [class*="bg-slate-800"],
+html.light .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Tinted Alert Cards in Light Mode */
+[data-theme='light'] [class*="bg-[#0E1726]"],
+html.light [class*="bg-[#0E1726]"] {
+  background-color: #eff6ff !important;
+}
+[data-theme='light'] [class*="bg-[#0E202B]"],
+html.light [class*="bg-[#0E202B]"] {
+  background-color: #f0fdfa !important;
+}
+[data-theme='light'] [class*="bg-[#0E2A1D]"],
+html.light [class*="bg-[#0E2A1D]"] {
+  background-color: #f0fdf4 !important;
+}
+[data-theme='light'] [class*="bg-[#1E1116]"],
+html.light [class*="bg-[#1E1116]"] {
+  background-color: #fef2f2 !important;
+}
+
+/* Hover States in Light Mode */
+[data-theme='light'] .hover\:bg-\[\#21262D\]:hover,
+[data-theme='light'] [class*="hover:bg-[#21262D]"]:hover,
+[data-theme='light'] .hover\:bg-\[\#282E38\]:hover,
+[data-theme='light'] [class*="hover:bg-[#282E38]"]:hover,
+[data-theme='light'] .hover\:bg-\[\#30363D\]:hover,
+[data-theme='light'] [class*="hover:bg-[#30363D]"]:hover,
+html.light [class*="hover:bg-[#21262D]"]:hover,
+html.light [class*="hover:bg-[#30363D]"]:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Modal Backdrops in Light Mode */
+[data-theme='light'] [class*="bg-black/"],
+html.light [class*="bg-black/"] {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* Borders in Light Mode */
+[data-theme='light'] .border-\[\#30363D\],
+[data-theme='light'] [class*="border-[#30363D]"],
+[data-theme='light'] .border-\[\#21262D\],
+[data-theme='light'] [class*="border-[#21262D]"],
+[data-theme='light'] .border-\[\#161B22\],
+[data-theme='light'] [class*="border-[#161B22]"],
+[data-theme='light'] .border-slate-800,
+[data-theme='light'] [class*="border-slate-800"],
+[data-theme='light'] .border-slate-700,
+[data-theme='light'] [class*="border-slate-700"],
+html.light [class*="border-[#30363D]"],
+html.light [class*="border-[#21262D]"] {
   border-color: #cbd5e1 !important;
 }
 
-[data-theme='light'] .border-\[\#21262D\] {
+[data-theme='light'] .divide-\[\#30363D\] > :not([hidden]) ~ :not([hidden]),
+[data-theme='light'] [class*="divide-[#30363D]"] > :not([hidden]) ~ :not([hidden]),
+html.light [class*="divide-[#30363D]"] > :not([hidden]) ~ :not([hidden]) {
   border-color: #e2e8f0 !important;
 }
 
-/* Typography */
-[data-theme='light'] .text-white {
+/* =========================================================
+   TYPOGRAPHY IN LIGHT MODE (RAZOR-SHARP HIGH CONTRAST)
+   ========================================================= */
+[data-theme='light'] .text-white,
+[data-theme='light'] [class*="text-white"]:not(button):not(.bg-emerald-600 *):not(.bg-red-600 *):not(.bg-rose-600 *):not(.bg-blue-600 *):not(.badge-solid *),
+html.light .text-white:not(button):not(.bg-emerald-600 *):not(.bg-red-600 *):not(.bg-rose-600 *):not(.bg-blue-600 *) {
   color: #0f172a !important;
 }
 
-[data-theme='light'] .text-slate-100 {
+[data-theme='light'] .text-slate-100,
+[data-theme='light'] [class*="text-slate-100"],
+html.light .text-slate-100,
+html.light [class*="text-slate-100"] {
   color: #0f172a !important;
 }
 
-[data-theme='light'] .text-slate-200 {
+[data-theme='light'] .text-slate-200,
+[data-theme='light'] [class*="text-slate-200"],
+html.light .text-slate-200,
+html.light [class*="text-slate-200"] {
   color: #1e293b !important;
 }
 
-[data-theme='light'] .text-slate-300 {
+[data-theme='light'] .text-slate-300,
+[data-theme='light'] [class*="text-slate-300"],
+html.light .text-slate-300,
+html.light [class*="text-slate-300"] {
+  color: #1e293b !important;
+}
+
+[data-theme='light'] .text-slate-400,
+[data-theme='light'] [class*="text-slate-400"],
+html.light .text-slate-400,
+html.light [class*="text-slate-400"] {
   color: #334155 !important;
 }
 
-[data-theme='light'] .text-slate-400 {
+[data-theme='light'] .text-slate-500,
+[data-theme='light'] [class*="text-slate-500"],
+html.light .text-slate-500,
+html.light [class*="text-slate-500"] {
+  color: #475569 !important;
+}
+
+[data-theme='light'] .hover\:text-white:hover,
+[data-theme='light'] [class*="hover:text-white"]:hover,
+html.light [class*="hover:text-white"]:hover {
+  color: #0f172a !important;
+}
+
+/* =========================================================
+   ACCENTS & STATUS COLORS IN LIGHT MODE
+   ========================================================= */
+/* Pale cyan text converted to deep readable teal */
+[data-theme='light'] .text-\[\#AEF5F0\],
+[data-theme='light'] [class*="text-[#AEF5F0]"],
+html.light [class*="text-[#AEF5F0]"] {
+  color: #0f766e !important;
+}
+
+[data-theme='light'] .hover\:text-\[\#AEF5F0\]:hover,
+html.light .hover\:text-\[\#AEF5F0\]:hover {
+  color: #0d9488 !important;
+}
+
+/* Cyan & Teal Badges (subtle background + deep text) */
+[data-theme='light'] .bg-\[\#AEF5F0\]\/10,
+[data-theme='light'] .bg-\[\#AEF5F0\]\/15,
+[data-theme='light'] .bg-\[\#AEF5F0\]\/20,
+[data-theme='light'] .bg-\[\#AEF5F0\]\/30,
+[data-theme='light'] [class*="bg-[#AEF5F0]/"],
+html.light [class*="bg-[#AEF5F0]/"] {
+  background-color: #ccfbf1 !important;
+  color: #0f766e !important;
+}
+
+[data-theme='light'] .border-\[\#AEF5F0\],
+[data-theme='light'] [class*="border-[#AEF5F0]"],
+html.light [class*="border-[#AEF5F0]"] {
+  border-color: #14b8a6 !important;
+}
+
+/* Solid Cyan Buttons become Rich Teal with Crisp White Text */
+[data-theme='light'] button.bg-\[\#AEF5F0\],
+[data-theme='light'] button[class*="bg-[#AEF5F0]"]:not([class*="/"]),
+[data-theme='light'] .bg-\[\#AEF5F0\]:not([class*="/"]),
+html.light button[class*="bg-[#AEF5F0]"]:not([class*="/"]) {
+  background-color: #0d9488 !important;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] button[class*="bg-[#AEF5F0]"]:hover,
+[data-theme='light'] .hover\:bg-\[\#8eebe5\]:hover,
+[data-theme='light'] .hover\:bg-\[\#AEF5F0\]:hover,
+html.light [class*="hover:bg-[#8eebe5]"]:hover {
+  background-color: #0f766e !important;
+  color: #ffffff !important;
+}
+
+/* Text inside colored buttons stays white */
+[data-theme='light'] button.bg-\[\#AEF5F0\] *,
+[data-theme='light'] button[class*="bg-emerald"] *,
+[data-theme='light'] button[class*="bg-red"] *,
+[data-theme='light'] button[class*="bg-rose"] *,
+[data-theme='light'] button[class*="bg-blue"] * {
+  color: #ffffff !important;
+}
+
+/* Specific colored status text (Deep, High Contrast) */
+[data-theme='light'] [class*="text-cyan-400"],
+[data-theme='light'] [class*="text-cyan-300"],
+html.light [class*="text-cyan-400"] {
+  color: #0e7490 !important;
+}
+
+[data-theme='light'] [class*="text-emerald-400"],
+[data-theme='light'] [class*="text-emerald-300"],
+html.light [class*="text-emerald-400"] {
+  color: #047857 !important;
+}
+
+[data-theme='light'] [class*="text-amber-400"],
+[data-theme='light'] [class*="text-amber-300"],
+html.light [class*="text-amber-400"] {
+  color: #b45309 !important;
+}
+
+[data-theme='light'] [class*="text-red-400"],
+[data-theme='light'] [class*="text-red-300"],
+html.light [class*="text-red-400"] {
+  color: #b91c1c !important;
+}
+
+[data-theme='light'] [class*="text-blue-400"],
+[data-theme='light'] [class*="text-blue-300"],
+html.light [class*="text-blue-400"] {
+  color: #1d4ed8 !important;
+}
+
+/* Status Badges in Light Mode */
+[data-theme='light'] .bg-red-950,
+[data-theme='light'] [class*="bg-red-950"],
+html.light [class*="bg-red-950"] {
+  background-color: #fef2f2 !important;
+}
+[data-theme='light'] [class*="border-red-500"],
+[data-theme='light'] [class*="border-red-800"] {
+  border-color: #fca5a5 !important;
+}
+
+[data-theme='light'] .bg-amber-950,
+[data-theme='light'] [class*="bg-amber-950"],
+html.light [class*="bg-amber-950"] {
+  background-color: #fffbeb !important;
+}
+[data-theme='light'] [class*="border-amber-500"],
+[data-theme='light'] [class*="border-amber-800"] {
+  border-color: #fcd34d !important;
+}
+
+[data-theme='light'] .bg-emerald-950,
+[data-theme='light'] [class*="bg-emerald-950"],
+html.light [class*="bg-emerald-950"] {
+  background-color: #f0fdf4 !important;
+}
+[data-theme='light'] [class*="border-emerald-500"] {
+  border-color: #86efac !important;
+}
+
+[data-theme='light'] .bg-blue-950,
+[data-theme='light'] [class*="bg-blue-950"],
+html.light [class*="bg-blue-950"] {
+  background-color: #eff6ff !important;
+}
+[data-theme='light'] [class*="border-blue-500"] {
+  border-color: #93c5fd !important;
+}
+
+/* Inputs & Form Controls */
+[data-theme='light'] input:not([type='checkbox']):not([type='radio']),
+[data-theme='light'] select,
+[data-theme='light'] textarea,
+html.light input:not([type='checkbox']):not([type='radio']),
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='light'] input::placeholder,
+[data-theme='light'] textarea::placeholder,
+html.light input::placeholder,
+html.light textarea::placeholder {
   color: #64748b !important;
 }
 
-/* Google Maps InfoWindow in Light Mode */
+/* Google Maps InfoWindow & Map Controls in Light Mode */
 [data-theme='light'] .gm-style-iw-c {
   background-color: #ffffff !important;
   color: #0f172a !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
 }
 

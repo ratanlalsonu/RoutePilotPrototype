@@ -162,7 +162,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-full h-[100dvh] bg-[#0D1117] text-slate-100 overflow-hidden font-sans min-h-0">
+    <div className={`flex flex-col h-full w-full max-w-full h-[100dvh] ${state.appSettings.appTheme === 'light' ? 'bg-[#f8fafc] text-slate-900' : 'bg-[#0D1117] text-slate-100'} overflow-hidden font-sans min-h-0`}>
       {/* Header matching screenshot Image 2 */}
       <header className="h-14 border-b border-[#30363D] bg-[#161B22] px-1 sm:px-4 flex items-center justify-between z-20 shrink-0 gap-1 sm:gap-3">
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
