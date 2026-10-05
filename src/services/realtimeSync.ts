@@ -9,7 +9,6 @@ import {
   RouteOption,
 } from '../types';
 import {
-  JHANSI_DIRECT_ROUTE_COORDS,
   calculatePolylineDistanceKm,
   calculateRemainingDistanceKm,
   calculateVehicleDuration,
@@ -908,6 +907,15 @@ class RealtimeSyncManager {
    * Evaluates all 3 paths using the A* Search Algorithm f(n) = g(n) + h(n) + HazardPenalty.
    * Immediately sets the A* optimal winner as activeRoute!
    */
+  public setAStarEvaluation(result: AStarEvaluationResult | null) {
+    this.state.aStarEvaluation = result;
+  }
+
+  /**
+   * Calculates and displays candidate paths tailored to the selected vehicle type.
+   * Evaluates paths using the genuine A* Search Algorithm f(n) = g(n) + h(n) + HazardPenalty.
+   * Immediately sets the A* optimal winner as activeRoute!
+   */
   public async generateAndDisplayOptimalRoutes(vehicleType?: Journey['vehicleType']) {
     const vType = vehicleType || this.state.journey.vehicleType || 'car';
     this.state.journey.vehicleType = vType;
@@ -926,27 +934,28 @@ class RealtimeSyncManager {
     this.state.journey.diversionState = 'CALCULATING_ALTERNATIVES';
     this.notify();
 
-    // 1. Calculate 3 distinct candidate real-road routes (Fastest, Outer Bypass, Arterial Link)
-    const routes = await calculateMultipleOptimalRoutes(origin, dest, vType);
+    // 1. Calculate distinct candidate real-road routes (Fastest, Outer Bypass, Arterial Link)
+    const routes = await calculateMultipleOptimalRoutes(origin, dest, vType, this.state.hazards);
 
     if (routes && routes.length > 0) {
-      // 2. Run A* Search Algorithm Evaluation on the 3 paths
-      const aStarResult = evaluateRoutesWithAStar(
-        routes,
-        origin,
-        dest,
-        this.state.hazards,
-        vType
-      );
-
-      this.state.aStarEvaluation = aStarResult;
+      let aStarResult = this.state.aStarEvaluation;
+      if (!aStarResult || aStarResult.routes.length === 0 || aStarResult.routes[0].id !== routes[0].id) {
+        aStarResult = evaluateRoutesWithAStar(
+          routes,
+          origin,
+          dest,
+          this.state.hazards,
+          vType
+        );
+        this.state.aStarEvaluation = aStarResult;
+      }
 
       // The A* optimal winner is set as activeRoute!
-      const optimal = aStarResult.optimalRoute;
+      const optimal = aStarResult.optimalRoute || routes[0];
       this.state.journey.activeRoute = optimal;
       this.state.journey.activeRouteId = optimal.id;
-      // The other paths are displayed as alternatives so all 3 show on map & UI!
-      this.state.journey.alternativeRoutes = aStarResult.alternativeRoutes;
+      // The other paths are displayed as alternatives so all show on map & UI!
+      this.state.journey.alternativeRoutes = aStarResult.alternativeRoutes || routes.slice(1);
 
       this.state.journey.totalDistanceKm = optimal.distanceKm;
       this.state.journey.remainingDistanceKm = optimal.distanceKm;
@@ -959,19 +968,35 @@ class RealtimeSyncManager {
       const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       this.addRouteEvent({
         time: nowTime,
-        event: `A* Evaluated 3 Paths: ${optimal.name} Selected`,
+        event: `A* Evaluated Road Graph: ${optimal.name} Selected`,
         driver: this.state.journey.driverId,
         status: 'Success',
         details: `f(n)=${optimal.aStarMetrics?.totalFCost} [g=${optimal.aStarMetrics?.gCost}, h=${optimal.aStarMetrics?.hCost}] • ${optimal.distanceKm} km • ${optimal.durationMinutes} min`,
       });
 
       VoiceService.speak(
-        `A* Algorithm evaluated 3 routes for your ${vType}. ${optimal.name} chosen as optimal with lowest cost.`,
-        `${vType} के लिए A* एल्गोरिथ्म ने 3 मार्गों का मूल्यांकन किया। न्यूनतम लागत के साथ ${optimal.name} को सर्वोत्तम चुना गया।`
+        `A* Algorithm evaluated road network for your ${vType}. ${optimal.name} chosen as optimal with lowest cost.`,
+        `${vType} के लिए A* एल्गोरिथ्म ने सड़क नेटवर्क का मूल्यांकन किया। न्यूनतम लागत के साथ ${optimal.name} को सर्वोत्तम चुना गया।`
       );
     } else {
+      this.state.journey.activeRoute = null;
+      this.state.journey.activeRouteId = '';
       this.state.journey.alternativeRoutes = [];
       this.state.journey.diversionState = 'IDLE';
+
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.addRouteEvent({
+        time: nowTime,
+        event: 'Routing Calculation Failed',
+        driver: this.state.journey.driverId,
+        status: 'Warning',
+        details: 'Unable to calculate a road route. Please check your connection or try another destination.',
+      });
+
+      VoiceService.speak(
+        'Unable to calculate a road route. Please check your connection or try another destination.',
+        'सड़क मार्ग की गणना करने में असमर्थ। कृपया कनेक्शन जांचें या कोई अन्य गंतव्य चुनें।'
+      );
     }
 
     this.notify();

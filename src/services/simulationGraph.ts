@@ -529,7 +529,7 @@ export function calculateSimulationRoute(
       if (!h.active) continue;
       const isAffected =
         (h.from === fromName && h.to === toName) ||
-        (h.from === toNode && h.to === fromName) ||
+        (h.from === toName && h.to === fromName) ||
         (h.edgeId && h.edgeId === edge.id) ||
         // Prompt specific segment: Chhattisgarh <-> Odisha corridor (J2-J3)
         (edge.id === 'J2-J3' &&

@@ -1,13 +1,15 @@
 import { RouteOption, Hazard, RouteStep, VehicleType } from '../types';
-import { getDistanceMeters, hazardAffectsRoute } from '../algorithms/hazardRouteIntersection';
+import { getDistanceMeters } from '../algorithms/hazardRouteIntersection';
 import {
-  JHANSI_REAL_ROAD_ROUTE_A,
-  JHANSI_REAL_ROAD_ROUTE_B,
-  JHANSI_REAL_ROAD_ROUTE_C,
-  REAL_ROAD_CROSS_LINK_A_TO_B,
-  REAL_ROAD_CROSS_LINK_A_TO_C,
-} from './roadCorridors';
-import { calculateJunctionBasedOptimalRoutes } from './roadJunctionRouter';
+  snapToNearestRoad as snapToRoadNetwork,
+  buildRoadGraphAndSearchRoutes,
+} from './roadGraphBuilder';
+import { realtimeSync } from './realtimeSync';
+
+/**
+ * Re-export snapToNearestRoad for components and services
+ */
+export const snapToNearestRoad = snapToRoadNetwork;
 
 /**
  * Vehicle speed profiling for accurate real-world travel time estimation
@@ -101,7 +103,7 @@ export function calculateVehicleDuration(
     : profile.averageSpeedKmh;
 
   const rawMinutes = (distanceKm / speed) * 60;
-  // Add traffic buffer of 1-3 minutes for city driving
+  // Add traffic buffer of 1-2 minutes for city driving
   const buffer = distanceKm < 10 ? 1 : 2;
   return Math.max(1, Math.round(rawMinutes + buffer));
 }
@@ -191,18 +193,40 @@ export function generateSyntheticSteps(
   ];
 }
 
-// Multi-endpoint routing mirrors: Google Maps Directions API + high-speed OSM mirrors
-const OSRM_ENDPOINTS = [
-  'https://routing.openstreetmap.de/routed-car',
-  'https://router.project-osrm.org',
-];
-
-function getMapsApiKey(): string {
-  if (typeof window !== 'undefined') {
-    const fromStorage = localStorage.getItem('routepilot_gmaps_api_key');
-    if (fromStorage && fromStorage.trim().length > 0) return fromStorage.trim();
+/**
+ * Connects start and end points directly to the road geometry if within a small threshold (e.g. driveway),
+ * preventing long arbitrary off-road lines while keeping endpoints snapped cleanly.
+ */
+export function ensureCompleteEndpoints(
+  coords: [number, number][],
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+): [number, number][] {
+  if (!coords || coords.length < 2) {
+    return coords || [];
   }
-  return ((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const result: [number, number][] = coords.map(([lat, lng]) => [lat, lng]);
+
+  // Connect start point directly to driver's exact location if close by (< 80m)
+  const distStart = getDistanceMeters(result[0][0], result[0][1], startLat, startLng);
+  if (distStart > 5 && distStart < 80) {
+    result.unshift([startLat, startLng]);
+  } else if (distStart <= 5) {
+    result[0] = [startLat, startLng];
+  }
+
+  // Connect end point directly to destination if close by (< 80m)
+  const lastIdx = result.length - 1;
+  const distEnd = getDistanceMeters(result[lastIdx][0], result[lastIdx][1], endLat, endLng);
+  if (distEnd > 5 && distEnd < 80) {
+    result.push([endLat, endLng]);
+  } else if (distEnd <= 5) {
+    result[lastIdx] = [endLat, endLng];
+  }
+
+  return result;
 }
 
 /**
@@ -243,42 +267,6 @@ export function decodeGooglePolyline(encoded: string): [number, number][] {
 }
 
 /**
- * Ensures that the route coordinates completely connect the origin to the destination with zero gaps,
- * while maintaining 100% road accuracy along the entire path.
- */
-export function ensureCompleteEndpoints(
-  coords: [number, number][],
-  startLat: number,
-  startLng: number,
-  endLat: number,
-  endLng: number
-): [number, number][] {
-  if (!coords || coords.length < 2) {
-    return coords || [];
-  }
-  const result: [number, number][] = coords.map(([lat, lng]) => [lat, lng]);
-
-  // Connect start point directly to driver's exact source if close by
-  const distStart = getDistanceMeters(result[0][0], result[0][1], startLat, startLng);
-  if (distStart > 5 && distStart < 600) {
-    result.unshift([startLat, startLng]);
-  } else if (distStart <= 5) {
-    result[0] = [startLat, startLng];
-  }
-
-  // Connect end point directly to exact destination if close by
-  const lastIdx = result.length - 1;
-  const distEnd = getDistanceMeters(result[lastIdx][0], result[lastIdx][1], endLat, endLng);
-  if (distEnd > 5 && distEnd < 600) {
-    result.push([endLat, endLng]);
-  } else if (distEnd <= 5) {
-    result[lastIdx] = [endLat, endLng];
-  }
-
-  return result;
-}
-
-/**
  * Queries Google Maps Directions API for genuine Google road routes
  */
 export async function fetchGoogleDirectionsRoutes(
@@ -288,7 +276,13 @@ export async function fetchGoogleDirectionsRoutes(
   endLng: number,
   waypoints: [number, number][] = []
 ): Promise<Array<{ coordinates: [number, number][]; distanceKm: number; durationMin: number; steps?: RouteStep[]; summary?: string }>> {
-  const apiKey = getMapsApiKey();
+  let apiKey = '';
+  if (typeof window !== 'undefined') {
+    apiKey = (localStorage.getItem('routepilot_gmaps_api_key') || '').trim();
+  }
+  if (!apiKey) {
+    apiKey = ((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  }
   if (!apiKey) return [];
 
   try {
@@ -351,86 +345,6 @@ export async function fetchGoogleDirectionsRoutes(
 }
 
 /**
- * Parses standard OSRM JSON response into high-precision road coordinates
- */
-function parseOSRMResponse(
-  data: any
-): Array<{ coordinates: [number, number][]; distanceKm: number; durationMin: number; steps?: RouteStep[]; summary?: string }> {
-  if (!data || !data.routes || !Array.isArray(data.routes) || data.routes.length === 0) return [];
-
-  return data.routes.map((routeItem: any) => {
-    const geoCoords: [number, number][] = (routeItem.geometry?.coordinates || []).map(
-      (c: [number, number]) => [c[1], c[0]] // convert [lon, lat] to [lat, lon]
-    );
-
-    const steps: RouteStep[] = [];
-    if (routeItem.legs && routeItem.legs[0] && Array.isArray(routeItem.legs[0].steps)) {
-      for (const s of routeItem.legs[0].steps) {
-        const mod = s.maneuver?.modifier || '';
-        let turnType: RouteStep['turnType'] = 'straight';
-        if (s.maneuver?.type === 'arrive') turnType = 'arrive';
-        else if (mod.includes('left')) turnType = mod.includes('slight') ? 'slight-left' : 'left';
-        else if (mod.includes('right')) turnType = mod.includes('slight') ? 'slight-right' : 'right';
-        else if (mod.includes('uturn')) turnType = 'u-turn';
-
-        steps.push({
-          instruction:
-            s.maneuver?.instruction ||
-            (turnType === 'arrive' ? 'Arrive at destination' : `Continue on ${s.name || 'Road'}`),
-          roadName: s.name || 'Connecting Road',
-          distanceMeters: Math.round(s.distance || 150),
-          durationSeconds: Math.round(s.duration || 20),
-          turnType,
-        });
-      }
-    }
-
-    return {
-      coordinates: geoCoords,
-      distanceKm: parseFloat(((routeItem.distance || 1000) / 1000).toFixed(1)),
-      durationMin: Math.max(1, Math.round((routeItem.duration || 60) / 60)),
-      steps: steps.length > 0 ? steps : undefined,
-      summary: routeItem.legs?.[0]?.summary || undefined,
-    };
-  });
-}
-
-/**
- * Snaps any coordinate to the nearest real drivable road on OpenStreetMap
- */
-export async function snapToNearestRoad(
-  lat: number,
-  lng: number
-): Promise<{ lat: number; lng: number; name?: string } | null> {
-  const endpoints = [
-    'https://router.project-osrm.org',
-    'https://routing.openstreetmap.de/routed-car',
-  ];
-
-  for (const base of endpoints) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2500);
-      const url = `${base}/nearest/v1/driving/${lng},${lat}?number=1`;
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!data.waypoints || data.waypoints.length === 0) continue;
-      const wp = data.waypoints[0];
-      return {
-        lat: wp.location[1],
-        lng: wp.location[0],
-        name: wp.name || undefined,
-      };
-    } catch {
-      // try next endpoint
-    }
-  }
-  return null;
-}
-
-/**
  * Online OSRM router query for a single primary route or through waypoints
  */
 export async function fetchOSRMRoute(
@@ -459,7 +373,7 @@ export async function fetchOSRMAllRoutes(
   const coordString = allPoints.map((p) => `${p[0]},${p[1]}`).join(';');
   const altParam = requestAlternatives && waypoints.length === 0 ? '&alternatives=3' : '';
 
-  // 1. Try local proxy first (instant 0ms CORS, zero timeout, highly reliable)
+  // 1. Try local proxy first
   if (typeof window !== 'undefined') {
     try {
       const proxyUrl = `/api/osrm/route?coords=${encodeURIComponent(coordString)}&alternatives=${requestAlternatives && waypoints.length === 0 ? '3' : 'false'}`;
@@ -469,15 +383,26 @@ export async function fetchOSRMAllRoutes(
       clearTimeout(timeout);
       if (res.ok) {
         const data = await res.json();
-        const parsed = parseOSRMResponse(data);
-        if (parsed.length > 0) return parsed;
+        if (data.routes && Array.isArray(data.routes) && data.routes.length > 0) {
+          return data.routes.map((routeItem: any) => {
+            const geoCoords: [number, number][] = (routeItem.geometry?.coordinates || []).map(
+              (c: [number, number]) => [c[1], c[0]]
+            );
+            return {
+              coordinates: geoCoords,
+              distanceKm: parseFloat(((routeItem.distance || 1000) / 1000).toFixed(1)),
+              durationMin: Math.max(1, Math.round((routeItem.duration || 60) / 60)),
+              summary: routeItem.legs?.[0]?.summary || undefined,
+            };
+          });
+        }
       }
     } catch {
       // Fallback to direct fetch
     }
   }
 
-  // 2. Direct high-speed endpoints (overview=full without slow steps=true for sub-second geometry)
+  // 2. Direct high-speed endpoints
   const endpoints = [
     'https://router.project-osrm.org',
     'https://routing.openstreetmap.de/routed-car',
@@ -494,8 +419,19 @@ export async function fetchOSRMAllRoutes(
 
       if (!res.ok) continue;
       const data = await res.json();
-      const parsed = parseOSRMResponse(data);
-      if (parsed.length > 0) return parsed;
+      if (data.routes && Array.isArray(data.routes) && data.routes.length > 0) {
+        return data.routes.map((routeItem: any) => {
+          const geoCoords: [number, number][] = (routeItem.geometry?.coordinates || []).map(
+            (c: [number, number]) => [c[1], c[0]]
+          );
+          return {
+            coordinates: geoCoords,
+            distanceKm: parseFloat(((routeItem.distance || 1000) / 1000).toFixed(1)),
+            durationMin: Math.max(1, Math.round((routeItem.duration || 60) / 60)),
+            summary: routeItem.legs?.[0]?.summary || undefined,
+          };
+        });
+      }
     } catch {
       // Try next mirror
     }
@@ -505,278 +441,53 @@ export async function fetchOSRMAllRoutes(
 }
 
 /**
- * Calculates Multiple Optimal Routes for a given Source, Destination, and Vehicle Type
- * Returns 1 to 3 distinct 100% genuine real-road routes:
- * 1. Route A — Fastest / Direct Route (Solid Blue)
- * 2. Route B — Optimal Bypass via Ring / Outer Road (Emerald Green)
- * 3. Route C — Alternative Arterial Route (Amber)
+ * Calculates Multiple Optimal Routes for a given Source, Destination, and Vehicle Type.
+ *
+ * Pipeline:
+ * REAL ROAD NETWORK DATA -> ROAD GRAPH -> A* GRAPH SEARCH -> SELECTED ROAD EDGES -> REAL ROAD GEOMETRY
+ *
+ * Guaranteed properties:
+ * 1. 100% follows real roads using OpenStreetMap road network data.
+ * 2. Snaps origin and destination to nearest road network location.
+ * 3. Evaluates all junction branches with A* cost function f(n) = g(n) + h(n).
+ * 4. Penalizes/blocks affected road edges when hazards are detected.
+ * 5. Returns up to 3 genuine road alternatives.
+ * 6. NEVER falls back to hardcoded fake routes.
  */
 export async function calculateMultipleOptimalRoutes(
   origin: { lat: number; lng: number; name: string },
   destination: { lat: number; lng: number; name: string },
-  vehicleType: VehicleType = 'car'
+  vehicleType: VehicleType = 'car',
+  hazards?: Hazard[]
 ): Promise<RouteOption[]> {
-  const startLat = origin.lat;
-  const startLng = origin.lng;
-  const endLat = destination.lat;
-  const endLng = destination.lng;
+  const activeHazards = hazards || realtimeSync.getState().hazards;
 
-  const routes: RouteOption[] = [];
+  const result = await buildRoadGraphAndSearchRoutes(
+    origin,
+    destination,
+    activeHazards,
+    vehicleType
+  );
 
-  // Step 1: Query high-speed router with native alternative paths enabled
-  const osrmRoutes = await fetchOSRMAllRoutes(startLat, startLng, endLat, endLng, [], true);
-
-  if (osrmRoutes.length > 0) {
-    // Primary / Fastest route
-    const r0 = osrmRoutes[0];
-    const distA = r0.distanceKm;
-    const durA = calculateVehicleDuration(distA, vehicleType, r0.durationMin);
-    const viaRoadsA = r0.steps && r0.steps.length > 1
-      ? Array.from(new Set(r0.steps.map((s) => s.roadName).filter((n) => n && n !== 'Connecting Road'))).slice(0, 2)
-      : [r0.summary || 'Fastest Arterial'];
-
-    routes.push({
-      id: 'opt_route_a',
-      name: 'Route A — Fastest Route',
-      color: '#AEF5F0',
-      distanceKm: distA,
-      durationMinutes: durA,
-      coordinates: ensureCompleteEndpoints(r0.coordinates, startLat, startLng, endLat, endLng),
-      viaRoads: viaRoadsA.length > 0 ? viaRoadsA : ['Main Transit Corridor'],
-      isRecommended: true,
-      maneuver: {
-        instruction: `Head toward ${destination.name}`,
-        distanceMeters: Math.round(distA * 150),
-      },
-      steps: r0.steps || generateSyntheticSteps('Route A', viaRoadsA, distA, destination.name),
-    });
-
-    // If router returned genuine second alternative along real roads
-    if (osrmRoutes.length > 1) {
-      const r1 = osrmRoutes[1];
-      const distB = r1.distanceKm;
-      if (distB <= distA * 1.85) {
-        const durB = calculateVehicleDuration(distB, vehicleType, r1.durationMin);
-        const viaRoadsB = r1.steps && r1.steps.length > 1
-          ? Array.from(new Set(r1.steps.map((s) => s.roadName).filter((n) => n && n !== 'Connecting Road'))).slice(0, 2)
-          : [r1.summary || 'Outer Bypass Corridor'];
-
-        routes.push({
-          id: 'opt_route_b',
-          name: 'Route B — Outer Bypass',
-          color: '#10b981',
-          distanceKm: distB,
-          durationMinutes: durB,
-          coordinates: ensureCompleteEndpoints(r1.coordinates, startLat, startLng, endLat, endLng),
-          viaRoads: viaRoadsB.length > 0 ? viaRoadsB : ['Outer Bypass Corridor'],
-          isRecommended: false,
-          maneuver: {
-            instruction: 'Turn onto Outer Bypass toward destination',
-            distanceMeters: 350,
-          },
-          steps: r1.steps || generateSyntheticSteps('Route B', viaRoadsB, distB, destination.name),
-        });
-      }
-    }
-
-    // If router returned genuine third alternative along real roads
-    if (osrmRoutes.length > 2) {
-      const r2 = osrmRoutes[2];
-      const distC = r2.distanceKm;
-      if (distC <= distA * 1.85) {
-        const durC = calculateVehicleDuration(distC, vehicleType, r2.durationMin);
-        const viaRoadsC = r2.steps && r2.steps.length > 1
-          ? Array.from(new Set(r2.steps.map((s) => s.roadName).filter((n) => n && n !== 'Connecting Road'))).slice(0, 2)
-          : [r2.summary || 'Arterial Link Road'];
-
-        routes.push({
-          id: 'opt_route_c',
-          name: 'Route C — Arterial Corridor',
-          color: '#f59e0b',
-          distanceKm: distC,
-          durationMinutes: durC,
-          coordinates: ensureCompleteEndpoints(r2.coordinates, startLat, startLng, endLat, endLng),
-          viaRoads: viaRoadsC.length > 0 ? viaRoadsC : ['Arterial Link Road'],
-          isRecommended: false,
-          maneuver: {
-            instruction: 'Bear right onto Arterial Corridor',
-            distanceMeters: 450,
-          },
-          steps: r2.steps || generateSyntheticSteps('Route C', viaRoadsC, distC, destination.name),
-        });
-      }
-    }
+  if (result && result.routes && result.routes.length > 0) {
+    // Record A* evaluation in global state
+    realtimeSync.setAStarEvaluation(result.aStarEvaluation);
+    return result.routes;
   }
 
-  // Step 2: If router returned fewer than 3 routes, query real on-road bypasses via lateral waypoints
-  if (routes.length > 0 && routes.length < 3 && routes[0].coordinates.length > 8) {
-    const primaryCoords = routes[0].coordinates;
-    const midIdx = Math.floor(primaryCoords.length / 2);
-    const midPt = primaryCoords[midIdx];
-
-    const dx = endLng - startLng;
-    const dy = endLat - startLat;
-    const dist = Math.hypot(dx, dy);
-
-    if (dist > 0.002) {
-      const normX = -dy / dist;
-      const normY = dx / dist;
-      const lateralShift = Math.min(0.018, Math.max(0.005, dist * 0.15));
-
-      const cand1Lat = midPt[0] + normY * lateralShift;
-      const cand1Lng = midPt[1] + normX * lateralShift;
-
-      const cand2Lat = midPt[0] - normY * lateralShift;
-      const cand2Lng = midPt[1] - normX * lateralShift;
-
-      const [resB, resC] = await Promise.all([
-        routes.length < 2
-          ? fetchOSRMRoute(startLat, startLng, endLat, endLng, [[cand1Lat, cand1Lng]])
-          : Promise.resolve(null),
-        routes.length < 3
-          ? fetchOSRMRoute(startLat, startLng, endLat, endLng, [[cand2Lat, cand2Lng]])
-          : Promise.resolve(null),
-      ]);
-
-      const distA = routes[0].distanceKm;
-
-      if (
-        resB &&
-        resB.coordinates &&
-        resB.coordinates.length > 5 &&
-        resB.distanceKm <= distA * 1.85 &&
-        Math.abs(resB.distanceKm - distA) > 0.1 &&
-        !routes.some((r) => r.id === 'opt_route_b')
-      ) {
-        const distB = resB.distanceKm;
-        const durB = calculateVehicleDuration(distB, vehicleType, resB.durationMin);
-        const viaRoads = ['Outer Ring Bypass', 'Connecting Road'];
-        routes.push({
-          id: 'opt_route_b',
-          name: 'Route B — Outer Bypass',
-          color: '#10b981',
-          distanceKm: distB,
-          durationMinutes: durB,
-          coordinates: ensureCompleteEndpoints(resB.coordinates, startLat, startLng, endLat, endLng),
-          viaRoads,
-          isRecommended: false,
-          maneuver: { instruction: 'Take outer link toward destination', distanceMeters: 350 },
-          steps: resB.steps || generateSyntheticSteps('Route B', viaRoads, distB, destination.name),
-        });
-      }
-
-      if (
-        resC &&
-        resC.coordinates &&
-        resC.coordinates.length > 5 &&
-        resC.distanceKm <= distA * 1.85 &&
-        Math.abs(resC.distanceKm - distA) > 0.1 &&
-        !routes.some((r) => r.id === 'opt_route_c') &&
-        routes.length < 3
-      ) {
-        const distC = resC.distanceKm;
-        const durC = calculateVehicleDuration(distC, vehicleType, resC.durationMin);
-        const viaRoads = ['Secondary Arterial', 'Connecting Road'];
-        routes.push({
-          id: 'opt_route_c',
-          name: 'Route C — Arterial Corridor',
-          color: '#f59e0b',
-          distanceKm: distC,
-          durationMinutes: durC,
-          coordinates: ensureCompleteEndpoints(resC.coordinates, startLat, startLng, endLat, endLng),
-          viaRoads,
-          isRecommended: false,
-          maneuver: { instruction: 'Bear right onto Arterial Corridor', distanceMeters: 450 },
-          steps: resC.steps || generateSyntheticSteps('Route C', viaRoads, distC, destination.name),
-        });
-      }
-    }
-  }
-
-  // Fallback: If 0 routes were retrieved, use verified on-road corridor (never a straight line!)
-  if (routes.length === 0) {
-    const coords = JHANSI_REAL_ROAD_ROUTE_A;
-    const dist = calculatePolylineDistanceKm(coords);
-    routes.push({
-      id: 'opt_route_a',
-      name: 'Route A — Fastest Highway',
-      color: '#AEF5F0',
-      distanceKm: dist,
-      durationMinutes: calculateVehicleDuration(dist, vehicleType, Math.round(dist * 1.4)),
-      coordinates: coords,
-      viaRoads: ['Main Transit Corridor'],
-      isRecommended: true,
-      maneuver: { instruction: `Head toward ${destination.name}`, distanceMeters: 400 },
-      steps: generateSyntheticSteps('Route A', ['Main Transit Corridor'], dist, destination.name),
-    });
-  }
-
-  // Only return genuine on-road routes that exist (1, 2, or 3) — no synthetic off-road lines
-  return routes.slice(0, 3);
-}
-
-// Verified real-road landmark routes for Jhansi center
-export const JHANSI_DIRECT_ROUTE_COORDS: [number, number][] = JHANSI_REAL_ROAD_ROUTE_A;
-export const JHANSI_ROUTE_B_COORDS: [number, number][] = JHANSI_REAL_ROAD_ROUTE_B;
-export const JHANSI_ROUTE_C_COORDS: [number, number][] = JHANSI_REAL_ROAD_ROUTE_C;
-export const JHANSI_ROUTE_D_COORDS: [number, number][] = JHANSI_REAL_ROAD_ROUTE_B;
-
-export async function getInitialRoute(
-  origin: { lat: number; lng: number; name: string },
-  destination: { lat: number; lng: number; name: string }
-): Promise<RouteOption> {
-  const osrm = await fetchOSRMRoute(origin.lat, origin.lng, destination.lat, destination.lng);
-  if (osrm && osrm.coordinates.length > 5) {
-    const viaRoads = osrm.steps && osrm.steps.length > 1
-      ? [osrm.steps[0].roadName, osrm.steps[1].roadName]
-      : ['Main Corridor', 'Arterial Link'];
-    return {
-      id: 'route_primary',
-      name: 'Primary Route',
-      color: '#AEF5F0',
-      distanceKm: osrm.distanceKm,
-      durationMinutes: osrm.durationMin,
-      coordinates: osrm.coordinates,
-      viaRoads,
-      isRecommended: true,
-      maneuver: {
-        instruction: `Head toward ${destination.name}`,
-        distanceMeters: 450,
-      },
-      steps: osrm.steps || generateSyntheticSteps('Primary Route', viaRoads, osrm.distanceKm, destination.name),
-    };
-  }
-
-  // Safe fallback: verified on-road highway corridor (never a straight line!)
-  const coords = JHANSI_REAL_ROAD_ROUTE_A;
-  const dist = calculatePolylineDistanceKm(coords);
-  const viaRoads = ['Civil Lines Highway', 'Station Road'];
-  return {
-    id: 'route_primary',
-    name: 'Primary Route',
-    color: '#AEF5F0',
-    distanceKm: dist,
-    durationMinutes: Math.max(1, Math.round(dist * 1.5)),
-    coordinates: coords,
-    viaRoads,
-    isRecommended: true,
-    maneuver: {
-      instruction: `Head toward ${destination.name}`,
-      distanceMeters: 400,
-    },
-    steps: generateSyntheticSteps('Primary Route', viaRoads, dist, destination.name),
-  };
+  // If road graph search fails, return empty array - NEVER draw a fake route!
+  return [];
 }
 
 /**
- * Calculates genuine on-road alternative routes that safely bypass the detected hazard.
+ * Calculates genuine on-road alternative routes that safely bypass a detected hazard.
  *
- * Grounded in real-world road network:
- * 1. Takes the driver's current position (wherever the driver has reached).
- * 2. Connects all the way to the specified destination (including any searched location).
- * 3. Identifies bypass corridors around the hazard on real roads.
- * 4. Combines native OSRM road graph detours and junction branch corridors.
- * 5. Returns 100% on-road routes that align with actual roads drawn on the map without any off-road straight lines.
+ * Rerouting Pipeline:
+ * CURRENT VEHICLE POSITION -> snap to nearest road -> identify road edge ->
+ * increase/block affected hazard edges -> run A* to destination -> generate new road route.
+ *
+ * The previous route does not continue through the blocked hazard segment.
+ * The new route follows actual road geometry.
  */
 export async function calculateAlternativeRoutes(
   currentLat: number,
@@ -786,192 +497,23 @@ export async function calculateAlternativeRoutes(
   vehicleType: VehicleType = 'car',
   activeRoute: RouteOption | null = null
 ): Promise<RouteOption[]> {
-  const destLat = destination.lat;
-  const destLng = destination.lng;
-  const destName = destination.name || 'Destination';
-  const alternatives: RouteOption[] = [];
+  const allHazards = realtimeSync.getState().hazards;
+  const activeHazardsList: Hazard[] = hazard
+    ? [hazard, ...allHazards.filter((h) => h.hazardId !== hazard.hazardId)]
+    : allHazards;
 
-  // Check if destination is near Jhansi Station (default preset destination, approx 25.4648, 78.5835)
-  const isDefaultJhansiDestination =
-    getDistanceMeters(destLat, destLng, 25.4648, 78.5835) < 1800;
+  const result = await buildRoadGraphAndSearchRoutes(
+    { lat: currentLat, lng: currentLng, name: 'Current Vehicle Position' },
+    destination,
+    activeHazardsList,
+    vehicleType
+  );
 
-  // 1. If activeRoute belongs to the predefined Jhansi corridors and destination is Jhansi Station,
-  // evaluate junction branch corridors
-  if (isDefaultJhansiDestination) {
-    try {
-      const junctionRoutes = calculateJunctionBasedOptimalRoutes(
-        currentLat,
-        currentLng,
-        activeRoute,
-        destination,
-        hazard,
-        vehicleType
-      );
-      if (junctionRoutes && junctionRoutes.length > 0) {
-        for (const jr of junctionRoutes) {
-          if (!alternatives.some((a) => a.id === jr.id)) {
-            alternatives.push(jr);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Junction router note:', e);
-    }
+  if (result && result.routes && result.routes.length > 0) {
+    realtimeSync.setAStarEvaluation(result.aStarEvaluation);
+    // Return routes (safe bypasses that cleared the hazard)
+    return result.routes;
   }
 
-  // 2. FOR ANY SEARCHED LOCATION (or to augment predefined routes):
-  // Query real-road bypass routes from driver's current position to destination avoiding the hazard
-  if (hazard) {
-    const hLat = hazard.latitude;
-    const hLng = hazard.longitude;
-    const safeRadius = (hazard.affectedRadius || 180) + 60;
-
-    // Vector from current location to destination
-    const dx = destLng - currentLng;
-    const dy = destLat - currentLat;
-    const distTotal = Math.max(0.001, Math.hypot(dx, dy));
-    const normX = -dy / distTotal;
-    const normY = dx / distTotal;
-
-    // Lateral distance in degrees to steer around the hazard
-    const offsetDeg = Math.max(0.005, (safeRadius + 150) / 111000);
-
-    // Lateral bypass waypoints on either side of the hazard
-    const bypassWaypoints: { id: string; name: string; color: string; lat: number; lng: number; roadDesc: string }[] = [
-      {
-        id: 'route_b',
-        name: 'Route B — West Bypass (Safe Detour)',
-        color: '#10b981',
-        lat: hLat + normY * offsetDeg,
-        lng: hLng + normX * offsetDeg,
-        roadDesc: 'West Outer Bypass',
-      },
-      {
-        id: 'route_c',
-        name: 'Route C — East Arterial (Safe Detour)',
-        color: '#f59e0b',
-        lat: hLat - normY * offsetDeg,
-        lng: hLng - normX * offsetDeg,
-        roadDesc: 'East Arterial Link',
-      },
-      {
-        id: 'route_d',
-        name: 'Route D — Wide Ring Diversion (Extra Clearance)',
-        color: '#38bdf8',
-        lat: hLat + normY * offsetDeg * 1.7,
-        lng: hLng + normX * offsetDeg * 1.7,
-        roadDesc: 'Outer Perimeter Ring',
-      },
-    ];
-
-    // Query OSRM for routes through these detour waypoints
-    const queryPromises = bypassWaypoints.map(async (wp) => {
-      if (alternatives.some((a) => a.id === wp.id)) return null;
-
-      try {
-        const res = await fetchOSRMRoute(currentLat, currentLng, destLat, destLng, [[wp.lat, wp.lng]]);
-        if (res && res.coordinates && res.coordinates.length > 3) {
-          // Check that this candidate route safely clears the hazard
-          const check = hazardAffectsRoute(hazard, res.coordinates);
-          if (!check.affects) {
-            const finalCoords = ensureCompleteEndpoints(res.coordinates, currentLat, currentLng, destLat, destLng);
-            const distKm = res.distanceKm;
-            const durMin = calculateVehicleDuration(distKm, vehicleType, res.durationMin);
-            const viaRoads = [wp.roadDesc, 'Safe Corridor'];
-
-            const steps = res.steps && res.steps.length > 1
-              ? res.steps
-              : generateSyntheticSteps(wp.name, viaRoads, distKm, destName);
-
-            const optRoute: RouteOption = {
-              id: wp.id,
-              name: wp.name,
-              color: wp.color,
-              distanceKm: distKm,
-              durationMinutes: durMin,
-              coordinates: finalCoords,
-              viaRoads,
-              isRecommended: wp.id === 'route_b',
-              maneuver: {
-                instruction: `Turn toward ${wp.roadDesc} to safely bypass ${hazard.type}`,
-                distanceMeters: 250,
-                turnType: wp.id === 'route_b' ? 'left' : 'right',
-              },
-              steps,
-            };
-            return optRoute;
-          }
-        }
-      } catch (err) {
-        console.warn('Detour query error:', err);
-      }
-      return null;
-    });
-
-    const detourResults = await Promise.all(queryPromises);
-    for (const r of detourResults) {
-      if (r && !alternatives.some((a) => a.id === r.id)) {
-        alternatives.push(r);
-      }
-    }
-
-    // Also check if OSRM's native alternative paths from current location clear the hazard
-    if (alternatives.length < 2) {
-      try {
-        const nativeAlts = await fetchOSRMAllRoutes(currentLat, currentLng, destLat, destLng, [], true);
-        nativeAlts.forEach((na, idx) => {
-          if (idx === 0 && alternatives.length > 0) return;
-          const check = hazardAffectsRoute(hazard, na.coordinates);
-          if (!check.affects) {
-            const routeId = `route_alt_${idx + 1}`;
-            if (!alternatives.some((a) => a.id === routeId)) {
-              const distKm = na.distanceKm;
-              const durMin = calculateVehicleDuration(distKm, vehicleType, na.durationMin);
-              alternatives.push({
-                id: routeId,
-                name: `Alternative Route ${idx + 1} (Clear Road)`,
-                color: idx === 1 ? '#10b981' : '#f59e0b',
-                distanceKm: distKm,
-                durationMinutes: durMin,
-                coordinates: ensureCompleteEndpoints(na.coordinates, currentLat, currentLng, destLat, destLng),
-                viaRoads: ['Clear Corridor Link'],
-                isRecommended: alternatives.length === 0,
-                maneuver: {
-                  instruction: `Follow clear road corridor to ${destName}`,
-                  distanceMeters: 300,
-                  turnType: 'straight',
-                },
-                steps: na.steps || generateSyntheticSteps(`Alternative ${idx + 1}`, ['Clear Corridor'], distKm, destName),
-              });
-            }
-          }
-        });
-      } catch {
-        // continue
-      }
-    }
-  }
-
-  // 3. Fallback if network returned fewer than 2 routes and activeRoute exists
-  if (alternatives.length < 2) {
-    try {
-      const jRoutes = calculateJunctionBasedOptimalRoutes(
-        currentLat,
-        currentLng,
-        activeRoute,
-        destination,
-        hazard,
-        vehicleType
-      );
-      for (const jr of jRoutes) {
-        if (!alternatives.some((a) => a.id === jr.id)) {
-          alternatives.push(jr);
-        }
-      }
-    } catch {
-      // continue
-    }
-  }
-
-  return alternatives.slice(0, 3);
+  return [];
 }

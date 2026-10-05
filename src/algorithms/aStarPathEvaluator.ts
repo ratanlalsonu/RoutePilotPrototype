@@ -117,6 +117,14 @@ export function evaluateRoutesWithAStar(
       }
     }
 
+    // If this route was already evaluated by real A* road graph search, reuse its verified node-level metrics
+    if (route.aStarMetrics && route.aStarMetrics.evaluatedNodesCount > 0) {
+      gCost = route.aStarMetrics.gCost;
+      if (route.aStarMetrics.hazardPenalty > 0 && hazardPenalty === 0) {
+        hazardPenalty = route.aStarMetrics.hazardPenalty;
+      }
+    }
+
     const hCost = baseHeuristicCost;
     const totalFCost = Math.round((gCost + hCost + hazardPenalty) * 10) / 10;
 
@@ -130,7 +138,7 @@ export function evaluateRoutesWithAStar(
       status = 'CAUTION';
       explanation = `Caution: Warning hazard nearby (+${hazardPenalty} penalty). Total f(n)=${totalFCost}.`;
     } else {
-      explanation = `Clear road. g(n)=${gCost}, h(n)=${hCost} → f(n)=${totalFCost}.`;
+      explanation = `Clear road network. g(n)=${gCost}, h(n)=${hCost} → f(n)=${totalFCost}.`;
     }
 
     const aStarMetrics: AStarMetrics = {
@@ -142,7 +150,7 @@ export function evaluateRoutesWithAStar(
       isOptimal: false,
       status,
       explanation,
-      evaluatedNodesCount: route.coordinates.length,
+      evaluatedNodesCount: route.aStarMetrics?.evaluatedNodesCount || route.coordinates.length,
     };
 
     evaluatedRoutes.push({

@@ -187,13 +187,15 @@ function placesApiProxyPlugin(): Plugin {
           const url = new URL(req.url || '', 'http://localhost:3000');
           const coords = url.searchParams.get('coords') || '';
           const alternatives = url.searchParams.get('alternatives') || '3';
+          const steps = url.searchParams.get('steps') || 'true';
+          const annotations = url.searchParams.get('annotations') || 'true';
           if (!coords) {
             res.statusCode = 400;
             res.setHeader('Content-Type', 'application/json');
             return res.end(JSON.stringify({ error: 'coords parameter required' }));
           }
 
-          const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=${alternatives}`;
+          const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=${alternatives}&steps=${steps}&annotations=${annotations}`;
           const osrmRes = await fetch(osrmUrl);
           const data = await osrmRes.json();
           res.statusCode = osrmRes.status;
@@ -203,6 +205,40 @@ function placesApiProxyPlugin(): Plugin {
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
           return res.end(JSON.stringify({ error: err.message || 'Routing proxy error' }));
+        }
+      });
+
+      // 4. OSRM Nearest Road Snapping Proxy
+      server.middlewares.use('/api/osrm/nearest', async (req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          return res.end();
+        }
+
+        try {
+          const url = new URL(req.url || '', 'http://localhost:3000');
+          const coords = url.searchParams.get('coords') || '';
+          const number = url.searchParams.get('number') || '1';
+          if (!coords) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ error: 'coords parameter required (lon,lat)' }));
+          }
+
+          const osrmUrl = `https://router.project-osrm.org/nearest/v1/driving/${coords}?number=${number}`;
+          const osrmRes = await fetch(osrmUrl);
+          const data = await osrmRes.json();
+          res.statusCode = osrmRes.status;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify(data));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ error: err.message || 'Nearest road proxy error' }));
         }
       });
     },

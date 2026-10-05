@@ -68,28 +68,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
   // Demo Shortcuts for testing and faculty evaluation
   const handleQuickHazardOnRoute = () => {
+    const j = realtimeSync.getState().journey;
+    let lat = 25.4585;
+    let lng = 78.5765;
+    let locationName = 'Civil Lines Corridor';
+    let roadName = 'Civil Lines Road';
+
+    if (j.activeRoute && j.activeRoute.coordinates.length > 4) {
+      const pIdx = j.currentLocation?.pointIndex || 0;
+      const targetIdx = Math.min(
+        j.activeRoute.coordinates.length - 2,
+        Math.max(1, pIdx + Math.max(2, Math.floor((j.activeRoute.coordinates.length - pIdx) * 0.45)))
+      );
+      lat = j.activeRoute.coordinates[targetIdx][0];
+      lng = j.activeRoute.coordinates[targetIdx][1];
+      roadName = j.activeRoute.viaRoads[0] || 'Active Road Corridor';
+      locationName = `Ahead on ${roadName}`;
+    }
+
     realtimeSync.createHazard({
       type: 'Bridge Damage',
       severity: 'CRITICAL',
-      latitude: 25.4585,
-      longitude: 78.5765,
-      locationName: 'Near Civil Lines Bridge',
-      roadName: 'Civil Lines Road',
+      latitude: lat,
+      longitude: lng,
+      locationName,
+      roadName,
       affectedRadius: 220,
-      description: 'Critical structural crack & pier displacement detected on bridge',
+      description: 'Critical structural crack & road damage detected on active route segment',
       source: 'ADMIN',
     });
-    showToast('Critical Hazard placed on Driver Active Route!');
+    showToast('Critical Hazard placed directly on Driver Active Road Route!');
   };
 
   const handleQuickHazardAwayFromRoute = () => {
+    const j = realtimeSync.getState().journey;
+    let lat = 25.4380;
+    let lng = 78.5520;
+    let locationName = 'Divergent Perimeter Road (Away)';
+    let roadName = 'Outer Link Bypass';
+
+    if (j.activeRoute && j.activeRoute.coordinates.length > 2) {
+      const mid = j.activeRoute.coordinates[Math.floor(j.activeRoute.coordinates.length / 2)];
+      lat = mid[0] + 0.035; // ~3.8 km away
+      lng = mid[1] + 0.035;
+      locationName = 'Perimeter Area (Away from Route)';
+    }
+
     realtimeSync.createHazard({
       type: 'Road Construction',
       severity: 'WARNING',
-      latitude: 25.4380,
-      longitude: 78.5520,
-      locationName: 'South Ring Bypass (Far Away)',
-      roadName: 'Orchha Link Bypass',
+      latitude: lat,
+      longitude: lng,
+      locationName,
+      roadName,
       affectedRadius: 150,
       description: 'Scheduled resurfacing away from driver active corridor',
       source: 'ADMIN',
@@ -98,19 +129,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   };
 
   const handleQuickSecondHazardAhead = () => {
-    // Places second hazard ahead on Route B / Gwalior corridor to test repeated diversion!
+    const j = realtimeSync.getState().journey;
+    let lat = 25.4642;
+    let lng = 78.5728;
+    let locationName = 'Forward Route Segment';
+    let roadName = 'Forward Arterial Rd';
+
+    if (j.activeRoute && j.activeRoute.coordinates.length > 4) {
+      const pIdx = j.currentLocation?.pointIndex || 0;
+      const targetIdx = Math.min(
+        j.activeRoute.coordinates.length - 1,
+        Math.max(1, pIdx + Math.max(3, Math.floor((j.activeRoute.coordinates.length - pIdx) * 0.75)))
+      );
+      lat = j.activeRoute.coordinates[targetIdx][0];
+      lng = j.activeRoute.coordinates[targetIdx][1];
+      roadName = j.activeRoute.viaRoads[1] || j.activeRoute.viaRoads[0] || 'Forward Corridor';
+      locationName = `Farther ahead on ${roadName}`;
+    }
+
     realtimeSync.createHazard({
       type: 'Road Blockage',
       severity: 'CRITICAL',
-      latitude: 25.4642,
-      longitude: 78.5728,
-      locationName: 'North-West Gwalior Connector',
-      roadName: 'Gwalior Arterial Rd',
+      latitude: lat,
+      longitude: lng,
+      locationName,
+      roadName,
       affectedRadius: 180,
-      description: 'Overturned trailer blocking both lanes on diverted route',
+      description: 'Overturned trailer blocking lanes on route segment ahead',
       source: 'ADMIN',
     });
-    showToast('Second Hazard placed ahead on diverted route!');
+    showToast('Second Hazard placed ahead on route to test dynamic multi-diversion!');
   };
 
   return (
