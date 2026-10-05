@@ -189,9 +189,19 @@
   filter: brightness(0.75) invert(1) contrast(2) hue-rotate(195deg) saturate(0.3) !important;
 }
 
+/* OpenStreetMap Light / Standard Tile Filter - 100% natural, crisp full color matching user image */
+.osm-light-tiles {
+  filter: none !important;
+}
+
 /* Esri Satellite imagery - 100% natural, crisp full color */
 .esri-satellite-tiles {
   filter: none !important;
+}
+
+/* Terrain / Outdoor tiles */
+.osm-terrain-tiles {
+  filter: saturate(1.1) contrast(1.05) !important;
 }
 
 /* Hazard placement crosshair cursor */
@@ -217,4 +227,112 @@
 .animate-route-flow {
   animation: route-flow 1.2s linear infinite;
 }
+
+/* =========================================================
+   LIGHT MODE DESIGN SYSTEM OVERRIDES
+   Activates smoothly when data-theme="light" or .light class is set on documentElement
+   ========================================================= */
+[data-theme='light'],
+html.light,
+body[data-theme='light'] {
+  color-scheme: light;
+}
+
+[data-theme='light'] body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Surfaces */
+[data-theme='light'] .bg-\[\#0D1117\] {
+  background-color: #f8fafc !important;
+}
+
+[data-theme='light'] .bg-\[\#161B22\] {
+  background-color: #ffffff !important;
+}
+
+[data-theme='light'] .bg-\[\#161B22\]\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+[data-theme='light'] .bg-\[\#161B22\]\/90 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-theme='light'] .bg-\[\#21262D\] {
+  background-color: #f1f5f9 !important;
+}
+
+[data-theme='light'] .bg-\[\#21262D\]\/90 {
+  background-color: rgba(241, 245, 249, 0.9) !important;
+}
+
+/* Borders */
+[data-theme='light'] .border-\[\#30363D\] {
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme='light'] .border-\[\#30363D\]\/60,
+[data-theme='light'] .border-\[\#30363D\]\/40 {
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme='light'] .border-\[\#21262D\] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Typography */
+[data-theme='light'] .text-white {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .text-slate-100 {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .text-slate-200 {
+  color: #1e293b !important;
+}
+
+[data-theme='light'] .text-slate-300 {
+  color: #334155 !important;
+}
+
+[data-theme='light'] .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Google Maps InfoWindow in Light Mode */
+[data-theme='light'] .gm-style-iw-c {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme='light'] .gm-style-iw-tc::after {
+  background: #ffffff !important;
+}
+
+[data-theme='light'] .gm-style-iw-d {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .gm-ui-hover-effect {
+  filter: none !important;
+}
+
 

@@ -241,16 +241,17 @@ export function runAStarRoadSearch(
       const extraPenalty = (edgePenalties && edgePenalties.get(edge.id)) || 0;
       const { totalCost: edgeCost, hazardPenalty } = calculateEdgeCost(edge, vehicleType, extraPenalty);
 
-      // If edge is completely impassable by critical hazard and we have alternatives, skip
-      if (edge.isBlocked && !params.edgePenalties) {
-        stepLogs.push({
-          step: stepLogs.length + 1,
-          title: `Road Segment Blocked: ${edge.roadName}`,
-          formula: `Hazard Blockage on Edge ${edge.id}`,
-          details: `Active hazard directly obstructs ${edge.roadName}. A* pruned this branch to prevent vehicle trap.`,
-          status: 'danger',
-        });
-        continue;
+      // Log hazard blockage on edge to step logs for transparent explanation
+      if (edge.isBlocked) {
+        if (stepLogs.length < 25) {
+          stepLogs.push({
+            step: stepLogs.length + 1,
+            title: `Road Segment Blocked: ${edge.roadName}`,
+            formula: `+999999 blocked penalty on Edge ${edge.id}`,
+            details: `Active hazard directly obstructs ${edge.roadName}. Branch heavily penalized to divert traffic to safe road corridors.`,
+            status: 'danger',
+          });
+        }
       }
 
       const tentativeGCost = (gScores.get(currentId) ?? Infinity) + edgeCost;

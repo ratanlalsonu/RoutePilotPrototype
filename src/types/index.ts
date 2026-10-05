@@ -182,8 +182,13 @@ export interface AcademicInfo {
   batch: string;
 }
 
+export type AppThemeMode = 'dark' | 'light' | 'system';
+export type MapStyleMode = 'standard' | 'dark' | 'satellite' | 'terrain';
+
 export interface AppSettings {
   language: 'en' | 'hi';
+  appTheme: AppThemeMode;
+  mapStyle: MapStyleMode;
   voiceEnabled: boolean;
   sensorMode: 'VIRTUAL' | 'HARDWARE';
   esp32Endpoint: string;

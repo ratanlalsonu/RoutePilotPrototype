@@ -105,6 +105,26 @@ const INITIAL_JOURNEY: Journey = {
   startedAt: '',
 };
 
+export function applyDocumentTheme(theme: 'dark' | 'light' | 'system') {
+  if (typeof window === 'undefined') return;
+  const effectiveTheme =
+    theme === 'system'
+      ? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark'
+      : theme;
+
+  document.documentElement.setAttribute('data-theme', effectiveTheme);
+  document.body.setAttribute('data-theme', effectiveTheme);
+  if (effectiveTheme === 'light') {
+    document.documentElement.classList.add('light');
+    document.documentElement.classList.remove('dark');
+  } else {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+  }
+}
+
 function getInitialState(): RoutePilotState {
   if (typeof window !== 'undefined') {
     try {
@@ -140,8 +160,23 @@ function getInitialState(): RoutePilotState {
   const rawStoredTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null;
   const storedMapTheme: 'standard' | 'satellite' = rawStoredTheme === 'satellite' ? 'satellite' : 'standard';
 
+  const rawStoredAppTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_app_theme') : null;
+  const storedAppTheme: 'dark' | 'light' | 'system' =
+    rawStoredAppTheme === 'light' || rawStoredAppTheme === 'system' ? rawStoredAppTheme : 'dark';
+
+  const rawStoredMapStyle = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_style') : null;
+  const storedMapStyle: 'standard' | 'dark' | 'satellite' | 'terrain' =
+    rawStoredMapStyle === 'dark' || rawStoredMapStyle === 'satellite' || rawStoredMapStyle === 'terrain'
+      ? rawStoredMapStyle
+      : (storedMapTheme === 'satellite' ? 'satellite' : 'standard');
+
   const rawStoredLang = typeof window !== 'undefined' ? localStorage.getItem('routepilot_language') : null;
   const storedLanguage: 'en' | 'hi' = rawStoredLang === 'hi' ? 'hi' : 'en';
+
+  // Apply visual theme to DOM immediately on load
+  if (typeof window !== 'undefined') {
+    applyDocumentTheme(storedAppTheme);
+  }
 
   return {
     hazards: INITIAL_HAZARDS,
@@ -159,6 +194,8 @@ function getInitialState(): RoutePilotState {
     },
     appSettings: {
       language: storedLanguage,
+      appTheme: storedAppTheme,
+      mapStyle: storedMapStyle,
       voiceEnabled: true,
       sensorMode: 'HARDWARE',
       esp32Endpoint: 'http://192.168.1.100:80/api/sensor',
@@ -322,6 +359,30 @@ class RealtimeSyncManager {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('routepilot_map_theme', theme);
+      } catch {}
+    }
+    this.notify();
+  }
+
+  public setAppTheme(theme: 'dark' | 'light' | 'system') {
+    this.state.appSettings.appTheme = theme;
+    applyDocumentTheme(theme);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('routepilot_app_theme', theme);
+      } catch {}
+    }
+    this.notify();
+  }
+
+  public setMapStyle(style: 'standard' | 'dark' | 'satellite' | 'terrain') {
+    this.state.appSettings.mapStyle = style;
+    const mapTheme = style === 'satellite' ? 'satellite' : 'standard';
+    this.state.appSettings.mapTheme = mapTheme;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('routepilot_map_style', style);
+        localStorage.setItem('routepilot_map_theme', mapTheme);
       } catch {}
     }
     this.notify();
@@ -500,41 +561,86 @@ class RealtimeSyncManager {
       j.activeRoute
     );
 
-    // Evaluate with A* algorithm to score the detour routes
-    let evaluatedRoutes = alternatives;
-    if (alternatives.length > 0) {
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (alternatives && alternatives.length > 0) {
+      // Find the unblocked optimal route (lowest cost, safe from hazard)
+      const optimalDetour = alternatives.find((r) => r.aStarMetrics?.status !== 'HAZARD_BLOCKED') || alternatives[0];
+      const otherDetours = alternatives.filter((r) => r.id !== optimalDetour.id);
+
+      // Re-evaluate candidate routes with A* including the previous obstructed route for visual comparison
+      const candidateList = [optimalDetour, ...otherDetours];
       try {
         const aStarResult = evaluateRoutesWithAStar(
-          alternatives,
+          candidateList,
           { lat: currentCoords[0], lng: currentCoords[1], name: 'Current Location' },
           j.destination,
           this.state.hazards,
           j.vehicleType
         );
         this.state.aStarEvaluation = aStarResult;
-        evaluatedRoutes = aStarResult.routes;
       } catch (err) {
         console.warn('A* Evaluation note:', err);
       }
+
+      // CRITICAL: The new safe optimal route becomes activeRoute!
+      j.activeRoute = optimalDetour;
+      j.activeRouteId = optimalDetour.id;
+      j.alternativeRoutes = otherDetours;
+
+      j.totalDistanceKm = optimalDetour.distanceKm;
+      j.remainingDistanceKm = optimalDetour.distanceKm;
+      j.remainingDurationMinutes = optimalDetour.durationMinutes;
+
+      const etaDate = new Date(Date.now() + optimalDetour.durationMinutes * 60000);
+      j.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // If driver was navigating, reset point index to start of new detour
+      if (optimalDetour.coordinates.length > 0) {
+        j.currentLocation = {
+          lat: optimalDetour.coordinates[0][0],
+          lng: optimalDetour.coordinates[0][1],
+          heading: j.currentLocation.heading || 0,
+          pointIndex: 0,
+        };
+      }
+      j.progressMeters = 0;
+      j.progressPercent = 0;
+      j.diversionCount += 1;
+      if (!j.handledHazardIds.includes(currentHazard.hazardId)) {
+        j.handledHazardIds.push(currentHazard.hazardId);
+      }
+
+      j.diversionState = 'ALTERNATIVES_DISPLAYED';
+      if (j.isNavigating) {
+        j.status = 'DIVERTED';
+      }
+
+      this.addRouteEvent({
+        time: nowTime,
+        event: `A* Hazard Detour: ${optimalDetour.name} Activated`,
+        driver: j.driverId,
+        status: 'Success',
+        details: `${alternatives.length} optimal detour routes calculated. Safe route ${optimalDetour.name} (f=${optimalDetour.aStarMetrics?.totalFCost}) active.`,
+      });
+
+      VoiceService.speak(
+        `Hazard avoided! A* Algorithm calculated ${alternatives.length} detour routes. Rerouted to ${optimalDetour.name}.`,
+        `खतरे से बचने के लिए A* एल्गोरिथ्म ने ${alternatives.length} नए मार्ग खोजे। सुरक्षित यात्रा के लिए ${optimalDetour.name} चुना गया है।`
+      );
+    } else {
+      this.addRouteEvent({
+        time: nowTime,
+        event: 'No Alternative Road Corridor Found',
+        driver: j.driverId,
+        status: 'Warning',
+        details: 'All alternative road corridors obstructed or unreachable from current position.',
+      });
+      VoiceService.speak(
+        'Unable to calculate alternative road route. Please check your connection or stop safely.',
+        'वैकल्पिक सड़क मार्ग खोजने में असमर्थ। कृपया सुरक्षित स्थान पर वाहन रोकें।'
+      );
     }
-
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    j.alternativeRoutes = evaluatedRoutes;
-    j.diversionState = 'ALTERNATIVES_DISPLAYED';
-
-    this.addRouteEvent({
-      time: nowTime,
-      event: 'Optimal Alternative Routes Generated',
-      driver: j.driverId,
-      status: 'Success',
-      details: `${evaluatedRoutes.length} optimal routes calculated bypassing ${currentHazard.type}. Awaiting driver selection.`,
-    });
-
-    VoiceService.speak(
-      `${evaluatedRoutes.length} optimal detour routes found. Please select a route to proceed.`,
-      `${evaluatedRoutes.length} सर्वोत्तम वैकल्पिक मार्ग उपलब्ध हैं। कृपया यात्रा जारी रखने के लिए एक मार्ग चुनें।`
-    );
 
     this.notify(true, true);
   }

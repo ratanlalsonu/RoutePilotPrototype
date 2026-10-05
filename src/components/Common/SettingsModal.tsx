@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppSettings } from '../../types';
+import { AppSettings, AppThemeMode, MapStyleMode } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
 import { getTranslation } from '../../services/i18n';
 import { searchPlaces } from '../../services/geocodingService';
@@ -33,6 +33,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const [isTesting, setIsTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
   const [language, setLanguage] = useState<'en' | 'hi'>(settings.language || 'en');
+  const [appTheme, setAppTheme] = useState<AppThemeMode>(settings.appTheme || 'dark');
+  const [mapStyle, setMapStyle] = useState<MapStyleMode>(settings.mapStyle || (settings.mapTheme === 'satellite' ? 'satellite' : 'standard'));
   const [voiceEnabled, setVoiceEnabled] = useState(settings.voiceEnabled ?? true);
   const [sensorMode, setSensorMode] = useState<'VIRTUAL' | 'HARDWARE'>(settings.sensorMode || 'HARDWARE');
   const [esp32Endpoint, setEsp32Endpoint] = useState(settings.esp32Endpoint || 'http://192.168.1.100:80/api/sensor');
@@ -42,6 +44,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   if (!isOpen) return null;
 
   const t = getTranslation(language);
+
+  const handleAppThemeChange = (theme: AppThemeMode) => {
+    setAppTheme(theme);
+    realtimeSync.setAppTheme(theme);
+  };
+
+  const handleMapStyleChange = (style: MapStyleMode) => {
+    setMapStyle(style);
+    realtimeSync.setMapStyle(style);
+  };
 
   const handleLanguageClick = (lang: 'en' | 'hi') => {
     setLanguage(lang);
@@ -90,10 +102,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
       placesApiKey: finalPlacesKey,
       useDedicatedPlacesKey,
       language,
+      appTheme,
+      mapStyle,
+      mapTheme: mapStyle === 'satellite' ? 'satellite' : 'standard',
       voiceEnabled,
       sensorMode,
       esp32Endpoint,
     });
+    realtimeSync.setAppTheme(appTheme);
+    realtimeSync.setMapStyle(mapStyle);
     setIsSaved(true);
     setTimeout(() => {
       setIsSaved(false);
@@ -231,6 +248,151 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Website Theme Selection (Dark / Light / System) */}
+          <div className="bg-[#21262D] p-3.5 rounded-xl border border-[#30363D] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-200">
+                {language === 'hi' ? 'वेबसाइट थीम मोड' : 'Website Theme Mode'}
+              </label>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#AEF5F0]/15 text-[#AEF5F0] border border-[#AEF5F0]/30">
+                {appTheme === 'light' ? '☀️ Light Mode Active' : appTheme === 'dark' ? '🌙 Dark Mode Active' : '💻 System Mode'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              {language === 'hi'
+                ? 'वेबसाइट के लिए डार्क मोड या ब्राइट लाइट मोड चुनें'
+                : 'Select sleek Dark Mode or bright, crisp Light Mode for the entire application.'}
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleAppThemeChange('dark')}
+                className={`py-2 px-2.5 rounded-xl border font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  appTheme === 'dark'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
+                    : 'bg-[#161B22] border-[#30363D] text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>🌙</span>
+                <span>{language === 'hi' ? 'डार्क मोड' : 'Dark'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAppThemeChange('light')}
+                className={`py-2 px-2.5 rounded-xl border font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  appTheme === 'light'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
+                    : 'bg-[#161B22] border-[#30363D] text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>☀️</span>
+                <span>{language === 'hi' ? 'लाइट मोड' : 'Light'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAppThemeChange('system')}
+                className={`py-2 px-2.5 rounded-xl border font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  appTheme === 'system'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
+                    : 'bg-[#161B22] border-[#30363D] text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>💻</span>
+                <span>{language === 'hi' ? 'सिस्टम' : 'System'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Map Style Selection (Clean Road Map matching photo, Dark, Satellite, Terrain) */}
+          <div className="bg-[#21262D] p-3.5 rounded-xl border border-[#30363D] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-200">
+                {language === 'hi' ? 'मानचित्र शैली (Map Style)' : 'Map View Style'}
+              </label>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                {mapStyle === 'standard' ? '🗺️ Standard Road (फोटो जैसा)' : mapStyle === 'dark' ? '🌙 Dark Nav' : mapStyle === 'satellite' ? '🛰️ Satellite' : '🏔️ Terrain'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              {language === 'hi'
+                ? 'प्राकृतिक दिन का सड़क मानचित्र (राजमार्ग संख्या, नीले तालाब, कस्बे) या डार्क/सैटेलाइट चुनें'
+                : 'Choose daytime road map (clean highways, route shields, lakes & towns like photo), dark navigation, or satellite.'}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleMapStyleChange('standard')}
+                className={`p-2 rounded-xl border font-bold text-xs transition cursor-pointer flex flex-col items-start gap-0.5 text-left ${
+                  mapStyle === 'standard'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
+                    : 'bg-[#161B22] border-[#30363D] text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span>🗺️</span>
+                  <span>{language === 'hi' ? 'मानक सड़क (फोटो जैसा)' : 'Standard Road'}</span>
+                </div>
+                <span className={`text-[10px] ${mapStyle === 'standard' ? 'text-slate-800' : 'text-slate-400'}`}>
+                  {language === 'hi' ? 'दिन का स्वच्छ सड़क मैप' : 'Clean daylight street map'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMapStyleChange('dark')}
+                className={`p-2 rounded-xl border font-bold text-xs transition cursor-pointer flex flex-col items-start gap-0.5 text-left ${
+                  mapStyle === 'dark'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
+                    : 'bg-[#161B22] border-[#30363D] text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span>🌙</span>
+                  <span>{language === 'hi' ? 'डार्क नेविगेशन' : 'Dark Navigation'}</span>
+                </div>
+                <span className={`text-[10px] ${mapStyle === 'dark' ? 'text-slate-800' : 'text-slate-400'}`}>
+                  {language === 'hi' ? 'रात का डार्क मैप' : 'High-contrast night map'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMapStyleChange('satellite')}
+                className={`p-2 rounded-xl border font-bold text-xs transition cursor-pointer flex flex-col items-start gap-0.5 text-left ${
+                  mapStyle === 'satellite'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
+                    : 'bg-[#161B22] border-[#30363D] text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span>🛰️</span>
+                  <span>{language === 'hi' ? 'सैटेलाइट / हाइब्रिड' : 'Satellite Hybrid'}</span>
+                </div>
+                <span className={`text-[10px] ${mapStyle === 'satellite' ? 'text-slate-800' : 'text-slate-400'}`}>
+                  {language === 'hi' ? 'वास्तविक हवाई चित्र' : 'Photorealistic aerial imagery'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMapStyleChange('terrain')}
+                className={`p-2 rounded-xl border font-bold text-xs transition cursor-pointer flex flex-col items-start gap-0.5 text-left ${
+                  mapStyle === 'terrain'
+                    ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-md shadow-[#AEF5F0]/20'
+                    : 'bg-[#161B22] border-[#30363D] text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span>🏔️</span>
+                  <span>{language === 'hi' ? 'इलाका / स्थलाकृति' : 'Terrain / Topo'}</span>
+                </div>
+                <span className={`text-[10px] ${mapStyle === 'terrain' ? 'text-slate-800' : 'text-slate-400'}`}>
+                  {language === 'hi' ? 'पहाड़, नदियां व कंटूर' : 'Physical contours & relief'}
+                </span>
+              </button>
             </div>
           </div>
 

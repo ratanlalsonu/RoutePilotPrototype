@@ -19,29 +19,28 @@ export async function snapToNearestRoad(
   lat: number,
   lng: number
 ): Promise<{ lat: number; lng: number; name?: string; distanceMeters: number } | null> {
+  const proxyBase = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
   // 1. Try local Vite proxy first (instant CORS-free)
-  if (typeof window !== 'undefined') {
-    try {
-      const proxyUrl = `/api/osrm/nearest?coords=${lng},${lat}&number=1`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.waypoints && data.waypoints.length > 0) {
-          const wp = data.waypoints[0];
-          return {
-            lat: wp.location[1],
-            lng: wp.location[0],
-            name: wp.name || undefined,
-            distanceMeters: wp.distance || 0,
-          };
-        }
+  try {
+    const proxyUrl = `${proxyBase}/api/osrm/nearest?coords=${lng},${lat}&number=1`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.waypoints && data.waypoints.length > 0) {
+        const wp = data.waypoints[0];
+        return {
+          lat: wp.location[1],
+          lng: wp.location[0],
+          name: wp.name || undefined,
+          distanceMeters: wp.distance || 0,
+        };
       }
-    } catch {
-      // Fall through to direct fetch
     }
+  } catch {
+    // Fall through to direct fetch
   }
 
   // 2. Direct OSRM endpoints fallback
@@ -80,22 +79,21 @@ async function fetchRawOSRMData(
 ): Promise<any> {
   const coordString = coords.map((c) => `${c[0]},${c[1]}`).join(';');
   const altParam = alternatives ? '3' : 'false';
+  const proxyBase = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
 
   // 1. Local proxy
-  if (typeof window !== 'undefined') {
-    try {
-      const url = `/api/osrm/route?coords=${encodeURIComponent(coordString)}&alternatives=${altParam}&steps=true&annotations=true`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6500);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.routes && data.routes.length > 0) return data;
-      }
-    } catch {
-      // Fallback
+  try {
+    const url = `${proxyBase}/api/osrm/route?coords=${encodeURIComponent(coordString)}&alternatives=${altParam}&steps=true&annotations=true`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6500);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) return data;
     }
+  } catch {
+    // Fallback
   }
 
   // 2. Direct endpoints
@@ -205,6 +203,11 @@ function addEdgeToGraph(
  * Ingests an OSRM route into the RoadGraph, creating genuine RoadNodes and RoadEdges
  * with full OpenStreetMap road geometry for every segment.
  */
+/**
+ * Ingests an OSRM route into the RoadGraph, creating genuine RoadNodes and RoadEdges
+ * with full OpenStreetMap road geometry for every segment.
+ * Properly threads through all multi-leg waypoint detours without disconnected jumps.
+ */
 function ingestOSRMRouteIntoGraph(
   graph: RoadGraph,
   routeData: any,
@@ -213,14 +216,17 @@ function ingestOSRMRouteIntoGraph(
 ): void {
   if (!routeData || !routeData.legs || !Array.isArray(routeData.legs)) return;
 
-  for (const leg of routeData.legs) {
-    if (!leg.steps || !Array.isArray(leg.steps) || leg.steps.length === 0) continue;
+  const totalLegs = routeData.legs.length;
+  let currentNode = startNode;
 
-    let previousNode = startNode;
+  for (let legIdx = 0; legIdx < totalLegs; legIdx++) {
+    const leg = routeData.legs[legIdx];
+    if (!leg.steps || !Array.isArray(leg.steps) || leg.steps.length === 0) continue;
+    const isLastLeg = legIdx === totalLegs - 1;
 
     for (let sIdx = 0; sIdx < leg.steps.length; sIdx++) {
       const step = leg.steps[sIdx];
-      const isLastStep = sIdx === leg.steps.length - 1;
+      const isLastStepOfEntireRoute = isLastLeg && sIdx === leg.steps.length - 1;
 
       // Extract geometry for this step
       const stepCoords: [number, number][] = (step.geometry?.coordinates || []).map(
@@ -228,16 +234,19 @@ function ingestOSRMRouteIntoGraph(
       );
 
       let stepEndNode: RoadNode;
-      if (isLastStep) {
+      if (isLastStepOfEntireRoute) {
         stepEndNode = goalNode;
       } else {
         const lastCoord = stepCoords.length > 0 ? stepCoords[stepCoords.length - 1] : null;
         if (lastCoord) {
           stepEndNode = getOrCreateNode(graph, lastCoord[0], lastCoord[1], step.name || 'Junction');
         } else {
-          stepEndNode = getOrCreateNode(graph, previousNode.lat, previousNode.lng, step.name || 'Junction');
+          stepEndNode = getOrCreateNode(graph, currentNode.lat, currentNode.lng, step.name || 'Junction');
         }
       }
+
+      // Avoid self-loops
+      if (currentNode.id === stepEndNode.id) continue;
 
       // Map turn maneuver
       const mod = step.maneuver?.modifier || '';
@@ -250,24 +259,24 @@ function ingestOSRMRouteIntoGraph(
       const instruction = step.maneuver?.instruction ||
         (turnType === 'arrive' ? 'Arrive at destination' : `Continue on ${step.name || 'Road'}`);
 
-      // Ensure geometry connects previousNode to stepEndNode
+      // Ensure geometry connects currentNode to stepEndNode
       const edgeGeom: [number, number][] = stepCoords.length > 0
         ? stepCoords
-        : [[previousNode.lat, previousNode.lng], [stepEndNode.lat, stepEndNode.lng]];
+        : [[currentNode.lat, currentNode.lng], [stepEndNode.lat, stepEndNode.lng]];
 
       addEdgeToGraph(
         graph,
-        previousNode,
+        currentNode,
         stepEndNode,
         step.name || 'Road',
-        step.distance || getDistanceMeters(previousNode.lat, previousNode.lng, stepEndNode.lat, stepEndNode.lng),
+        step.distance || getDistanceMeters(currentNode.lat, currentNode.lng, stepEndNode.lat, stepEndNode.lng),
         step.duration || 10,
         edgeGeom,
         turnType,
         instruction
       );
 
-      previousNode = stepEndNode;
+      currentNode = stepEndNode;
     }
   }
 }
@@ -384,30 +393,78 @@ export async function buildRoadGraphAndSearchRoutes(
     ingestOSRMRouteIntoGraph(graph, rItem, startNode, goalNode);
   }
 
-  // Step 2b: If fewer than 2 distinct routes found, query lateral corridors to build genuine junction branches
-  if (primaryData.routes.length < 2) {
-    const dx = goalCoord[1] - startCoord[1];
-    const dy = goalCoord[0] - startCoord[0];
-    const dist = Math.hypot(dx, dy);
+  // Step 2b: Discover real-road detour bypass corridors around active hazards and lateral corridors
+  const bypassQueries: Promise<any>[] = [];
+  const activeHazards = hazards.filter((h) => h.status === 'ACTIVE');
 
-    if (dist > 0.005) {
-      const normX = -dy / dist;
-      const normY = dx / dist;
-      const shift = Math.min(0.025, Math.max(0.006, dist * 0.16));
+  const dy = goalCoord[0] - startCoord[0];
+  const cosLat = Math.cos((startCoord[0] * Math.PI) / 180);
+  const dx = (goalCoord[1] - startCoord[1]) * cosLat;
+  const dist = Math.max(0.0001, Math.hypot(dy, dx));
 
-      const midLat = (startCoord[0] + goalCoord[0]) / 2;
-      const midLng = (startCoord[1] + goalCoord[1]) / 2;
+  // Forward unit vector and Perpendicular unit vectors
+  const fwdLat = dy / dist;
+  const fwdLng = (dx / dist) / cosLat;
+  const perpLat = -dx / dist;
+  const perpLng = (dy / dist) / cosLat;
 
-      const wp1: [number, number] = [midLng + normX * shift, midLat + normY * shift];
-      const wp2: [number, number] = [midLng - normX * shift, midLat - normY * shift];
+  // 1. If active hazards exist, calculate real-road bypass corridors around every hazard
+  if (activeHazards.length > 0) {
+    for (const h of activeHazards) {
+      const hazardRadius = h.affectedRadius || 180;
+      // Clearance offsets in degrees (~800m, ~1.8km, and ~3.0km)
+      const offset1 = Math.max(0.007, (hazardRadius + 300) / 111000);
+      const offset2 = Math.max(0.015, (hazardRadius + 1100) / 111000);
+      const offset3 = Math.max(0.026, (hazardRadius + 2200) / 111000);
 
-      const [bypassData1, bypassData2] = await Promise.all([
-        fetchRawOSRMData([[startCoord[1], startCoord[0]], wp1, [goalCoord[1], goalCoord[0]]], false),
-        fetchRawOSRMData([[startCoord[1], startCoord[0]], wp2, [goalCoord[1], goalCoord[0]]], false),
-      ]);
+      const candidateWaypoints = [
+        // Left Bypass (perpendicular + slight forward progression to avoid doubling back)
+        { lat: h.latitude + perpLat * offset1 + fwdLat * (offset1 * 0.35), lng: h.longitude + perpLng * offset1 + fwdLng * (offset1 * 0.35) },
+        // Right Bypass
+        { lat: h.latitude - perpLat * offset1 + fwdLat * (offset1 * 0.35), lng: h.longitude - perpLng * offset1 + fwdLng * (offset1 * 0.35) },
+        // Outer Left Bypass
+        { lat: h.latitude + perpLat * offset2 + fwdLat * (offset2 * 0.3), lng: h.longitude + perpLng * offset2 + fwdLng * (offset2 * 0.3) },
+        // Outer Right Bypass
+        { lat: h.latitude - perpLat * offset2 + fwdLat * (offset2 * 0.3), lng: h.longitude - perpLng * offset2 + fwdLng * (offset2 * 0.3) },
+        // Wide Outer Highway Corridor
+        { lat: h.latitude + perpLat * offset3, lng: h.longitude + perpLng * offset3 },
+        { lat: h.latitude - perpLat * offset3, lng: h.longitude - perpLng * offset3 },
+      ];
 
-      if (bypassData1?.routes?.[0]) ingestOSRMRouteIntoGraph(graph, bypassData1.routes[0], startNode, goalNode);
-      if (bypassData2?.routes?.[0]) ingestOSRMRouteIntoGraph(graph, bypassData2.routes[0], startNode, goalNode);
+      for (const pt of candidateWaypoints) {
+        bypassQueries.push(
+          fetchRawOSRMData(
+            [
+              [startCoord[1], startCoord[0]],
+              [pt.lng, pt.lat],
+              [goalCoord[1], goalCoord[0]],
+            ],
+            false
+          )
+        );
+      }
+    }
+  }
+
+  // 2. Query general lateral corridors to provide rich alternate branch connectivity
+  const lateralShift1 = Math.min(0.022, Math.max(0.007, dist * 0.18));
+  const lateralShift2 = Math.min(0.038, Math.max(0.015, dist * 0.32));
+  const midLat = (startCoord[0] + goalCoord[0]) / 2;
+  const midLng = (startCoord[1] + goalCoord[1]) / 2;
+
+  bypassQueries.push(
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng + perpLng * lateralShift1, midLat + perpLat * lateralShift1], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng - perpLng * lateralShift1, midLat - perpLat * lateralShift1], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng + perpLng * lateralShift2, midLat + perpLat * lateralShift2], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng - perpLng * lateralShift2, midLat - perpLat * lateralShift2], [goalCoord[1], goalCoord[0]]], false)
+  );
+
+  const bypassResults = await Promise.all(bypassQueries);
+  for (const bRes of bypassResults) {
+    if (bRes?.routes && Array.isArray(bRes.routes)) {
+      for (const r of bRes.routes) {
+        ingestOSRMRouteIntoGraph(graph, r, startNode, goalNode);
+      }
     }
   }
 
@@ -433,7 +490,7 @@ export async function buildRoadGraphAndSearchRoutes(
   // Search 2: Alternative Route B (apply diversity penalty on Route A edges to force A* to explore alternate branches)
   const penaltiesB = new Map<string, number>();
   for (const edgeId of usedEdgeIdsA) {
-    penaltiesB.set(edgeId, 85); // Significant penalty to explore alternative junction branches
+    penaltiesB.set(edgeId, 75); // Significant penalty to explore alternative junction branches
   }
 
   const aStarB = runAStarRoadSearch(graph, {
@@ -447,16 +504,18 @@ export async function buildRoadGraphAndSearchRoutes(
   if (aStarB.success && aStarB.fullGeometry.length > 2) {
     // Only accept if distinct from Route A
     const distDiff = Math.abs(aStarB.totalDistanceMeters - aStarA.totalDistanceMeters);
-    if (distDiff > 80 || aStarB.pathEdges.some((e) => !usedEdgeIdsA.has(e.id))) {
+    const usesDifferentEdges = aStarB.pathEdges.some((e) => !usedEdgeIdsA.has(e.id));
+    if (distDiff > 40 || usesDifferentEdges) {
       allAStarResults.push(aStarB);
     }
   }
 
   // Search 3: Alternative Route C (penalize Route A and Route B edges to explore outer link)
   if (allAStarResults.length >= 2) {
+    const usedEdgeIdsB = new Set(allAStarResults[1].pathEdges.map((e) => e.id));
     const penaltiesC = new Map<string, number>();
-    for (const edgeId of usedEdgeIdsA) penaltiesC.set(edgeId, 95);
-    for (const edge of allAStarResults[1].pathEdges) penaltiesC.set(edge.id, 80);
+    for (const edgeId of usedEdgeIdsA) penaltiesC.set(edgeId, 85);
+    for (const edgeId of usedEdgeIdsB) penaltiesC.set(edgeId, 70);
 
     const aStarC = runAStarRoadSearch(graph, {
       startNodeId: startNode.id,
@@ -467,9 +526,12 @@ export async function buildRoadGraphAndSearchRoutes(
     });
 
     if (aStarC.success && aStarC.fullGeometry.length > 2) {
+      const usesDifferentEdgesFromA = aStarC.pathEdges.some((e) => !usedEdgeIdsA.has(e.id));
+      const usesDifferentEdgesFromB = aStarC.pathEdges.some((e) => !usedEdgeIdsB.has(e.id));
       const isUnique = allAStarResults.every(
-        (r) => Math.abs(r.totalDistanceMeters - aStarC.totalDistanceMeters) > 60
-      );
+        (r) => Math.abs(r.totalDistanceMeters - aStarC.totalDistanceMeters) > 40
+      ) || (usesDifferentEdgesFromA && usesDifferentEdgesFromB);
+
       if (isUnique) {
         allAStarResults.push(aStarC);
       }
@@ -477,12 +539,19 @@ export async function buildRoadGraphAndSearchRoutes(
   }
 
   // Convert AStarSearchResults into RouteOptions with full real road geometry
+  const hasActiveHazards = activeHazards.length > 0;
   const colors = ['#AEF5F0', '#10b981', '#f59e0b'];
-  const names = [
-    'Route A — Fastest Highway',
-    'Route B — Outer Bypass',
-    'Route C — Arterial Corridor',
-  ];
+  const names = hasActiveHazards
+    ? [
+        'Route A — Safe Optimal Detour',
+        'Route B — Safe Outer Bypass',
+        'Route C — Arterial Corridor',
+      ]
+    : [
+        'Route A — Fastest Highway',
+        'Route B — Outer Bypass',
+        'Route C — Arterial Corridor',
+      ];
 
   const generatedRoutes: RouteOption[] = allAStarResults.map((result, idx) => {
     const distKm = parseFloat((result.totalDistanceMeters / 1000).toFixed(1));
@@ -551,6 +620,22 @@ export async function buildRoadGraphAndSearchRoutes(
     };
 
     return routeOption;
+  });
+
+  // Sort candidates so that safe unblocked routes are ranked first and given optimal status!
+  generatedRoutes.sort((a, b) => {
+    const aBlocked = a.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
+    const bBlocked = b.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
+    if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+    return (a.aStarMetrics?.totalFCost || 0) - (b.aStarMetrics?.totalFCost || 0);
+  });
+
+  generatedRoutes.forEach((r, idx) => {
+    if (r.aStarMetrics) {
+      r.aStarMetrics.rank = idx + 1;
+      r.aStarMetrics.isOptimal = idx === 0 && r.aStarMetrics.status !== 'HAZARD_BLOCKED';
+      r.isRecommended = idx === 0 && r.aStarMetrics.status !== 'HAZARD_BLOCKED';
+    }
   });
 
   const optimalRoute = generatedRoutes[0];
