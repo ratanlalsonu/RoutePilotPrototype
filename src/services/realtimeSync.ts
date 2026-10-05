@@ -69,7 +69,7 @@ const INITIAL_JOURNEY: Journey = {
   driverName: 'Driver 01',
   vehicleType: 'car',
   origin: {
-    name: 'Current Device Location (Jhansi City)',
+    name: 'Current Location (Live GPS)',
     lat: 25.4484,
     lng: 78.5685,
   },
@@ -135,6 +135,19 @@ function getInitialState(): RoutePilotState {
       if (envPlacesKey) {
         localStorage.setItem('routepilot_places_api_key', envPlacesKey);
       }
+      const savedGps = localStorage.getItem('routepilot_driver_gps');
+      if (savedGps) {
+        try {
+          const parsedGps = JSON.parse(savedGps);
+          if (parsedGps && typeof parsedGps.lat === 'number' && typeof parsedGps.lng === 'number') {
+            INITIAL_JOURNEY.origin.lat = parsedGps.lat;
+            INITIAL_JOURNEY.origin.lng = parsedGps.lng;
+            INITIAL_JOURNEY.origin.name = parsedGps.placeName || 'Current Location (Live GPS)';
+            INITIAL_JOURNEY.currentLocation.lat = parsedGps.lat;
+            INITIAL_JOURNEY.currentLocation.lng = parsedGps.lng;
+          }
+        } catch {}
+      }
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -147,6 +160,20 @@ function getInitialState(): RoutePilotState {
           }
           if (envPlacesKey || envMapsKey) {
             parsed.appSettings.placesApiKey = envPlacesKey || envMapsKey;
+          }
+          if (savedGps) {
+            try {
+              const parsedGps = JSON.parse(savedGps);
+              if (parsedGps && typeof parsedGps.lat === 'number' && typeof parsedGps.lng === 'number') {
+                parsed.journey.origin.lat = parsedGps.lat;
+                parsed.journey.origin.lng = parsedGps.lng;
+                parsed.journey.origin.name = parsedGps.placeName || 'Current Location (Live GPS)';
+                if (!parsed.journey.isNavigating) {
+                  parsed.journey.currentLocation.lat = parsedGps.lat;
+                  parsed.journey.currentLocation.lng = parsedGps.lng;
+                }
+              }
+            } catch {}
           }
           return parsed;
         }
@@ -286,6 +313,20 @@ class RealtimeSyncManager {
 
     // Start simulation clock
     this.startSimulationLoop();
+
+    // Early background acquisition of device GPS so driver source location is immediately live
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude, heading, speed } = pos.coords;
+            this.updateDriverLocationFromGps(latitude, longitude, undefined, heading || undefined, speed || undefined);
+          },
+          () => {},
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
+      } catch {}
+    }
   }
 
   public getState(): RoutePilotState {
@@ -1384,25 +1425,64 @@ class RealtimeSyncManager {
   /**
    * Updates Driver position with real device GPS coordinates
    */
-  public updateDriverLocationFromGps(lat: number, lng: number, placeName?: string) {
+  public updateDriverLocationFromGps(
+    lat: number,
+    lng: number,
+    placeName?: string,
+    heading?: number,
+    speedKmh?: number
+  ) {
     const j = this.state.journey;
     j.origin.lat = lat;
     j.origin.lng = lng;
     if (placeName) {
       j.origin.name = placeName;
     }
+
+    // Persist real driver GPS to localStorage for instant reload
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(
+          'routepilot_driver_gps',
+          JSON.stringify({
+            lat,
+            lng,
+            placeName: placeName || j.origin.name,
+            timestamp: Date.now(),
+          })
+        );
+      } catch {}
+    }
+
     if (!j.isNavigating) {
       j.currentLocation = {
         lat,
         lng,
-        heading: j.currentLocation.heading,
+        heading: typeof heading === 'number' && !isNaN(heading) ? heading : (j.currentLocation.heading || 0),
         pointIndex: 0,
       };
-      // If destination already chosen and awaiting route selection, update optimal routes
+      if (typeof speedKmh === 'number' && !isNaN(speedKmh)) {
+        j.currentSpeedKmh = Math.max(0, Math.round(speedKmh * 3.6));
+      }
+      this.vehicleListeners.forEach((cb) => cb(j.currentLocation, j.currentSpeedKmh));
+
+      // If destination already chosen and awaiting route selection, update optimal routes from this new location
       if (j.destination && j.destination.name && j.destination.lat !== 0 && j.alternativeRoutes.length > 0) {
         this.generateAndDisplayOptimalRoutes(j.vehicleType);
         return;
       }
+    } else if (!j.isSimulating) {
+      // In live real driving mode, update position directly from hardware/device GPS
+      j.currentLocation = {
+        lat,
+        lng,
+        heading: typeof heading === 'number' && !isNaN(heading) ? heading : (j.currentLocation.heading || 0),
+        pointIndex: j.currentLocation.pointIndex || 0,
+      };
+      if (typeof speedKmh === 'number' && !isNaN(speedKmh)) {
+        j.currentSpeedKmh = Math.max(0, Math.round(speedKmh * 3.6));
+      }
+      this.vehicleListeners.forEach((cb) => cb(j.currentLocation, j.currentSpeedKmh));
     }
 
     this.addRouteEvent({

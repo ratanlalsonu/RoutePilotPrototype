@@ -378,8 +378,9 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             <div class="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
               <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
             </div>
-            <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-[#AEF5F0] text-[10px] font-semibold rounded border border-[#AEF5F0]/40 shadow whitespace-nowrap">
-              ${journey.origin.name}
+            <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-[#AEF5F0] text-[10px] font-semibold rounded border border-[#AEF5F0]/40 shadow whitespace-nowrap flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>${mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
             </div>
           </div>
         `,
@@ -566,8 +567,12 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
         }
       } catch {}
+    } else if (allCoords.length < 2 && !journey.isNavigating && journey.currentLocation?.lat && journey.currentLocation?.lng) {
+      try {
+        map.setView([journey.currentLocation.lat, journey.currentLocation.lng], map.getZoom() || 15);
+      } catch {}
     }
-  }, [journey.activeRoute, journey.alternativeRoutes, journey.origin, journey.destination, activeLang, onCommitRoute]);
+  }, [journey.activeRoute, journey.alternativeRoutes, journey.origin, journey.destination, journey.currentLocation?.lat, journey.currentLocation?.lng, activeLang, onCommitRoute]);
 
   // Render Hazards
   useEffect(() => {

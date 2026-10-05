@@ -66,59 +66,143 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
   // Auto-acquire real live GPS on component mount so the driver's real position appears as Source
   useEffect(() => {
+    let watchId: number | null = null;
+    let isMounted = true;
+
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       setIsAcquiringGps(true);
+
+      const handleSuccess = async (pos: GeolocationPosition) => {
+        if (!isMounted) return;
+        setIsAcquiringGps(false);
+        const { latitude, longitude, heading, speed } = pos.coords;
+        let placeName = 'Live Device Location';
+        try {
+          const rev = await reverseGeocode(latitude, longitude, state.appSettings.googleMapsApiKey);
+          if (rev?.locationName) {
+            placeName = rev.locationName;
+          }
+        } catch {}
+        if (!isMounted) return;
+        realtimeSync.updateDriverLocationFromGps(
+          latitude,
+          longitude,
+          placeName,
+          heading || undefined,
+          speed || undefined
+        );
+      };
+
+      const handleFallback = () => {
+        navigator.geolocation.getCurrentPosition(
+          handleSuccess,
+          (err) => {
+            if (!isMounted) return;
+            setIsAcquiringGps(false);
+            console.warn('GPS Notice (fallback):', err.message);
+          },
+          { enableHighAccuracy: false, timeout: 12000, maximumAge: 30000 }
+        );
+      };
+
+      // Try high accuracy first (5s timeout)
       navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          setIsAcquiringGps(false);
-          const { latitude, longitude } = pos.coords;
-          let placeName = 'Live Device Location';
-          try {
-            const rev = await reverseGeocode(latitude, longitude, state.appSettings.googleMapsApiKey);
-            if (rev?.locationName) {
-              placeName = rev.locationName;
-            }
-          } catch {}
-          realtimeSync.updateDriverLocationFromGps(latitude, longitude, placeName);
-        },
+        handleSuccess,
         (err) => {
-          setIsAcquiringGps(false);
-          console.warn('GPS notice:', err.message);
+          console.warn('GPS High-Accuracy initial failed, trying standard accuracy:', err.message);
+          handleFallback();
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 5000 }
       );
+
+      // Start continuous watchPosition so as driver moves or drives, source & current location stay live!
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          async (pos) => {
+            if (!isMounted) return;
+            const { latitude, longitude, heading, speed } = pos.coords;
+            realtimeSync.updateDriverLocationFromGps(
+              latitude,
+              longitude,
+              undefined,
+              heading || undefined,
+              speed || undefined
+            );
+          },
+          (err) => {
+            console.warn('GPS watch error:', err.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        );
+      } catch (err) {
+        console.warn('Failed to start watchPosition:', err);
+      }
     }
+
+    return () => {
+      isMounted = false;
+      if (watchId !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   // Manual GPS acquisition
   const handleAcquireRealGps = () => {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       setIsAcquiringGps(true);
+
+      const applyPos = async (pos: GeolocationPosition) => {
+        setIsAcquiringGps(false);
+        const { latitude, longitude, heading, speed } = pos.coords;
+        let placeName = 'Live Device Location';
+        try {
+          const rev = await reverseGeocode(latitude, longitude, state.appSettings.googleMapsApiKey);
+          if (rev?.locationName) {
+            placeName = rev.locationName;
+          }
+        } catch {}
+        realtimeSync.updateDriverLocationFromGps(
+          latitude,
+          longitude,
+          placeName,
+          heading || undefined,
+          speed || undefined
+        );
+        VoiceService.speak(
+          'Current location updated as source.',
+          'वर्तमान स्थान को स्रोत के रूप में सेट किया गया।'
+        );
+      };
+
       navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          setIsAcquiringGps(false);
-          const { latitude, longitude } = pos.coords;
-          let placeName = 'Live Device Location';
-          try {
-            const rev = await reverseGeocode(latitude, longitude, state.appSettings.googleMapsApiKey);
-            if (rev?.locationName) {
-              placeName = rev.locationName;
-            }
-          } catch {}
-          realtimeSync.updateDriverLocationFromGps(latitude, longitude, placeName);
-          VoiceService.speak('GPS location acquired.', 'जीपीएस स्थान प्राप्त किया गया।');
-        },
+        applyPos,
         (err) => {
-          setIsAcquiringGps(false);
-          console.warn(`GPS Notice: ${err.message}. Ensure location permissions are allowed.`);
-          setGpsNotice(`GPS Notice: ${err.message}`);
-          setTimeout(() => setGpsNotice(null), 4000);
+          // If high accuracy failed, try standard fallback
+          navigator.geolocation.getCurrentPosition(
+            applyPos,
+            (err2) => {
+              setIsAcquiringGps(false);
+              console.warn(`GPS Notice: ${err2.message}. Ensure location permissions are allowed.`);
+              setGpsNotice(
+                language === 'hi'
+                  ? 'कृपया ब्राउज़र में लोकेशन अनुमति (GPS) की अनुमति दें।'
+                  : 'Please allow location permission in your browser.'
+              );
+              setTimeout(() => setGpsNotice(null), 5000);
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+          );
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 6000 }
       );
     } else {
       console.warn('Geolocation API not supported in this browser.');
-      setGpsNotice('Geolocation API not supported in this browser.');
+      setGpsNotice(
+        language === 'hi'
+          ? 'इस ब्राउज़र में जियोलोकेशन समर्थित नहीं है।'
+          : 'Geolocation API not supported in this browser.'
+      );
       setTimeout(() => setGpsNotice(null), 4000);
     }
   };
@@ -628,20 +712,35 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 </div>
 
                 {/* Origin & Destination Display */}
-                <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3 space-y-2.5 text-xs">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-2.5">
-                      <span className="w-3 h-3 rounded-full bg-[#AEF5F0] border-2 border-white shrink-0 mt-0.5"></span>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-slate-400">Source / Start Location</span>
-                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 rounded border border-emerald-500/30">
-                            Live GPS
+                <div className="bg-[#21262D] border border-[#30363D] rounded-xl p-3 space-y-2.5 text-xs shadow-md">
+                  {/* Source (Current Location) Item */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div className="relative flex items-center justify-center shrink-0 mt-1">
+                        <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white shadow-sm"></span>
+                        <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 animate-ping absolute opacity-75"></span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                            {language === 'hi' ? 'स्रोत: आपका वर्तमान स्थान' : 'Source: Your Current Location'}
+                          </span>
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-500/30 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            {language === 'hi' ? 'लाइव जीपीएस' : 'Live GPS'}
                           </span>
                         </div>
-                        <div className="font-medium text-slate-200 mt-0.5">{journey.origin.name}</div>
-                        <div className="text-[9px] font-mono text-cyan-400">
-                          {journey.origin.lat.toFixed(4)}, {journey.origin.lng.toFixed(4)}
+                        <div className="font-semibold text-slate-100 text-xs mt-0.5 truncate" title={journey.origin.name}>
+                          {journey.origin.name || (language === 'hi' ? 'वर्तमान स्थान (लाइव जीपीएस)' : 'Current Location (Live GPS)')}
+                        </div>
+                        <div className="text-[10px] font-mono text-cyan-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>📍 {journey.origin.lat.toFixed(5)}, {journey.origin.lng.toFixed(5)}</span>
+                          <span className="text-slate-400 text-[9px]">• {language === 'hi' ? 'स्वचालित स्रोत' : 'Auto Source'}</span>
+                        </div>
+                        <div className="text-[9px] text-slate-400 mt-1 leading-tight">
+                          {language === 'hi'
+                            ? '✓ आपका वर्तमान स्थान स्वचालित रूप से स्रोत (Source) चुना गया है। गंतव्य चुनते ही यहीं से नेविगेशन शुरू होगा।'
+                            : '✓ Your current location is automatically active as Source. Any destination you search will calculate from here.'}
                         </div>
                       </div>
                     </div>
@@ -649,29 +748,35 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     <button
                       type="button"
                       onClick={handleAcquireRealGps}
-                      title="Locate via device GPS"
-                      className="px-2 py-1 rounded bg-[#AEF5F0]/15 hover:bg-[#AEF5F0] border border-[#AEF5F0]/30 text-[#AEF5F0] hover:text-slate-950 font-bold text-[10px] transition flex items-center gap-1 cursor-pointer shrink-0"
+                      title={language === 'hi' ? 'वर्तमान जीपीएस स्थान रिफ्रेश करें' : 'Refresh live GPS location'}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500 border border-emerald-500/30 text-emerald-300 hover:text-slate-950 font-bold text-[10px] transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
                     >
-                      <svg className={`w-3 h-3 ${isAcquiringGps ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-                      <span>{isAcquiringGps ? 'Locating...' : 'Refresh GPS'}</span>
+                      <svg className={`w-3 h-3 ${isAcquiringGps ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="7"/>
+                        <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+                      </svg>
+                      <span>{isAcquiringGps ? (language === 'hi' ? 'खोज रहे हैं...' : 'Locating...') : (language === 'hi' ? 'रिफ्रेश जीपीएस' : 'Refresh GPS')}</span>
                     </button>
                   </div>
 
                   {gpsNotice && (
-                    <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded my-1">
-                      {gpsNotice}
+                    <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded my-1 animate-fade-in flex items-center gap-1.5">
+                      <span>⚠️</span>
+                      <span>{gpsNotice}</span>
                     </div>
                   )}
 
-                  <div className="border-l-2 border-dashed border-[#30363D] ml-1.5 h-3"></div>
+                  <div className="border-l-2 border-dashed border-[#30363D] ml-2 h-3.5"></div>
 
                   <div className="flex items-start justify-between gap-2.5">
-                    <div className="flex items-start gap-2.5 truncate">
-                      <span className="w-3 h-3 rounded-full bg-red-500 border-2 border-white shrink-0 mt-0.5"></span>
-                      <div className="truncate">
-                        <div className="text-[10px] text-slate-400">Destination</div>
-                        <div className={`font-bold text-xs truncate ${journey.destination?.name ? 'text-[#AEF5F0]' : 'text-slate-400 italic'}`}>
-                          {journey.destination?.name || 'Search destination above'}
+                    <div className="flex items-start gap-2.5 truncate flex-1">
+                      <span className="w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-white shrink-0 mt-0.5 shadow-sm"></span>
+                      <div className="truncate flex-1">
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                          {language === 'hi' ? 'गंतव्य (Destination)' : 'Destination'}
+                        </div>
+                        <div className={`font-bold text-xs truncate mt-0.5 ${journey.destination?.name ? 'text-[#AEF5F0]' : 'text-slate-400 italic'}`}>
+                          {journey.destination?.name || (language === 'hi' ? 'ऊपर गंतव्य खोजें या मानचित्र पर टैप करें' : 'Search destination above or tap map')}
                         </div>
                       </div>
                     </div>
@@ -681,7 +786,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           setSearchQuery('');
                           realtimeSync.setDestination({ name: '', lat: 0, lng: 0 });
                         }}
-                        className="text-[10px] text-slate-400 hover:text-red-400 underline cursor-pointer shrink-0"
+                        className="text-[10px] text-slate-400 hover:text-red-400 underline cursor-pointer shrink-0 py-1"
                       >
                         {t.changeDestinationBtn}
                       </button>

@@ -204,6 +204,14 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     return () => unsubscribe();
   }, [map, mode, journey.isNavigating]);
 
+  // Auto-center map on driver's live current location when idle or freshly acquired
+  useEffect(() => {
+    if (!map || journey.isNavigating || journey.activeRoute) return;
+    if (journey.currentLocation && journey.currentLocation.lat && journey.currentLocation.lng) {
+      map.panTo({ lat: journey.currentLocation.lat, lng: journey.currentLocation.lng });
+    }
+  }, [map, journey.currentLocation?.lat, journey.currentLocation?.lng, journey.isNavigating, journey.activeRoute]);
+
   // Fit bounds when active route is selected
   useEffect(() => {
     if (!map || !journey.activeRoute || journey.activeRoute.coordinates.length < 2 || journey.isNavigating) return;
@@ -321,8 +329,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               <div className="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
                 <div className="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
               </div>
-              <div className="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-[#AEF5F0] text-[10px] font-semibold rounded border border-[#AEF5F0]/40 shadow whitespace-nowrap">
-                {journey.origin.name}
+              <div className="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-[#AEF5F0] text-[10px] font-semibold rounded border border-[#AEF5F0]/40 shadow whitespace-nowrap flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>{mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
               </div>
             </div>
           </AdvancedMarker>

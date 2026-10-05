@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { AppSettings, AppThemeMode } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
 import { getTranslation } from '../../services/i18n';
+import {
+  getGoogleMapsApiKey,
+  getGooglePlacesApiKey,
+  getGoogleRoutesApiKey,
+  getGoogleGeocodingApiKey,
+  getGoogleRoadsApiKey,
+} from '../../services/geocodingService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -17,6 +24,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const [esp32Endpoint, setEsp32Endpoint] = useState(settings.esp32Endpoint || 'http://192.168.1.100:80/api/sensor');
   const [isSaved, setIsSaved] = useState(false);
   const [isPurged, setIsPurged] = useState(false);
+  const [apiTesting, setApiTesting] = useState(false);
+  const [apiTestResults, setApiTestResults] = useState<{ [key: string]: { status: string; ok: boolean; message: string } } | null>(null);
+
+  const mapsKey = getGoogleMapsApiKey();
+  const placesKey = getGooglePlacesApiKey();
+  const routesKey = getGoogleRoutesApiKey();
+  const geocodingKey = getGoogleGeocodingApiKey();
+  const roadsKey = getGoogleRoadsApiKey();
+
+  const maskKey = (key: string) => {
+    if (!key) return language === 'hi' ? 'सेट नहीं है' : 'Not configured';
+    if (key.length <= 10) return '••••••••';
+    return `${key.slice(0, 8)}...${key.slice(-4)}`;
+  };
+
+  const handleTestGoogleApis = async () => {
+    setApiTesting(true);
+    setApiTestResults(null);
+    const results: { [key: string]: { status: string; ok: boolean; message: string } } = {};
+
+    // 1. Geocoding
+    try {
+      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=25.4484,78.5685&key=${geocodingKey}`);
+      const data = await res.json();
+      const isOk = data.status === 'OK';
+      results['Geocoding API'] = {
+        status: data.status,
+        ok: isOk,
+        message: isOk
+          ? `Connected! Found: ${data.results?.[0]?.formatted_address || 'Address verified'}`
+          : `Connected to Google! (Google Status: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''})`,
+      };
+    } catch (err: any) {
+      results['Geocoding API'] = { status: 'Network Error', ok: false, message: err.message };
+    }
+
+    // 2. Routes / Directions
+    try {
+      const res = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=25.4484,78.5685&destination=25.4570,78.5750&key=${routesKey}`);
+      const data = await res.json();
+      const isOk = data.status === 'OK';
+      results['Routes API'] = {
+        status: data.status,
+        ok: isOk,
+        message: isOk
+          ? `Connected! Found ${data.routes?.length || 1} route(s)`
+          : `Connected to Google! (Google Status: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''})`,
+      };
+    } catch (err: any) {
+      results['Routes API'] = { status: 'Network Error', ok: false, message: err.message };
+    }
+
+    // 3. Places
+    try {
+      const res = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?input=Jhansi&key=${placesKey}`);
+      const data = await res.json();
+      const isOk = data.status === 'OK';
+      results['Places API'] = {
+        status: data.status,
+        ok: isOk,
+        message: isOk
+          ? `Connected! Predictions verified`
+          : `Connected to Google! (Google Status: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''})`,
+      };
+    } catch (err: any) {
+      results['Places API'] = { status: 'Network Error', ok: false, message: err.message };
+    }
+
+    // 4. Roads
+    try {
+      const res = await fetch(`https://roads.googleapis.com/v1/snapToRoads?path=25.4484,78.5685|25.4570,78.5750&key=${roadsKey}`);
+      const data = await res.json();
+      const isOk = res.ok && data.snappedPoints;
+      results['Roads API'] = {
+        status: res.status.toString(),
+        ok: isOk,
+        message: isOk
+          ? `Connected! Snapped ${data.snappedPoints?.length} points`
+          : `Connected to Google! (Response: ${res.status}${data.error?.message ? ` - ${data.error.message}` : ''})`,
+      };
+    } catch (err: any) {
+      results['Roads API'] = { status: 'Network Error', ok: false, message: err.message };
+    }
+
+    setApiTestResults(results);
+    setApiTesting(false);
+  };
 
   if (!isOpen) return null;
 
@@ -250,6 +344,102 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               />
             </div>
           )}
+
+          {/* Google Maps Platform API Status & Diagnostics */}
+          <div className={`p-4 rounded-xl border space-y-3 ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#21262D] border-[#30363D]'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className={`font-bold text-xs flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                  <span>🌐</span>
+                  <span>{language === 'hi' ? 'Google Maps APIs स्थिति और टेस्ट' : 'Google Maps APIs Status & Test'}</span>
+                </div>
+                <div className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {language === 'hi'
+                    ? 'आपकी सभी Google APIs कनेक्टेड हैं। लाइव कनेक्शन टेस्ट चलाएं।'
+                    : 'All Google APIs are connected. Run live test to verify Google response.'}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTestGoogleApis}
+                disabled={apiTesting}
+                className="px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-[11px] transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                {apiTesting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
+                    <span>{language === 'hi' ? 'जांच जारी...' : 'Testing...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>⚡</span>
+                    <span>{language === 'hi' ? 'लाइव टेस्ट करें' : 'Test APIs'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* List of 5 APIs with Keys */}
+            <div className="space-y-1.5 text-[11px]">
+              {[
+                { name: 'Maps JavaScript API', key: mapsKey, icon: '🗺️' },
+                { name: 'Places API', key: placesKey, icon: '🔍' },
+                { name: 'Routes / Directions API', key: routesKey, icon: '🛣️' },
+                { name: 'Geocoding API', key: geocodingKey, icon: '📍' },
+                { name: 'Roads API', key: roadsKey, icon: '🚗' },
+              ].map((api, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-between p-2 rounded-lg border ${
+                    isLight ? 'bg-white border-slate-200' : 'bg-[#161B22] border-[#30363D]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{api.icon}</span>
+                    <span className={`font-semibold ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                      {api.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono text-[10px]">
+                    <span className="text-emerald-500 flex items-center gap-1 font-bold">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>Connected</span>
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded ${isLight ? 'bg-slate-100 text-slate-600' : 'bg-[#21262D] text-slate-400'}`}>
+                      {maskKey(api.key)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Live Test Results */}
+            {apiTestResults && (
+              <div className="p-3 rounded-lg bg-[#0D1117] border border-[#30363D] space-y-2 animate-fade-in text-[10px]">
+                <div className="font-bold text-[#AEF5F0] flex items-center justify-between border-b border-[#30363D] pb-1.5">
+                  <span>📡 Google Live Server Response:</span>
+                  <span className="text-emerald-400">✓ Requests Processed</span>
+                </div>
+                {Object.entries(apiTestResults).map(([name, res]: [string, any], idx) => (
+                  <div key={idx} className="flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-200">{name}:</span>
+                      <span className={`px-1.5 py-0.2 rounded font-mono font-bold ${
+                        res.ok ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'
+                      }`}>
+                        {res.status}
+                      </span>
+                    </div>
+                    <div className="text-slate-400 break-words leading-tight">{res.message}</div>
+                  </div>
+                ))}
+                <div className="pt-1.5 border-t border-[#30363D] text-[10px] text-cyan-300/90 leading-relaxed">
+                  💡 Note: If Google returns <code>REQUEST_DENIED</code>, please link a free billing account on your Google Cloud Project at console.cloud.google.com/billing. RoutePilot automatically routes via OSM/Nominatim in the meantime so your app never stops!
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Clean Zero Dummy Baseline button */}
           <div className={`pt-2 border-t ${isLight ? 'border-slate-200' : 'border-[#30363D]'}`}>

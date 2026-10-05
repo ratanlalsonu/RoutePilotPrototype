@@ -33,6 +33,45 @@ export function getGooglePlacesApiKey(): string {
 }
 
 /**
+ * Gets Geocoding API key from environment or falls back to Maps API key
+ */
+export function getGoogleGeocodingApiKey(): string {
+  if (typeof window !== 'undefined') {
+    const fromStorage = localStorage.getItem('routepilot_geocoding_api_key');
+    if (fromStorage && fromStorage.trim().length > 0) return fromStorage.trim();
+  }
+  const geocodingEnv = ((import.meta as any).env?.VITE_GOOGLE_GEOCODING_API_KEY || '').trim();
+  if (geocodingEnv) return geocodingEnv;
+  return getGoogleMapsApiKey();
+}
+
+/**
+ * Gets Routes / Directions API key from environment or falls back to Maps API key
+ */
+export function getGoogleRoutesApiKey(): string {
+  if (typeof window !== 'undefined') {
+    const fromStorage = localStorage.getItem('routepilot_routes_api_key');
+    if (fromStorage && fromStorage.trim().length > 0) return fromStorage.trim();
+  }
+  const routesEnv = ((import.meta as any).env?.VITE_GOOGLE_ROUTES_API_KEY || '').trim();
+  if (routesEnv) return routesEnv;
+  return getGoogleMapsApiKey();
+}
+
+/**
+ * Gets Roads API key from environment or falls back to Maps API key
+ */
+export function getGoogleRoadsApiKey(): string {
+  if (typeof window !== 'undefined') {
+    const fromStorage = localStorage.getItem('routepilot_roads_api_key');
+    if (fromStorage && fromStorage.trim().length > 0) return fromStorage.trim();
+  }
+  const roadsEnv = ((import.meta as any).env?.VITE_GOOGLE_ROADS_API_KEY || '').trim();
+  if (roadsEnv) return roadsEnv;
+  return getGoogleMapsApiKey();
+}
+
+/**
  * Verified Real Places Database (Jhansi, Bundelkhand, UP, MP & Major Indian Corridors)
  * Provides instant 0ms autocomplete matching as user types, backed by real GPS coordinates.
  */
@@ -476,7 +515,7 @@ export async function reverseGeocode(
     }
   }
 
-  const apiKey = customApiKey || getGoogleMapsApiKey();
+  const apiKey = customApiKey || getGoogleGeocodingApiKey();
 
   // 1. Google Geocoding API if key available
   if (apiKey) {
@@ -485,7 +524,7 @@ export async function reverseGeocode(
       const res = await fetch(gUrl);
       if (res.ok) {
         const data = await res.json();
-        if (data.results && data.results.length > 0) {
+        if (data.status === 'OK' && data.results && data.results.length > 0) {
           const first = data.results[0];
           const routeComp = first.address_components?.find((c: any) => c.types.includes('route'));
           const sublocalityComp = first.address_components?.find(
@@ -503,7 +542,59 @@ export async function reverseGeocode(
     }
   }
 
-  // 2. Photon Reverse Geocoding
+  // 2. High-Precision Nominatim Reverse Geocoding (Global OpenStreetMap Coverage)
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'RoutePilot/1.0 (https://routepilot.app)',
+        'Accept-Language': 'en,hi',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.address || {};
+      const road =
+        addr.road ||
+        addr.street ||
+        addr.pedestrian ||
+        addr.residential ||
+        addr.highway ||
+        addr.suburb ||
+        'Main Road';
+      const locality =
+        addr.suburb ||
+        addr.neighbourhood ||
+        addr.city_district ||
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.county ||
+        'Current Area';
+      const city = addr.city || addr.town || addr.state || '';
+
+      const parts = [road, locality, city]
+        .filter(Boolean)
+        .filter((item, idx, arr) => arr.indexOf(item) === idx);
+
+      const locationName =
+        parts.length > 0 ? parts.slice(0, 2).join(', ') : data.display_name?.split(',').slice(0, 2).join(', ') || 'Current Location';
+
+      return {
+        locationName,
+        roadName: road,
+      };
+    }
+  } catch {
+    // fallback
+  }
+
+  // 3. Photon Reverse Geocoding
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);
@@ -515,35 +606,13 @@ export async function reverseGeocode(
       const data = await res.json();
       if (data.features && data.features.length > 0) {
         const props = data.features[0].properties || {};
-        const road = props.street || props.name || 'Main Arterial';
-        const loc = props.city || props.town || props.district || 'Corridor';
+        const road = props.street || props.name || 'Main Arterial Road';
+        const loc = props.city || props.town || props.district || props.state || 'Local Corridor';
         return {
           locationName: `${road}, ${loc}`,
           roadName: road,
         };
       }
-    }
-  } catch {
-    // fallback
-  }
-
-  // 3. Nominatim Reverse Geocoding
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (res.ok) {
-      const data = await res.json();
-      const addr = data.address || {};
-      const road = addr.road || addr.street || addr.pedestrian || addr.suburb || 'Main Arterial Road';
-      const loc = addr.neighbourhood || addr.suburb || addr.city || 'Corridor';
-      return {
-        locationName: `${road}, ${loc}`,
-        roadName: road,
-      };
     }
   } catch {
     // fallback

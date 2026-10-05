@@ -5,6 +5,7 @@ import {
   buildRoadGraphAndSearchRoutes,
 } from './roadGraphBuilder';
 import { realtimeSync } from './realtimeSync';
+import { getGoogleRoutesApiKey } from './geocodingService';
 
 /**
  * Re-export snapToNearestRoad for components and services
@@ -276,13 +277,7 @@ export async function fetchGoogleDirectionsRoutes(
   endLng: number,
   waypoints: [number, number][] = []
 ): Promise<Array<{ coordinates: [number, number][]; distanceKm: number; durationMin: number; steps?: RouteStep[]; summary?: string }>> {
-  let apiKey = '';
-  if (typeof window !== 'undefined') {
-    apiKey = (localStorage.getItem('routepilot_gmaps_api_key') || '').trim();
-  }
-  if (!apiKey) {
-    apiKey = ((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '').trim();
-  }
+  const apiKey = getGoogleRoutesApiKey();
   if (!apiKey) return [];
 
   try {
