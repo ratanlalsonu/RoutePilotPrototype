@@ -19,18 +19,25 @@ export const HazardOverlay: React.FC<HazardOverlayProps> = ({
   const p1 = STATE_NODE_MAP[from];
   const p2 = STATE_NODE_MAP[to];
 
-  if (!p1 || !p2) return null;
+  // Calculate position: prefer midpoint of exact blocked polyline points
+  let posX = (p1?.x ?? 50) + (p2?.x ?? 50) / 2;
+  let posY = (p1?.y ?? 50) + (p2?.y ?? 50) / 2;
 
-  // Midpoint between the two states for the warning marker
-  const midX = (p1.x + p2.x) / 2;
-  const midY = (p1.y + p2.y) / 2;
+  if (route.blockedPoints && route.blockedPoints.length >= 2) {
+    const midIdx = Math.floor(route.blockedPoints.length / 2);
+    posX = route.blockedPoints[midIdx].x;
+    posY = route.blockedPoints[midIdx].y;
+  } else if (p1 && p2) {
+    posX = (p1.x + p2.x) / 2;
+    posY = (p1.y + p2.y) / 2;
+  }
 
   return (
     <div
       className="absolute transform -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-auto select-none"
       style={{
-        left: `${midX}%`,
-        top: `${midY}%`,
+        left: `${posX}%`,
+        top: `${posY}%`,
       }}
     >
       <div className="relative flex flex-col items-center group">
@@ -41,7 +48,7 @@ export const HazardOverlay: React.FC<HazardOverlayProps> = ({
         {/* Hazard Badge with ⚠ Icon */}
         <div className="relative px-2.5 py-1 rounded-md bg-red-600 text-white border border-red-300 shadow-2xl flex items-center gap-1.5 font-bold text-[11px] animate-bounce whitespace-nowrap">
           <span className="text-amber-300 text-sm">⚠</span>
-          <span>{hazardType.toUpperCase()} HAZARD</span>
+          <span>{(hazardType || 'bridge').toUpperCase()} HAZARD</span>
           {onClearHazard && (
             <button
               type="button"
@@ -56,7 +63,7 @@ export const HazardOverlay: React.FC<HazardOverlayProps> = ({
 
         {/* Floating Tooltip / Segment Tag */}
         <div className="mt-1 px-2 py-0.5 rounded bg-black/90 text-red-300 text-[9px] font-mono border border-red-500/60 shadow whitespace-nowrap">
-          BLOCKED: {from} ➔ {to}
+          BLOCKED ROAD: {from} ➔ {to}
         </div>
       </div>
     </div>

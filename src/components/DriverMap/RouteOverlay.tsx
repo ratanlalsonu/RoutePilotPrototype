@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { STATE_NODE_MAP } from '../../services/simulationGraph';
+import { ROAD_EDGES, ROAD_NODES } from '../../services/simulationGraph';
 import { SimulationRoute } from '../../types/simulationMap';
 
 interface RouteOverlayProps {
@@ -9,59 +9,11 @@ interface RouteOverlayProps {
 }
 
 /**
- * Generates smooth curved SVG path string between a sequence of state nodes
+ * Converts array of normalized coordinate points {x, y} into an SVG path 'd' string
  */
-function createCurvedPathString(path: string[]): string {
-  if (path.length < 2) return '';
-
-  const points = path
-    .map((name) => STATE_NODE_MAP[name])
-    .filter(Boolean)
-    .map((node) => ({ x: node.x, y: node.y }));
-
-  if (points.length < 2) return '';
-
-  let d = `M ${points[0].x} ${points[0].y}`;
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const p1 = points[i];
-    const p2 = points[i + 1];
-
-    // Compute midpoint and perpendicular curvature offset for a smooth isometric highway curve
-    const midX = (p1.x + p2.x) / 2;
-    const midY = (p1.y + p2.y) / 2;
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-
-    // Subtle natural bend
-    const curveAmount = 0.08;
-    const cx = midX - dy * curveAmount;
-    const cy = midY + dx * curveAmount;
-
-    d += ` Q ${cx.toFixed(2)} ${cy.toFixed(2)}, ${p2.x} ${p2.y}`;
-  }
-
-  return d;
-}
-
-/**
- * Creates individual segment curved path
- */
-function createSegmentCurve(fromName: string, toName: string): string {
-  const p1 = STATE_NODE_MAP[fromName];
-  const p2 = STATE_NODE_MAP[toName];
-  if (!p1 || !p2) return '';
-
-  const midX = (p1.x + p2.x) / 2;
-  const midY = (p1.y + p2.y) / 2;
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-
-  const curveAmount = 0.08;
-  const cx = midX - dy * curveAmount;
-  const cy = midY + dx * curveAmount;
-
-  return `M ${p1.x} ${p1.y} Q ${cx.toFixed(2)} ${cy.toFixed(2)}, ${p2.x} ${p2.y}`;
+function pointsToSvgPath(pts?: Array<{ x: number; y: number }>): string {
+  if (!pts || pts.length < 2) return '';
+  return pts.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`, '');
 }
 
 export const RouteOverlay: React.FC<RouteOverlayProps> = ({
@@ -69,24 +21,31 @@ export const RouteOverlay: React.FC<RouteOverlayProps> = ({
   isAnimating,
   hasHazard,
 }) => {
-  if (!route || route.path.length < 2) return null;
+  // 1. All Predefined Existing Roads in the Map Graph (Gray network)
+  const allRoadPaths = useMemo(() => {
+    return ROAD_EDGES.map((edge) => ({
+      id: edge.id,
+      pathStr: pointsToSvgPath(edge.points),
+    }));
+  }, []);
 
-  // Primary active route curve
+  // 2. Active Optimal Route Points
   const activePathString = useMemo(() => {
-    return createCurvedPathString(route.path);
-  }, [route.path]);
+    if (!route || !route.allPoints || route.allPoints.length < 2) return '';
+    return pointsToSvgPath(route.allPoints);
+  }, [route?.allPoints]);
 
-  // Alternate route curve (if hazard active)
+  // 3. Blocked Segment Points (RED)
+  const blockedPathString = useMemo(() => {
+    if (!hasHazard || !route?.blockedPoints || route.blockedPoints.length < 2) return '';
+    return pointsToSvgPath(route.blockedPoints);
+  }, [hasHazard, route?.blockedPoints]);
+
+  // 4. Alternate Safe Route Points (GREEN)
   const alternatePathString = useMemo(() => {
-    if (!hasHazard || !route.alternatePath || route.alternatePath.length < 2) return '';
-    return createCurvedPathString(route.alternatePath);
-  }, [hasHazard, route.alternatePath]);
-
-  // Blocked hazard segment
-  const blockedSegmentString = useMemo(() => {
-    if (!hasHazard || !route.blockedSegment) return '';
-    return createSegmentCurve(route.blockedSegment.from, route.blockedSegment.to);
-  }, [hasHazard, route.blockedSegment]);
+    if (!hasHazard || !route?.alternatePoints || route.alternatePoints.length < 2) return '';
+    return pointsToSvgPath(route.alternatePoints);
+  }, [hasHazard, route?.alternatePoints]);
 
   return (
     <svg
@@ -101,11 +60,11 @@ export const RouteOverlay: React.FC<RouteOverlayProps> = ({
           viewBox="0 0 10 10"
           refX="6"
           refY="5"
-          markerWidth="5"
-          markerHeight="5"
+          markerWidth="4"
+          markerHeight="4"
           orient="auto-start-reverse"
         >
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#06b6d4" />
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#00f0ff" />
         </marker>
 
         {/* Green Directional Arrow Marker */}
@@ -114,8 +73,8 @@ export const RouteOverlay: React.FC<RouteOverlayProps> = ({
           viewBox="0 0 10 10"
           refX="6"
           refY="5"
-          markerWidth="5"
-          markerHeight="5"
+          markerWidth="4"
+          markerHeight="4"
           orient="auto-start-reverse"
         >
           <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
@@ -127,110 +86,155 @@ export const RouteOverlay: React.FC<RouteOverlayProps> = ({
           viewBox="0 0 10 10"
           refX="6"
           refY="5"
-          markerWidth="5"
-          markerHeight="5"
+          markerWidth="4"
+          markerHeight="4"
           orient="auto-start-reverse"
         >
           <path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444" />
         </marker>
 
-        {/* Linear gradients for radiant neon highway glow */}
+        {/* Gradients */}
         <linearGradient id="cyan-glow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.9" />
-          <stop offset="50%" stopColor="#06b6d4" stopOpacity="1" />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.9" />
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
+          <stop offset="50%" stopColor="#00f0ff" stopOpacity="1" />
+          <stop offset="100%" stopColor="#0284c7" stopOpacity="0.8" />
         </linearGradient>
 
-        <linearGradient id="emerald-glow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#34d399" stopOpacity="0.9" />
+        <linearGradient id="green-glow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#34d399" stopOpacity="0.8" />
           <stop offset="50%" stopColor="#10b981" stopOpacity="1" />
-          <stop offset="100%" stopColor="#059669" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#059669" stopOpacity="0.8" />
         </linearGradient>
       </defs>
 
-      {/* 1. Base Active Route (Underlay glow) */}
+      {/* ============================================================== */}
+      {/* LAYER 1: ALL PREDEFINED ROAD EDGES (Visible Gray Network)       */}
+      {/* ============================================================== */}
+      <g id="predefined-road-network">
+        {allRoadPaths.map((road) => (
+          <path
+            key={road.id}
+            d={road.pathStr}
+            fill="none"
+            stroke="#2b3748"
+            strokeWidth="0.45"
+            strokeOpacity="0.65"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+
+        {/* Junction Interchange Dots (only non-state junctions) */}
+        {Object.values(ROAD_NODES)
+          .filter((n) => !n.isState)
+          .map((j) => (
+            <circle
+              key={j.id}
+              cx={j.x}
+              cy={j.y}
+              r="0.4"
+              fill="#1e293b"
+              stroke="#475569"
+              strokeWidth="0.2"
+              opacity="0.8"
+            />
+          ))}
+      </g>
+
+      {/* ============================================================== */}
+      {/* LAYER 2: PRIMARY OPTIMAL ROUTE (Cyan/Blue Dotted Animated Line) */}
+      {/* ============================================================== */}
       {activePathString && (
-        <>
+        <g id="optimal-route-layer">
+          {/* Subtle glow corridor */}
           <path
             d={activePathString}
             fill="none"
-            stroke={hasHazard ? '#64748b' : 'url(#cyan-glow-gradient)'}
-            strokeWidth="1.8"
-            strokeOpacity={hasHazard ? 0.35 : 0.45}
+            stroke={hasHazard ? '#475569' : '#0284c7'}
+            strokeWidth="1.6"
+            strokeOpacity={hasHazard ? 0.3 : 0.45}
             strokeLinecap="round"
             strokeLinejoin="round"
             className="filter blur-[1px]"
           />
 
-          {/* Sharp highway route line with animation */}
+          {/* Bright Cyan/Blue Dotted Animated Line directly on top of road */}
           <path
             d={activePathString}
             fill="none"
-            stroke={hasHazard ? '#94a3b8' : '#06b6d4'}
+            stroke={hasHazard ? '#64748b' : '#00f0ff'}
             strokeWidth="0.8"
-            strokeOpacity={hasHazard ? 0.5 : 1}
+            strokeOpacity={hasHazard ? 0.4 : 1}
+            strokeDasharray="1.2 0.8"
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeDasharray={isAnimating ? '200' : 'none'}
-            strokeDashoffset={isAnimating ? '200' : '0'}
-            className={isAnimating ? 'animate-route-draw' : ''}
+            className={!hasHazard ? 'animate-route-flow' : ''}
             markerEnd={!hasHazard ? 'url(#cyan-arrow)' : undefined}
           />
-        </>
+        </g>
       )}
 
-      {/* 2. Blocked Hazard Segment (RED dashed line) */}
-      {hasHazard && blockedSegmentString && (
-        <>
-          {/* Pulsing red underlay */}
+      {/* ============================================================== */}
+      {/* LAYER 3: BLOCKED HAZARD ROAD SECTION (Bright RED)              */}
+      {/* ============================================================== */}
+      {hasHazard && blockedPathString && (
+        <g id="blocked-hazard-layer">
+          {/* Pulsing red halo underlay */}
           <path
-            d={blockedSegmentString}
+            d={blockedPathString}
             fill="none"
             stroke="#ef4444"
             strokeWidth="2.2"
-            strokeOpacity="0.5"
+            strokeOpacity="0.45"
             strokeLinecap="round"
+            strokeLinejoin="round"
             className="animate-pulse"
           />
-          {/* Dashed blocked warning segment */}
+
+          {/* Bright red dashed blocked road */}
           <path
-            d={blockedSegmentString}
+            d={blockedPathString}
             fill="none"
             stroke="#ef4444"
             strokeWidth="1.1"
-            strokeDasharray="1.5 1"
+            strokeDasharray="0.8 0.6"
             strokeLinecap="round"
+            strokeLinejoin="round"
             markerEnd="url(#red-arrow)"
           />
-        </>
+        </g>
       )}
 
-      {/* 3. Alternate Safe Route (GREEN glowing line) */}
+      {/* ============================================================== */}
+      {/* LAYER 4: ALTERNATE OPTIMAL ROUTE (Bright GREEN Dotted Animated)*/}
+      {/* ============================================================== */}
       {hasHazard && alternatePathString && (
-        <>
+        <g id="alternate-safe-route-layer">
+          {/* Green radiant glow underlay */}
           <path
             d={alternatePathString}
             fill="none"
-            stroke="url(#emerald-glow-gradient)"
-            strokeWidth="2.2"
-            strokeOpacity="0.6"
+            stroke="#059669"
+            strokeWidth="1.8"
+            strokeOpacity="0.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             className="filter blur-[1px]"
           />
+
+          {/* Bright Green Dotted Animated Line directly on top of road */}
           <path
             d={alternatePathString}
             fill="none"
             stroke="#10b981"
-            strokeWidth="0.95"
+            strokeWidth="0.85"
+            strokeDasharray="1.2 0.8"
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeDasharray="200"
-            strokeDashoffset="0"
-            className="animate-route-draw"
+            className="animate-route-flow"
             markerEnd="url(#green-arrow)"
           />
-        </>
+        </g>
       )}
     </svg>
   );
