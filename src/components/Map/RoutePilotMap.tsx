@@ -304,6 +304,12 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     }
   };
 
+  // Check if vehicle is at or extremely close to the origin location
+  const isVehicleAtOrigin = useMemo(() => {
+    if (!journey.origin || !vehiclePos) return false;
+    return Math.hypot(vehiclePos.lat - journey.origin.lat, vehiclePos.lng - journey.origin.lng) < 0.0006;
+  }, [journey.origin, vehiclePos]);
+
   return (
     <div className="relative w-full h-full bg-[#0D1117] overflow-hidden select-none">
       <Map
@@ -319,8 +325,8 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         style={{ width: '100%', height: '100%' }}
         internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
       >
-        {/* Origin Marker */}
-        {journey.origin && (
+        {/* Origin Marker - Only show standalone pin when vehicle has moved away from origin to prevent overlap */}
+        {journey.origin && !isVehicleAtOrigin && (
           <AdvancedMarker
             position={{ lat: journey.origin.lat, lng: journey.origin.lng }}
             title={journey.origin.name}
