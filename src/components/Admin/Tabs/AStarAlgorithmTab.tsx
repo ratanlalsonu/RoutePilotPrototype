@@ -4,6 +4,7 @@ import { Journey, Hazard } from '../../../types';
 interface AStarAlgorithmTabProps {
   journey: Journey;
   hazards: Hazard[];
+  appTheme?: 'light' | 'dark';
 }
 
 interface GraphNode {
@@ -38,13 +39,40 @@ interface StepState {
   foundPath: string[] | null;
 }
 
-export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, hazards }) => {
+export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, hazards, appTheme }) => {
   // Toggle for injecting a simulated hazard to show diversion
   const [injectHazardOnBridge, setInjectHazardOnBridge] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [simulationSpeedMs, setSimulationSpeedMs] = useState<number>(1200);
   const [selectedNodeDetails, setSelectedNodeDetails] = useState<string | null>(null);
+
+  // Active theme tracking (dark vs light) for SVG element rendering
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>(() => {
+    if (appTheme) return appTheme;
+    if (typeof document !== 'undefined') {
+      return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    if (appTheme) setCurrentTheme(appTheme);
+  }, [appTheme]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const checkTheme = () => {
+      const isLightMode = document.documentElement.getAttribute('data-theme') === 'light';
+      setCurrentTheme(isLightMode ? 'light' : 'dark');
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const isLight = currentTheme === 'light';
 
   // Check if real active hazards exist in the system
   const activeHazardCount = hazards.filter((h) => h.status === 'ACTIVE').length;
@@ -296,14 +324,14 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
         {/* Left Column (8 cols): Interactive Graph Canvas */}
         <div className="lg:col-span-8 bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-xl flex flex-col justify-between space-y-3">
           
-          <div className="flex items-center justify-between border-b border-[#30363D] pb-2 text-xs">
+          <div className="flex items-center justify-between border-b border-[#30363D] dark:border-[#30363D] pb-2 text-xs">
             <div className="flex items-center gap-3">
-              <span className="font-bold text-white flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
                 <span>Jhansi City Road Network Graph</span>
               </span>
-              <span className="text-[11px] text-slate-400">
-                Step <span className="font-mono text-cyan-300 font-bold">{currentStep.stepIndex}</span> of <span className="font-mono">{simulationSteps.length - 1}</span>
+              <span className="text-[11px] text-slate-600 dark:text-slate-400">
+                Step <span className="font-mono text-cyan-600 dark:text-cyan-300 font-bold">{currentStep.stepIndex}</span> of <span className="font-mono">{simulationSteps.length - 1}</span>
               </span>
             </div>
 
@@ -311,25 +339,25 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
             <div className="hidden sm:flex items-center gap-3 text-[10px]">
               <div className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span className="text-slate-300">Start / Path</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">Start / Path</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
-                <span className="text-slate-300">Open Set</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">Open Set</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                <span className="text-slate-300">Closed Set</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">Closed Set</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                <span className="text-rose-400 font-semibold">Hazard</span>
+                <span className="text-rose-600 dark:text-rose-400 font-bold">Hazard</span>
               </div>
             </div>
           </div>
 
           {/* SVG Visual Graph */}
-          <div className="relative w-full h-80 sm:h-96 bg-[#0D1117] rounded-xl border border-[#30363D] overflow-hidden flex items-center justify-center">
+          <div className="relative w-full h-80 sm:h-96 bg-slate-50 dark:bg-[#0D1117] rounded-xl border border-slate-200 dark:border-[#30363D] overflow-hidden flex items-center justify-center shadow-inner">
             <svg viewBox="0 0 720 400" className="w-full h-full select-none">
               <defs>
                 {/* Glowing Filter for Optimal Route */}
@@ -376,11 +404,13 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                           ? '#10B981'
                           : isHazardousEdge
                           ? '#EF4444'
+                          : isLight
+                          ? '#94A3B8'
                           : '#30363D'
                       }
-                      strokeWidth={isOptimalEdge ? 5 : isHazardousEdge ? 3 : 2}
+                      strokeWidth={isOptimalEdge ? 5 : isHazardousEdge ? 3 : isLight ? 2.5 : 2}
                       strokeDasharray={isHazardousEdge ? '6,4' : undefined}
-                      opacity={isOptimalEdge ? 1 : isHazardousEdge ? 0.9 : 0.6}
+                      opacity={isOptimalEdge ? 1 : isHazardousEdge ? 0.95 : isLight ? 0.8 : 0.6}
                       filter={isOptimalEdge ? 'url(#glow)' : undefined}
                     />
 
@@ -391,14 +421,14 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                       width={32}
                       height={18}
                       rx={4}
-                      fill="#161B22"
-                      stroke={isHazardousEdge ? '#EF4444' : '#30363D'}
-                      strokeWidth={1}
+                      fill={isLight ? '#FFFFFF' : '#161B22'}
+                      stroke={isHazardousEdge ? '#EF4444' : isLight ? '#94A3B8' : '#30363D'}
+                      strokeWidth={isLight ? 1.5 : 1}
                     />
                     <text
                       x={(fromNode.x + toNode.x) / 2}
                       y={(fromNode.y + toNode.y) / 2 + 3}
-                      fill={isHazardousEdge ? '#F87171' : '#94A3B8'}
+                      fill={isHazardousEdge ? (isLight ? '#DC2626' : '#F87171') : (isLight ? '#0F172A' : '#94A3B8')}
                       fontSize={9}
                       fontFamily="monospace"
                       textAnchor="middle"
@@ -418,38 +448,47 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                 const isPath = optimalPathNodes.includes(node.id);
                 const isHazard = node.isHazard;
 
-                let fillColor = '#161B22';
-                let strokeColor = '#475569';
-                let strokeWidth = 2;
+                let fillColor = isLight ? '#FFFFFF' : '#161B22';
+                let strokeColor = isLight ? '#475569' : '#475569';
+                let textColor = isLight ? '#0F172A' : '#FFFFFF';
+                let strokeWidth = isLight ? 2.5 : 2;
 
                 if (node.id === 'S') {
-                  fillColor = '#065F46';
-                  strokeColor = '#10B981';
+                  fillColor = isLight ? '#059669' : '#065F46';
+                  strokeColor = isLight ? '#047857' : '#10B981';
+                  textColor = '#FFFFFF';
                   strokeWidth = 3;
                 } else if (node.id === 'G') {
-                  fillColor = '#78350F';
-                  strokeColor = '#F59E0B';
+                  fillColor = isLight ? '#D97706' : '#78350F';
+                  strokeColor = isLight ? '#B45309' : '#F59E0B';
+                  textColor = '#FFFFFF';
                   strokeWidth = 3;
                 } else if (isPath) {
-                  fillColor = '#064E3B';
-                  strokeColor = '#10B981';
+                  fillColor = isLight ? '#10B981' : '#064E3B';
+                  strokeColor = isLight ? '#059669' : '#10B981';
+                  textColor = '#FFFFFF';
                   strokeWidth = 3;
                 } else if (isCurrent) {
-                  fillColor = '#0E7490';
-                  strokeColor = '#22D3EE';
+                  fillColor = isLight ? '#0284C7' : '#0E7490';
+                  strokeColor = isLight ? '#0369A1' : '#22D3EE';
+                  textColor = '#FFFFFF';
                   strokeWidth = 3.5;
                 } else if (isOpen) {
-                  fillColor = '#164E63';
-                  strokeColor = '#06B6D4';
+                  fillColor = isLight ? '#E0F2FE' : '#164E63';
+                  strokeColor = isLight ? '#0284C7' : '#06B6D4';
+                  textColor = isLight ? '#0369A1' : '#FFFFFF';
                   strokeWidth = 2.5;
                 } else if (isClosed) {
-                  fillColor = '#3B0764';
-                  strokeColor = '#A855F7';
+                  fillColor = isLight ? '#F3E8FF' : '#3B0764';
+                  strokeColor = isLight ? '#9333EA' : '#A855F7';
+                  textColor = isLight ? '#7E22CE' : '#FFFFFF';
                   strokeWidth = 2;
                 }
 
                 if (isHazard) {
-                  strokeColor = '#EF4444';
+                  fillColor = isLight ? '#FEE2E2' : '#450A0A';
+                  strokeColor = isLight ? '#DC2626' : '#EF4444';
+                  textColor = isLight ? '#991B1B' : '#FCA5A5';
                   strokeWidth = 3;
                 }
 
@@ -469,7 +508,7 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                         cx={node.x}
                         cy={node.y}
                         r={32}
-                        fill="rgba(239, 68, 68, 0.15)"
+                        fill={isLight ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.15)'}
                         stroke="#EF4444"
                         strokeWidth={1.5}
                         strokeDasharray="4,4"
@@ -491,7 +530,7 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                     <text
                       x={node.x}
                       y={node.y + 4}
-                      fill="#FFFFFF"
+                      fill={textColor}
                       fontSize={11}
                       fontWeight="bold"
                       fontFamily="sans-serif"
@@ -509,14 +548,14 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                           width={60}
                           height={16}
                           rx={4}
-                          fill="#0D1117"
-                          stroke={isPath ? '#10B981' : isCurrent ? '#22D3EE' : '#30363D'}
+                          fill={isLight ? '#FFFFFF' : '#0D1117'}
+                          stroke={isPath ? '#10B981' : isCurrent ? '#22D3EE' : isLight ? '#94A3B8' : '#30363D'}
                           strokeWidth={1}
                         />
                         <text
                           x={node.x}
                           y={node.y - 20}
-                          fill={isPath ? '#34D399' : isCurrent ? '#67E8F9' : '#CBD5E1'}
+                          fill={isPath ? (isLight ? '#047857' : '#34D399') : isCurrent ? (isLight ? '#0284C7' : '#67E8F9') : isLight ? '#0F172A' : '#CBD5E1'}
                           fontSize={9}
                           fontFamily="monospace"
                           fontWeight="bold"
@@ -531,11 +570,12 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                     <text
                       x={node.x}
                       y={node.y + 30}
-                      fill="#94A3B8"
-                      fontSize={8.5}
+                      fill={isLight ? '#0F172A' : '#94A3B8'}
+                      fontSize={isLight ? 10 : 8.5}
+                      fontWeight={isLight ? 'bold' : 'normal'}
                       fontFamily="sans-serif"
                       textAnchor="middle"
-                      className="opacity-90"
+                      className="node-subtitle"
                     >
                       {node.label}
                     </text>

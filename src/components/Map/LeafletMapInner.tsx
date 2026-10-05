@@ -622,20 +622,20 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
       // Info Popup
       const popupHtml = `
-        <div style="font-family: 'Inter', sans-serif; min-width: 220px; padding: 4px; color: #0f172a;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 8px;">
-            <strong style="font-size: 13px; color: #0f172a;">${translateText(hazard.type, activeLang)}</strong>
-            <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; background-color: ${isCritical ? '#fee2e2; color: #b91c1c;' : '#fef3c7; color: #b45309;'}">
+        <div style="font-family: 'Inter', sans-serif; min-width: 230px; padding: 4px; color: #f1f5f9;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363D; padding-bottom: 6px; margin-bottom: 8px;">
+            <strong style="font-size: 13px; color: #ffffff;">${translateText(hazard.type, activeLang)}</strong>
+            <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; background-color: ${isCritical ? 'rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5);' : 'rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5);'}">
               ${hazard.severity}
             </span>
           </div>
-          <div style="font-size: 11px; line-height: 1.5; color: #334155; margin-bottom: 8px;">
-            <div><strong>${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong> ${hazard.locationName || hazard.roadName || ''}</div>
-            <div><strong>${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong> ${hazard.affectedRadius || 180}m</div>
-            <div><strong>${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong> ${hazard.description}</div>
+          <div style="font-size: 11px; line-height: 1.6; color: #cbd5e1; margin-bottom: 8px;">
+            <div><strong style="color: #94a3b8;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong> <span style="color: #f1f5f9; font-weight: 500;">${hazard.locationName || hazard.roadName || ''}</span></div>
+            <div><strong style="color: #94a3b8;">${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong> <span style="color: #f1f5f9; font-weight: 500;">${hazard.affectedRadius || 180}m</span></div>
+            <div><strong style="color: #94a3b8;">${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong> <span style="color: #e2e8f0; font-style: italic;">${hazard.description}</span></div>
           </div>
           ${onResolveHazard ? `
-            <button id="resolve-btn-${hazard.hazardId}" style="width: 100%; padding: 6px; background-color: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer;">
+            <button id="resolve-btn-${hazard.hazardId}" style="width: 100%; padding: 7px; background-color: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);">
               ${t.resolveHazardBtn || 'Resolve Hazard'}
             </button>
           ` : ''}

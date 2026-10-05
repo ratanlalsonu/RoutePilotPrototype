@@ -422,7 +422,7 @@ export const translations: Record<SupportedLanguage, Translations> = {
     hazardOnRouteBtn: '⚠ Hazard on Driver Route',
     hazardAwayBtn: 'Hazard Away (No Alert)',
     secondHazardAheadBtn: '⚠ 2nd Hazard Ahead',
-    resetDemoBtn: 'Reset Demo State',
+    resetDemoBtn: 'Reset',
 
     interactiveLiveMap: 'Interactive Live Map',
     viewRoadsGps: 'View roads & GPS',
@@ -739,7 +739,7 @@ export const translations: Record<SupportedLanguage, Translations> = {
     hazardOnRouteBtn: '⚠ ड्राइवर मार्ग पर खतरा',
     hazardAwayBtn: 'मार्ग से दूर खतरा (कोई अलर्ट नहीं)',
     secondHazardAheadBtn: '⚠ आगे दूसरा खतरा',
-    resetDemoBtn: 'डेमो रीसेट करें',
+    resetDemoBtn: 'Reset (रीसेट)',
 
     interactiveLiveMap: 'इंटरैक्टिव लाइव मैप',
     viewRoadsGps: 'सड़कें और जीपीएस देखें',

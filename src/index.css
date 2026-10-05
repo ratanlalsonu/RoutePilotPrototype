@@ -62,7 +62,7 @@
   color: #f1f5f9 !important;
   border: 1px solid #30363D !important;
   border-radius: 12px !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.85) !important;
 }
 
 .gm-style-iw-tc::after {
@@ -76,6 +76,51 @@
 
 .gm-ui-hover-effect {
   filter: invert(1) !important;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.gm-ui-hover-effect:hover {
+  opacity: 1;
+}
+
+/* Ensure high-contrast readability inside dark-mode InfoWindows */
+:not([data-theme='light']) .gm-style-iw-c,
+:not([data-theme='light']) .gm-style-iw-d {
+  color: #f1f5f9 !important;
+}
+:not([data-theme='light']) .gm-style-iw-c .text-slate-900,
+:not([data-theme='light']) .gm-style-iw-c .text-slate-950 {
+  color: #ffffff !important;
+}
+:not([data-theme='light']) .gm-style-iw-c .text-slate-700,
+:not([data-theme='light']) .gm-style-iw-c .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+:not([data-theme='light']) .gm-style-iw-c .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+:not([data-theme='light']) .gm-style-iw-c .border-slate-300 {
+  border-color: #30363D !important;
+}
+
+/* Leaflet Popup Dark Theme Styling */
+.leaflet-popup-content-wrapper {
+  background: #161B22 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #30363D !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.85) !important;
+}
+.leaflet-popup-tip {
+  background: #161B22 !important;
+  border: 1px solid #30363D !important;
+}
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+.leaflet-popup-close-button:hover {
+  color: #ffffff !important;
 }
 
 /* Hazard pulse animations */
@@ -473,13 +518,64 @@ html.light [class*="hover:bg-[#8eebe5]"]:hover {
   color: #ffffff !important;
 }
 
-/* Text inside colored buttons stays white */
+/* Text inside solid saturated colored buttons stays white */
 [data-theme='light'] button.bg-\[\#AEF5F0\] *,
-[data-theme='light'] button[class*="bg-emerald"] *,
-[data-theme='light'] button[class*="bg-red"] *,
-[data-theme='light'] button[class*="bg-rose"] *,
-[data-theme='light'] button[class*="bg-blue"] * {
+[data-theme='light'] button[class*="bg-emerald"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]) *,
+[data-theme='light'] button[class*="bg-red"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]) *,
+[data-theme='light'] button[class*="bg-rose"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]):not(.btn-reset-demo) *,
+[data-theme='light'] button[class*="bg-blue"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]) * {
   color: #ffffff !important;
+}
+
+/* Reset Demo Button (Dark & Light) */
+.btn-reset-demo {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+  border: 1px solid rgba(244, 63, 94, 0.35) !important;
+  color: #fb7185 !important;
+}
+
+.btn-reset-demo * {
+  color: #fb7185 !important;
+  stroke: #fb7185 !important;
+}
+
+.btn-reset-demo:hover {
+  background-color: rgba(244, 63, 94, 0.22) !important;
+  border-color: rgba(244, 63, 94, 0.55) !important;
+  color: #fda4af !important;
+}
+
+.btn-reset-demo:hover * {
+  color: #fda4af !important;
+  stroke: #fda4af !important;
+}
+
+[data-theme='light'] .btn-reset-demo,
+[data-theme='light'] button.btn-reset-demo {
+  background-color: #fee2e2 !important;
+  border: 1.5px solid #f87171 !important;
+  color: #991b1b !important;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+[data-theme='light'] .btn-reset-demo *,
+[data-theme='light'] button.btn-reset-demo * {
+  color: #991b1b !important;
+  stroke: #991b1b !important;
+  fill: none;
+}
+
+[data-theme='light'] .btn-reset-demo:hover,
+[data-theme='light'] button.btn-reset-demo:hover {
+  background-color: #fecaca !important;
+  border-color: #ef4444 !important;
+  color: #7f1d1d !important;
+}
+
+[data-theme='light'] .btn-reset-demo:hover *,
+[data-theme='light'] button.btn-reset-demo:hover * {
+  color: #7f1d1d !important;
+  stroke: #7f1d1d !important;
 }
 
 /* Specific colored status text (Deep, High Contrast) */
@@ -503,7 +599,10 @@ html.light [class*="text-amber-400"] {
 
 [data-theme='light'] [class*="text-red-400"],
 [data-theme='light'] [class*="text-red-300"],
-html.light [class*="text-red-400"] {
+html.light [class*="text-red-400"],
+[data-theme='light'] [class*="text-rose-400"],
+[data-theme='light'] [class*="text-rose-300"],
+html.light [class*="text-rose-400"] {
   color: #b91c1c !important;
 }
 
@@ -590,6 +689,40 @@ html.light textarea::placeholder {
 
 [data-theme='light'] .gm-ui-hover-effect {
   filter: none !important;
+}
+
+/* Leaflet Popup in Light Mode */
+[data-theme='light'] .leaflet-popup-content-wrapper {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme='light'] .leaflet-popup-tip {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme='light'] .leaflet-popup-close-button {
+  color: #64748b !important;
+}
+
+/* A* SVG Visual Graph in Light Mode */
+[data-theme='light'] svg text.node-subtitle {
+  fill: #0f172a !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+
+[data-theme='light'] svg rect.edge-weight-bg {
+  fill: #ffffff !important;
+  stroke: #cbd5e1 !important;
+}
+
+[data-theme='light'] svg text.edge-weight-text {
+  fill: #0f172a !important;
+  font-weight: 700 !important;
 }
 
 

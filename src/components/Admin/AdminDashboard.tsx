@@ -351,7 +351,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
               ))}
             </nav>
 
-            <div className="p-3 border-t border-[#30363D]">
+            <div className="p-3 border-t border-[#30363D] dark:border-[#30363D]">
               <button
                 onClick={() => {
                   realtimeSync.resetDemo();
@@ -359,12 +359,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                     setIsSidebarOpen(false);
                   }
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition cursor-pointer"
+                className="btn-reset-demo w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                title="Reset simulation state to defaults"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span>{lang === 'hi' ? 'डेमो रीसेट करें' : 'Reset Demo State'}</span>
+                <span>{lang === 'hi' ? 'Reset (रीसेट)' : 'Reset'}</span>
               </button>
             </div>
           </div>
@@ -532,7 +533,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
           {activeTab === 'A* Algorithm' && (
             <div key="tab-astar" className="animate-tab-switch flex-1 flex flex-col">
-              <AStarAlgorithmTab journey={journey} hazards={hazards} />
+              <AStarAlgorithmTab journey={journey} hazards={hazards} appTheme={state.appSettings.appTheme} />
             </div>
           )}
 
