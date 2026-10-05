@@ -1,5 +1,5 @@
 import { RouteOption, Hazard, RouteStep, VehicleType } from '../types';
-import { getDistanceMeters } from '../algorithms/hazardRouteIntersection';
+import { getDistanceMeters, hazardAffectsRoute } from '../algorithms/hazardRouteIntersection';
 import {
   JHANSI_REAL_ROAD_ROUTE_A,
   JHANSI_REAL_ROAD_ROUTE_B,
@@ -7,6 +7,7 @@ import {
   REAL_ROAD_CROSS_LINK_A_TO_B,
   REAL_ROAD_CROSS_LINK_A_TO_C,
 } from './roadCorridors';
+import { calculateJunctionBasedOptimalRoutes } from './roadJunctionRouter';
 
 /**
  * Vehicle speed profiling for accurate real-world travel time estimation
@@ -768,187 +769,209 @@ export async function getInitialRoute(
 }
 
 /**
- * Calculates genuine on-road alternative routes that bypass the detected hazard.
- * Detours dynamically around the hazard in the driver's actual location.
+ * Calculates genuine on-road alternative routes that safely bypass the detected hazard.
+ *
+ * Grounded in real-world road network:
+ * 1. Takes the driver's current position (wherever the driver has reached).
+ * 2. Connects all the way to the specified destination (including any searched location).
+ * 3. Identifies bypass corridors around the hazard on real roads.
+ * 4. Combines native OSRM road graph detours and junction branch corridors.
+ * 5. Returns 100% on-road routes that align with actual roads drawn on the map without any off-road straight lines.
  */
 export async function calculateAlternativeRoutes(
   currentLat: number,
   currentLng: number,
   destination: { lat: number; lng: number; name: string },
   hazard: Hazard | null,
-  vehicleType: VehicleType = 'car'
+  vehicleType: VehicleType = 'car',
+  activeRoute: RouteOption | null = null
 ): Promise<RouteOption[]> {
   const destLat = destination.lat;
   const destLng = destination.lng;
-  const safeRadiusMeters = hazard ? (hazard.affectedRadius || 180) + 50 : 250;
-
+  const destName = destination.name || 'Destination';
   const alternatives: RouteOption[] = [];
 
-  // Dynamic hazard bypass calculation based on actual hazard coordinate
+  // Check if destination is near Jhansi Station (default preset destination, approx 25.4648, 78.5835)
+  const isDefaultJhansiDestination =
+    getDistanceMeters(destLat, destLng, 25.4648, 78.5835) < 1800;
+
+  // 1. If activeRoute belongs to the predefined Jhansi corridors and destination is Jhansi Station,
+  // evaluate junction branch corridors
+  if (isDefaultJhansiDestination) {
+    try {
+      const junctionRoutes = calculateJunctionBasedOptimalRoutes(
+        currentLat,
+        currentLng,
+        activeRoute,
+        destination,
+        hazard,
+        vehicleType
+      );
+      if (junctionRoutes && junctionRoutes.length > 0) {
+        for (const jr of junctionRoutes) {
+          if (!alternatives.some((a) => a.id === jr.id)) {
+            alternatives.push(jr);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Junction router note:', e);
+    }
+  }
+
+  // 2. FOR ANY SEARCHED LOCATION (or to augment predefined routes):
+  // Query real-road bypass routes from driver's current position to destination avoiding the hazard
   if (hazard) {
     const hLat = hazard.latitude;
     const hLng = hazard.longitude;
+    const safeRadius = (hazard.affectedRadius || 180) + 60;
 
-    const dx = hLng - currentLng;
-    const dy = hLat - currentLat;
-    const dist = Math.hypot(dx, dy);
+    // Vector from current location to destination
+    const dx = destLng - currentLng;
+    const dy = destLat - currentLat;
+    const distTotal = Math.max(0.001, Math.hypot(dx, dy));
+    const normX = -dy / distTotal;
+    const normY = dx / distTotal;
 
-    // Normal vector perpendicular to the approach vector
-    const normX = dist > 0 ? -dy / dist : 0;
-    const normY = dist > 0 ? dx / dist : 1;
+    // Lateral distance in degrees to steer around the hazard
+    const offsetDeg = Math.max(0.005, (safeRadius + 150) / 111000);
 
-    // Lateral distance to clear the hazard circle
-    const offsetDeg = Math.max(0.004, (safeRadiusMeters + 120) / 111000);
-
-    const candLeft = [hLat + normY * offsetDeg, hLng + normX * offsetDeg] as [number, number];
-    const candRight = [hLat - normY * offsetDeg, hLng - normX * offsetDeg] as [number, number];
-
-    const [snapLeft, snapRight] = await Promise.all([
-      snapToNearestRoad(candLeft[0], candLeft[1]),
-      snapToNearestRoad(candRight[0], candRight[1]),
-    ]);
-
-    const candidates = [
+    // Lateral bypass waypoints on either side of the hazard
+    const bypassWaypoints: { id: string; name: string; color: string; lat: number; lng: number; roadDesc: string }[] = [
       {
         id: 'route_b',
-        name: 'Detour 1 — West Bypass (Safe)',
+        name: 'Route B — West Bypass (Safe Detour)',
         color: '#10b981',
-        roadName: snapLeft?.name || 'Safe Detour Bypass',
-        lat: snapLeft ? snapLeft.lat : candLeft[0],
-        lng: snapLeft ? snapLeft.lng : candLeft[1],
+        lat: hLat + normY * offsetDeg,
+        lng: hLng + normX * offsetDeg,
+        roadDesc: 'West Outer Bypass',
       },
       {
         id: 'route_c',
-        name: 'Detour 2 — East Link (Safe)',
+        name: 'Route C — East Arterial (Safe Detour)',
         color: '#f59e0b',
-        roadName: snapRight?.name || 'Outer Link Detour',
-        lat: snapRight ? snapRight.lat : candRight[0],
-        lng: snapRight ? snapRight.lng : candRight[1],
+        lat: hLat - normY * offsetDeg,
+        lng: hLng - normX * offsetDeg,
+        roadDesc: 'East Arterial Link',
       },
       {
         id: 'route_d',
-        name: 'Detour 3 — Highway Diversion (Safe)',
+        name: 'Route D — Wide Ring Diversion (Extra Clearance)',
         color: '#38bdf8',
-        roadName: 'Highway Diversion Corridor',
-        lat: (currentLat + destLat) / 2 + normY * offsetDeg * 1.5,
-        lng: (currentLng + destLng) / 2 + normX * offsetDeg * 1.5,
+        lat: hLat + normY * offsetDeg * 1.7,
+        lng: hLng + normX * offsetDeg * 1.7,
+        roadDesc: 'Outer Perimeter Ring',
       },
     ];
 
-    for (const c of candidates) {
-      if (getDistanceMeters(c.lat, c.lng, hLat, hLng) <= safeRadiusMeters) continue;
+    // Query OSRM for routes through these detour waypoints
+    const queryPromises = bypassWaypoints.map(async (wp) => {
+      if (alternatives.some((a) => a.id === wp.id)) return null;
 
       try {
-        const res = await fetchOSRMRoute(currentLat, currentLng, destLat, destLng, [[c.lat, c.lng]]);
+        const res = await fetchOSRMRoute(currentLat, currentLng, destLat, destLng, [[wp.lat, wp.lng]]);
         if (res && res.coordinates && res.coordinates.length > 3) {
-          // Check hazard clearance
-          let clears = true;
-          for (const pt of res.coordinates) {
-            if (getDistanceMeters(pt[0], pt[1], hLat, hLng) <= safeRadiusMeters) {
-              clears = false;
-              break;
-            }
-          }
-
-          if (clears) {
+          // Check that this candidate route safely clears the hazard
+          const check = hazardAffectsRoute(hazard, res.coordinates);
+          if (!check.affects) {
             const finalCoords = ensureCompleteEndpoints(res.coordinates, currentLat, currentLng, destLat, destLng);
-            const distB = res.distanceKm;
-            const durB = calculateVehicleDuration(distB, vehicleType, res.durationMin);
-            const viaRoads = [c.roadName, 'Clear Corridor'];
+            const distKm = res.distanceKm;
+            const durMin = calculateVehicleDuration(distKm, vehicleType, res.durationMin);
+            const viaRoads = [wp.roadDesc, 'Safe Corridor'];
 
-            alternatives.push({
-              id: c.id,
-              name: c.name,
-              color: c.color,
-              distanceKm: distB,
-              durationMinutes: durB,
+            const steps = res.steps && res.steps.length > 1
+              ? res.steps
+              : generateSyntheticSteps(wp.name, viaRoads, distKm, destName);
+
+            const optRoute: RouteOption = {
+              id: wp.id,
+              name: wp.name,
+              color: wp.color,
+              distanceKm: distKm,
+              durationMinutes: durMin,
               coordinates: finalCoords,
               viaRoads,
-              isRecommended: c.id === 'route_b',
+              isRecommended: wp.id === 'route_b',
               maneuver: {
-                instruction: `Turn onto ${c.roadName} to safely bypass ${hazard.type}`,
+                instruction: `Turn toward ${wp.roadDesc} to safely bypass ${hazard.type}`,
                 distanceMeters: 250,
+                turnType: wp.id === 'route_b' ? 'left' : 'right',
               },
-              steps: res.steps || generateSyntheticSteps(c.name, viaRoads, distB, destination.name),
-            });
+              steps,
+            };
+            return optRoute;
           }
         }
+      } catch (err) {
+        console.warn('Detour query error:', err);
+      }
+      return null;
+    });
+
+    const detourResults = await Promise.all(queryPromises);
+    for (const r of detourResults) {
+      if (r && !alternatives.some((a) => a.id === r.id)) {
+        alternatives.push(r);
+      }
+    }
+
+    // Also check if OSRM's native alternative paths from current location clear the hazard
+    if (alternatives.length < 2) {
+      try {
+        const nativeAlts = await fetchOSRMAllRoutes(currentLat, currentLng, destLat, destLng, [], true);
+        nativeAlts.forEach((na, idx) => {
+          if (idx === 0 && alternatives.length > 0) return;
+          const check = hazardAffectsRoute(hazard, na.coordinates);
+          if (!check.affects) {
+            const routeId = `route_alt_${idx + 1}`;
+            if (!alternatives.some((a) => a.id === routeId)) {
+              const distKm = na.distanceKm;
+              const durMin = calculateVehicleDuration(distKm, vehicleType, na.durationMin);
+              alternatives.push({
+                id: routeId,
+                name: `Alternative Route ${idx + 1} (Clear Road)`,
+                color: idx === 1 ? '#10b981' : '#f59e0b',
+                distanceKm: distKm,
+                durationMinutes: durMin,
+                coordinates: ensureCompleteEndpoints(na.coordinates, currentLat, currentLng, destLat, destLng),
+                viaRoads: ['Clear Corridor Link'],
+                isRecommended: alternatives.length === 0,
+                maneuver: {
+                  instruction: `Follow clear road corridor to ${destName}`,
+                  distanceMeters: 300,
+                  turnType: 'straight',
+                },
+                steps: na.steps || generateSyntheticSteps(`Alternative ${idx + 1}`, ['Clear Corridor'], distKm, destName),
+              });
+            }
+          }
+        });
       } catch {
         // continue
       }
     }
   }
 
-  // If OSRM returned fewer than 2 routes (e.g. offline/network timeout), generate verified bypass detours
-  if (alternatives.length < 2 && hazard) {
-    const hLat = hazard.latitude;
-    const hLng = hazard.longitude;
-    const dx = destination.lng - currentLng;
-    const dy = destination.lat - currentLat;
-    const distTotal = Math.max(0.5, Math.hypot(dx, dy) * 111);
-    const normX = distTotal > 0 ? -dy / (distTotal / 111) : 0;
-    const normY = distTotal > 0 ? dx / (distTotal / 111) : 1;
-    const offsetDeg = Math.max(0.006, ((hazard.affectedRadius || 180) + 200) / 111000);
-
-    // Detour Left (West Bypass)
-    const leftMid: [number, number] = [hLat + normY * offsetDeg, hLng + normX * offsetDeg];
-    const leftCoords: [number, number][] = [
-      [currentLat, currentLng],
-      [(currentLat * 2 + leftMid[0]) / 3, (currentLng * 2 + leftMid[1]) / 3],
-      leftMid,
-      [(destLat * 2 + leftMid[0]) / 3, (destLng * 2 + leftMid[1]) / 3],
-      [destLat, destLng],
-    ];
-
-    if (!alternatives.some((a) => a.id === 'route_b')) {
-      const distKm = parseFloat((distTotal * 1.15).toFixed(1));
-      alternatives.push({
-        id: 'route_b',
-        name: 'Route B — West Bypass (Safe Detour)',
-        color: '#10b981',
-        distanceKm: distKm,
-        durationMinutes: calculateVehicleDuration(distKm, vehicleType, Math.round(distKm * 1.6)),
-        coordinates: leftCoords,
-        viaRoads: ['West Bypass Corridor', 'Approach Ring Road'],
-        isRecommended: true,
-        maneuver: {
-          instruction: `Turn left onto West Bypass Corridor to bypass ${hazard.type}`,
-          distanceMeters: 300,
-        },
-        steps: generateSyntheticSteps('Route B', ['West Bypass Corridor', 'Approach Ring Road'], distKm, destination.name),
-      });
-    }
-
-    // Detour Right (East Link)
-    const rightMid: [number, number] = [hLat - normY * offsetDeg, hLng - normX * offsetDeg];
-    const rightCoords: [number, number][] = [
-      [currentLat, currentLng],
-      [(currentLat * 2 + rightMid[0]) / 3, (currentLng * 2 + rightMid[1]) / 3],
-      rightMid,
-      [(destLat * 2 + rightMid[0]) / 3, (destLng * 2 + rightMid[1]) / 3],
-      [destLat, destLng],
-    ];
-
-    if (!alternatives.some((a) => a.id === 'route_c')) {
-      const distKm = parseFloat((distTotal * 1.25).toFixed(1));
-      alternatives.push({
-        id: 'route_c',
-        name: 'Route C — East Arterial (Safe Detour)',
-        color: '#f59e0b',
-        distanceKm: distKm,
-        durationMinutes: calculateVehicleDuration(distKm, vehicleType, Math.round(distKm * 1.8)),
-        coordinates: rightCoords,
-        viaRoads: ['East Arterial Highway', 'City Link Rd'],
-        isRecommended: false,
-        maneuver: {
-          instruction: `Turn right onto East Arterial Highway to bypass ${hazard.type}`,
-          distanceMeters: 450,
-        },
-        steps: generateSyntheticSteps('Route C', ['East Arterial Highway', 'City Link Rd'], distKm, destination.name),
-      });
+  // 3. Fallback if network returned fewer than 2 routes and activeRoute exists
+  if (alternatives.length < 2) {
+    try {
+      const jRoutes = calculateJunctionBasedOptimalRoutes(
+        currentLat,
+        currentLng,
+        activeRoute,
+        destination,
+        hazard,
+        vehicleType
+      );
+      for (const jr of jRoutes) {
+        if (!alternatives.some((a) => a.id === jr.id)) {
+          alternatives.push(jr);
+        }
+      }
+    } catch {
+      // continue
     }
   }
 
-  // Only return genuine on-road detours that actually exist and clear the hazard (no fake 3-point lines)
   return alternatives.slice(0, 3);
 }

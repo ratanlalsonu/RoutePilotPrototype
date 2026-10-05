@@ -83,6 +83,7 @@ export interface RouteOption {
     instruction: string;
     distanceMeters: number;
     icon?: string;
+    turnType?: 'straight' | 'left' | 'right' | 'slight-left' | 'slight-right' | 'u-turn' | 'arrive';
   };
   steps?: RouteStep[];
   aStarMetrics?: AStarMetrics;

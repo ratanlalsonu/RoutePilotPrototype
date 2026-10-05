@@ -497,7 +497,8 @@ class RealtimeSyncManager {
       currentCoords[1],
       j.destination,
       currentHazard,
-      j.vehicleType
+      j.vehicleType,
+      j.activeRoute
     );
 
     // Evaluate with A* algorithm to score the detour routes
@@ -992,8 +993,15 @@ class RealtimeSyncManager {
 
     if (!dest || !dest.name || dest.lat === 0) return;
 
-    // 1. Calculate 3 candidate detour routes bypassing the hazard
-    const detourRoutes = await calculateAlternativeRoutes(origin.lat, origin.lng, dest, hazard, vType);
+    // 1. Calculate candidate detour routes bypassing the hazard
+    const detourRoutes = await calculateAlternativeRoutes(
+      origin.lat,
+      origin.lng,
+      dest,
+      hazard,
+      vType,
+      j.activeRoute
+    );
 
     // Include previous route so A* algorithm explicitly evaluates and shows why it is blocked
     const candidateRoutes: RouteOption[] = [...detourRoutes];
