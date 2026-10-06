@@ -636,7 +636,11 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                       realtimeSync.resolveHazard(selectedHazard.hazardId);
                       setSelectedHazard(null);
                     }}
-                    className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                      isLight
+                        ? 'bg-[#A7F3ED] hover:bg-[#8cefe6] text-[#042f2e] border border-[#5eead4] shadow-teal-500/20 font-extrabold'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    }`}
                   >
                     {t.resolveHazardBtn}
                   </button>

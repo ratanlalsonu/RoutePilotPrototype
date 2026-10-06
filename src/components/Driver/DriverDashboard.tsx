@@ -392,6 +392,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
     }
   };
 
+  const isWhiteMode = state.appSettings.appTheme === 'light' || state.appSettings.mapTheme === 'standard';
+
   return (
     <div className={`flex flex-col h-full w-full max-w-full h-[100dvh] ${state.appSettings.appTheme === 'light' ? 'bg-[#f8fafc] text-slate-900' : 'bg-[#0D1117] text-slate-100'} overflow-hidden font-sans select-none min-h-0`}>
       {/* Top Header */}
@@ -749,7 +751,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       type="button"
                       onClick={handleAcquireRealGps}
                       title={language === 'hi' ? 'वर्तमान जीपीएस स्थान रिफ्रेश करें' : 'Refresh live GPS location'}
-                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500 border border-emerald-500/30 text-emerald-300 hover:text-slate-950 font-bold text-[10px] transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+                      className={`px-2.5 py-1.5 rounded-lg border font-bold text-[10px] transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm ${
+                        isWhiteMode
+                          ? 'bg-[#A7F3ED] hover:bg-[#8cefe6] border-[#5eead4] text-[#042f2e]'
+                          : 'bg-emerald-500/15 hover:bg-emerald-500 border-emerald-500/30 text-emerald-300 hover:text-slate-950'
+                      }`}
                     >
                       <svg className={`w-3 h-3 ${isAcquiringGps ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="7"/>
@@ -912,23 +918,27 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         </div>
 
                         {/* Quick Inline A* Decision Explanation Banner */}
-                        <div className="p-2.5 rounded-lg bg-[#161B22] border border-[#30363D] text-[11px] flex flex-col gap-1.5">
+                        <div className={`p-2.5 rounded-lg border text-[11px] flex flex-col gap-1.5 ${
+                          isWhiteMode
+                            ? 'bg-white border-slate-300 text-slate-900 shadow-sm'
+                            : 'bg-[#161B22] border-[#30363D] text-slate-100'
+                        }`}>
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-[#AEF5F0] flex items-center gap-1">
+                            <span className={`font-bold flex items-center gap-1 ${isWhiteMode ? 'text-black font-extrabold' : 'text-[#AEF5F0]'}`}>
                               <span>⚡</span>
                               <span>{language === 'hi' ? 'A* चयन तर्क (A* Decision Logic):' : 'A* Decision Logic:'}</span>
                             </span>
                             <button
                               type="button"
                               onClick={() => setShowInlineAStarBreakdown(!showInlineAStarBreakdown)}
-                              className="text-[10px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer"
+                              className={`text-[10px] underline cursor-pointer font-semibold ${isWhiteMode ? 'text-teal-700 hover:text-teal-900' : 'text-cyan-400 hover:text-cyan-200'}`}
                             >
                               {showInlineAStarBreakdown
                                 ? (language === 'hi' ? 'संक्षिप्त करें ▲' : 'Collapse ▲')
                                 : (language === 'hi' ? 'विस्तार से देखें ▼' : 'View Formula ▼')}
                             </button>
                           </div>
-                          <p className="text-slate-300 text-[10px] leading-relaxed">
+                          <p className={`text-[10px] leading-relaxed ${isWhiteMode ? 'text-slate-700 font-medium' : 'text-slate-300'}`}>
                             {language === 'hi'
                               ? state.aStarEvaluation?.evaluationSummary?.decisionReasonHi || 'A* ने न्यूनतम यात्रा समय और शून्य जोखिम के आधार पर सर्वोत्तम मार्ग चुना।'
                               : state.aStarEvaluation?.evaluationSummary?.decisionReason || 'A* selected optimal route with lowest travel time and zero hazard risk.'}
@@ -1434,15 +1444,19 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               )}
 
               {/* Floating A* Decision Badge on Map */}
-              {Boolean(journey.destination?.name && journey.activeRoute && state.aStarEvaluation) && !isMapClearMode && !(journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED') && !(journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && journey.diversionState === 'ALTERNATIVES_DISPLAYED') && (
+              {Boolean(journey.destination?.name && journey.destination.name.trim().length > 0 && journey.activeRoute && state.aStarEvaluation) && !isMapClearMode && !(journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED') && !(journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && journey.diversionState === 'ALTERNATIVES_DISPLAYED') && (
                 <button
                   type="button"
                   onClick={() => setIsAStarModalOpen(true)}
-                  className="absolute top-4 right-4 z-[995] bg-[#161B22]/95 hover:bg-[#21262D] backdrop-blur-md border border-[#AEF5F0]/50 text-white rounded-xl px-3 py-2 shadow-2xl flex items-center gap-2 cursor-pointer transition active:scale-95 pointer-events-auto"
+                  className={`absolute top-4 right-4 z-[995] backdrop-blur-md border rounded-xl px-3 py-2 shadow-2xl flex items-center gap-2 cursor-pointer transition active:scale-95 pointer-events-auto max-w-[280px] overflow-hidden ${
+                    isWhiteMode
+                      ? 'bg-white/95 hover:bg-slate-50 border-slate-300 text-black shadow-slate-400/25'
+                      : 'bg-[#161B22]/95 hover:bg-[#21262D] border-[#AEF5F0]/50 text-white'
+                  }`}
                 >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-pulse"></span>
-                  <span className="text-xs font-bold text-[#AEF5F0]">⚡ A* {language === 'hi' ? 'निर्णय तर्क' : 'Decision'}</span>
-                  <span className="text-[10px] text-slate-300 font-mono">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 animate-pulse ${isWhiteMode ? 'bg-teal-600' : 'bg-[#AEF5F0]'}`}></span>
+                  <span className={`text-xs font-bold truncate ${isWhiteMode ? 'text-black font-extrabold' : 'text-[#AEF5F0]'}`}>⚡ A* {language === 'hi' ? 'निर्णय तर्क' : 'Decision'}</span>
+                  <span className={`text-[10px] font-mono shrink-0 ${isWhiteMode ? 'text-slate-800 font-bold' : 'text-slate-300'}`}>
                     [f={state.aStarEvaluation?.optimalRoute?.aStarMetrics?.totalFCost}]
                   </span>
                 </button>
@@ -1677,7 +1691,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               if (searchQuery.trim().length > 0) setShowSearchResults(true);
                             }}
                             placeholder={t.searchMapPlaceholder}
-                            className="w-full h-9 bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl pl-8 pr-7 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0] shadow-xl"
+                            className={`w-full h-9 backdrop-blur-md border rounded-xl pl-8 pr-7 text-xs shadow-xl focus:outline-none ${
+                              isWhiteMode
+                                ? 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-500 focus:border-teal-500'
+                                : 'bg-[#161B22]/95 border-[#30363D] text-white placeholder-slate-400 focus:border-[#AEF5F0]'
+                            }`}
                           />
                           <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                           {isSearching ? (
@@ -1690,7 +1708,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                 setSearchResults([]);
                                 setShowSearchResults(false);
                               }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-1 rounded cursor-pointer"
+                              className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs p-1 rounded cursor-pointer ${isWhiteMode ? 'text-slate-500 hover:text-black' : 'text-slate-400 hover:text-white'}`}
                             >
                               ✕
                             </button>
@@ -1698,7 +1716,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         </div>
 
                         {showSearchResults && (
-                          <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-[#30363D]/80 animate-fade-in">
+                          <div className={`backdrop-blur-md border rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y animate-fade-in ${
+                            isWhiteMode
+                              ? 'bg-white/95 border-slate-300 divide-slate-200 text-slate-900'
+                              : 'bg-[#161B22]/95 border-[#30363D] divide-[#30363D]/80 text-white'
+                          }`}>
                             {isSearching && (
                               <div className="p-2 text-center text-xs text-[#AEF5F0] flex items-center justify-center gap-2">
                                 <span className="w-3 h-3 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></span>
@@ -1709,24 +1731,26 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               <div
                                 key={idx}
                                 onClick={() => handleSelectDestination(item)}
-                                className="p-2 hover:bg-[#21262D] cursor-pointer transition flex items-start gap-2 text-xs group"
+                                className={`p-2 cursor-pointer transition flex items-start gap-2 text-xs group ${
+                                  isWhiteMode ? 'hover:bg-slate-100 text-slate-900' : 'hover:bg-[#21262D] text-white'
+                                }`}
                               >
                                 <span className="text-sm mt-0.5 shrink-0 text-[#AEF5F0]">📍</span>
                                 <div className="flex-1 min-w-0">
-                                  <div className="font-bold text-white group-hover:text-[#AEF5F0] truncate flex items-center gap-1.5">
+                                  <div className={`font-bold truncate flex items-center gap-1.5 ${isWhiteMode ? 'text-slate-900 group-hover:text-teal-700' : 'text-white group-hover:text-[#AEF5F0]'}`}>
                                     <span>{item.name}</span>
                                     <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                       {t.realPlaceBadge}
                                     </span>
                                   </div>
-                                  <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                  <div className={`text-[10px] truncate mt-0.5 ${isWhiteMode ? 'text-slate-600' : 'text-slate-400'}`}>
                                     {item.displayName || item.roadName}
                                   </div>
-                                  <div className="text-[9px] font-mono text-cyan-400 mt-0.5">
+                                  <div className="text-[9px] font-mono text-cyan-500 mt-0.5">
                                     GPS: {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
                                   </div>
                                 </div>
-                                <span className="text-[10px] font-semibold text-[#AEF5F0] opacity-0 group-hover:opacity-100 transition shrink-0 self-center">
+                                <span className="text-[10px] font-semibold text-teal-600 opacity-0 group-hover:opacity-100 transition shrink-0 self-center">
                                   {t.selectPlaceBtn}
                                 </span>
                               </div>
@@ -1735,19 +1759,23 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         )}
                       </div>
                     ) : currentManeuver ? (
-                      <div className="flex-1 bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 shadow-xl flex items-center gap-2.5 animate-fade-in min-w-0 overflow-hidden">
+                      <div className={`flex-1 backdrop-blur-md border rounded-2xl p-2.5 shadow-xl flex items-center gap-2.5 animate-fade-in min-w-0 overflow-hidden ${
+                        isWhiteMode
+                          ? 'bg-white/95 border-slate-300 text-slate-900'
+                          : 'bg-[#161B22]/95 border-[#30363D] text-white'
+                      }`}>
                         <div className="w-9 h-9 rounded-xl bg-[#AEF5F0]/20 border border-[#AEF5F0] flex items-center justify-center shrink-0">
                           {getTurnIcon(currentManeuver.turnType)}
                         </div>
                         <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="text-[10px] font-mono text-cyan-400 font-semibold uppercase truncate">
+                          <div className="text-[10px] font-mono text-cyan-500 font-semibold uppercase truncate">
                             {language === 'hi' ? `${currentManeuver.distanceMeters || 200} मी में` : `In ${currentManeuver.distanceMeters || 200} m`}
                           </div>
-                          <div className="text-xs font-bold text-white truncate" title={currentManeuver.instruction}>
+                          <div className={`text-xs font-bold truncate ${isWhiteMode ? 'text-slate-900' : 'text-white'}`} title={currentManeuver.instruction}>
                             {currentManeuver.instruction}
                           </div>
                           {currentManeuver.roadName && (
-                            <div className="text-[10px] text-slate-400 truncate mt-0.5" title={currentManeuver.roadName}>
+                            <div className={`text-[10px] truncate mt-0.5 ${isWhiteMode ? 'text-slate-600' : 'text-slate-400'}`} title={currentManeuver.roadName}>
                               {currentManeuver.roadName}
                             </div>
                           )}
@@ -1755,7 +1783,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         <button
                           onClick={handleTestVoice}
                           title={t.repeatVoiceBtn}
-                          className="p-1.5 rounded-lg bg-[#21262D] hover:bg-[#30363D] text-slate-200 cursor-pointer shrink-0"
+                          className={`p-1.5 rounded-lg cursor-pointer shrink-0 ${
+                            isWhiteMode
+                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
+                              : 'bg-[#21262D] hover:bg-[#30363D] text-slate-200'
+                          }`}
                         >
                           🔊
                         </button>
@@ -1767,24 +1799,32 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       type="button"
                       onClick={() => setIsMapClearMode(true)}
                       title={t.cleanMapToggle}
-                      className="h-9 w-9 rounded-xl bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-300 hover:text-white transition cursor-pointer shadow-xl shrink-0 flex items-center justify-center active:scale-95"
+                      className={`h-9 w-9 rounded-xl backdrop-blur-md border transition cursor-pointer shadow-xl shrink-0 flex items-center justify-center active:scale-95 ${
+                        isWhiteMode
+                          ? 'bg-white/95 border-slate-300 text-slate-700 hover:text-black hover:border-slate-400'
+                          : 'bg-[#161B22]/95 border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-300 hover:text-white'
+                      }`}
                     >
                       <span className="text-sm select-none leading-none">👁️</span>
                     </button>
                   </div>
 
-                  {/* Floating A* Decision Pill (Stacked directly below Maneuver card without collision) */}
-                  {Boolean(journey.destination?.name && journey.activeRoute && state.aStarEvaluation) && (
+                  {/* Floating A* Decision Pill (Only appears after destination is chosen; white patti with black text in white mode) */}
+                  {Boolean(journey.destination?.name && journey.destination.name.trim().length > 0 && journey.activeRoute && state.aStarEvaluation) && (
                     <button
                       type="button"
                       onClick={() => setIsAStarModalOpen(true)}
-                      className="w-auto self-start bg-[#161B22]/95 hover:bg-[#21262D] backdrop-blur-md border border-[#AEF5F0]/50 text-white rounded-xl px-2.5 py-1 shadow-xl flex items-center gap-2 cursor-pointer transition active:scale-95"
+                      className={`w-auto max-w-[calc(100vw-36px)] sm:max-w-xs self-start backdrop-blur-md border rounded-xl px-2.5 py-1 shadow-xl flex items-center gap-2 cursor-pointer transition active:scale-95 overflow-hidden ${
+                        isWhiteMode
+                          ? 'bg-white/95 hover:bg-slate-50 border-slate-300 text-black shadow-slate-400/25'
+                          : 'bg-[#161B22]/95 hover:bg-[#21262D] border-[#AEF5F0]/50 text-white'
+                      }`}
                     >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="w-2 h-2 rounded-full bg-[#AEF5F0] animate-pulse shrink-0"></span>
-                        <span className="text-[11px] font-bold text-[#AEF5F0] truncate">⚡ A* {language === 'hi' ? 'निर्णय' : 'Decision'}</span>
+                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                        <span className={`w-2 h-2 rounded-full shrink-0 animate-pulse ${isWhiteMode ? 'bg-teal-600' : 'bg-[#AEF5F0]'}`}></span>
+                        <span className={`text-[11px] font-bold truncate ${isWhiteMode ? 'text-black font-extrabold' : 'text-[#AEF5F0]'}`}>⚡ A* {language === 'hi' ? 'निर्णय' : 'Decision'}</span>
                       </div>
-                      <span className="text-[10px] text-slate-300 font-mono shrink-0 ml-1">
+                      <span className={`text-[10px] font-mono shrink-0 ml-1 ${isWhiteMode ? 'text-slate-800 font-bold' : 'text-slate-300'}`}>
                         [f={state.aStarEvaluation?.optimalRoute?.aStarMetrics?.totalFCost}]
                       </span>
                     </button>
@@ -2503,7 +2543,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
             <button
               onClick={() => realtimeSync.resetDemo()}
-              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition cursor-pointer"
+              className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg transition cursor-pointer ${
+                isWhiteMode
+                  ? 'bg-[#A7F3ED] hover:bg-[#8cefe6] text-[#042f2e] border border-[#5eead4] shadow-teal-500/20'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+              }`}
             >
               Start New Journey / Reset Demo
             </button>

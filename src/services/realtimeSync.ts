@@ -370,7 +370,7 @@ class RealtimeSyncManager {
         }
       }
     }
-    this.listeners.forEach((cb) => cb(this.state));
+    this.listeners.forEach((cb) => cb({ ...this.state, hazards: [...this.state.hazards] }));
   }
 
   public setActiveMode(mode: 'admin' | 'driver') {
@@ -527,28 +527,39 @@ class RealtimeSyncManager {
     const hazard = this.state.hazards.find((h) => h.hazardId === hazardId);
     if (!hazard) return;
 
-    hazard.status = 'RESOLVED';
-    hazard.resolvedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const resolvedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Update road status
+    // 1. Immutably update hazards array with brand-new object reference
+    this.state.hazards = this.state.hazards.map((h) =>
+      h.hazardId === hazardId
+        ? { ...h, status: 'RESOLVED', resolvedAt: resolvedTime }
+        : h
+    );
+
+    // 2. Update road status
     this.state.roadStatuses = this.state.roadStatuses.map((rs) =>
       rs.affectedByHazardId === hazardId ? { ...rs, status: 'Open', affectedByHazardId: undefined } : rs
     );
 
     this.addRouteEvent({
-      time: hazard.resolvedAt,
+      time: resolvedTime,
       event: `Hazard ${hazardId} resolved`,
       driver: 'ADMIN',
       status: 'Success',
       details: `${hazard.locationName} cleared for normal traffic`,
     });
 
-    // If active driver was blocked by this specific hazard, clear detected alert
+    // 3. If active driver was blocked by this specific hazard, clear detected alert immediately
     if (this.state.journey.detectedHazard?.hazardId === hazardId) {
       this.state.journey.detectedHazard = null;
-      if (this.state.journey.diversionState === 'HAZARD_DETECTED' || this.state.journey.diversionState === 'WAITING_FOR_USER_CONFIRMATION') {
+      if (
+        this.state.journey.diversionState === 'HAZARD_DETECTED' ||
+        this.state.journey.diversionState === 'WAITING_FOR_USER_CONFIRMATION' ||
+        this.state.journey.diversionState === 'ALTERNATIVES_DISPLAYED'
+      ) {
         this.state.journey.diversionState = 'ROUTE_ACTIVE';
       }
+      this.state.journey.alternativeRoutes = [];
     }
 
     this.notify(true, true);

@@ -536,26 +536,48 @@ html.light [class*="border-[#AEF5F0]"] {
   border-color: #14b8a6 !important;
 }
 
-/* Solid Cyan Buttons become Rich Teal with Crisp White Text */
-[data-theme='light'] button.bg-\[\#AEF5F0\],
-[data-theme='light'] button[class*="bg-[#AEF5F0]"]:not([class*="/"]),
-[data-theme='light'] .bg-\[\#AEF5F0\]:not([class*="/"]),
-html.light button[class*="bg-[#AEF5F0]"]:not([class*="/"]) {
-  background-color: #0d9488 !important;
-  color: #ffffff !important;
+/* All Green Color Buttons become #A7F3ED in Light Mode */
+[data-theme='light'] button[class*="bg-emerald"],
+[data-theme='light'] button[class*="bg-green"],
+[data-theme='light'] .btn-emerald,
+[data-theme='light'] .btn-green,
+html.light button[class*="bg-emerald"],
+html.light button[class*="bg-green"],
+html.light .btn-emerald,
+html.light .btn-green,
+.light button[class*="bg-emerald"],
+.light button[class*="bg-green"] {
+  background-color: #A7F3ED !important;
+  color: #042f2e !important;
+  border: 1px solid #5eead4 !important;
+  box-shadow: 0 2px 8px rgba(167, 243, 237, 0.45) !important;
+  font-weight: 700 !important;
 }
 
-[data-theme='light'] button[class*="bg-[#AEF5F0]"]:hover,
-[data-theme='light'] .hover\:bg-\[\#8eebe5\]:hover,
-[data-theme='light'] .hover\:bg-\[\#AEF5F0\]:hover,
-html.light [class*="hover:bg-[#8eebe5]"]:hover {
-  background-color: #0f766e !important;
-  color: #ffffff !important;
+[data-theme='light'] button[class*="bg-emerald"]:hover,
+[data-theme='light'] button[class*="bg-green"]:hover,
+[data-theme='light'] .btn-emerald:hover,
+[data-theme='light'] .btn-green:hover,
+html.light button[class*="bg-emerald"]:hover,
+html.light button[class*="bg-green"]:hover,
+html.light .btn-emerald:hover,
+html.light .btn-green:hover,
+.light button[class*="bg-emerald"]:hover,
+.light button[class*="bg-green"]:hover {
+  background-color: #8cefe6 !important;
+  color: #021c1b !important;
 }
 
-/* Text inside solid saturated colored buttons stays white */
-[data-theme='light'] button.bg-\[\#AEF5F0\] *,
-[data-theme='light'] button[class*="bg-emerald"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]) *,
+[data-theme='light'] button[class*="bg-emerald"] *,
+[data-theme='light'] button[class*="bg-green"] *,
+html.light button[class*="bg-emerald"] *,
+html.light button[class*="bg-green"] *,
+.light button[class*="bg-emerald"] *,
+.light button[class*="bg-green"] * {
+  color: #042f2e !important;
+}
+
+/* Text inside red/rose/blue solid buttons stays white */
 [data-theme='light'] button[class*="bg-red"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]) *,
 [data-theme='light'] button[class*="bg-rose"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]):not(.btn-reset-demo) *,
 [data-theme='light'] button[class*="bg-blue"]:not([class*="-50"]):not([class*="-100"]):not([class*="/"]) * {

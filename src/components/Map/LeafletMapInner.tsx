@@ -598,6 +598,13 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       if (mapRef.current) {
         mapRef.current.closePopup();
       }
+      if (hazardsLayerRef.current) {
+        hazardsLayerRef.current.eachLayer((layer: any) => {
+          if (layer._hazardId === hazardId) {
+            hazardsLayerRef.current?.removeLayer(layer);
+          }
+        });
+      }
     };
 
     return () => {
@@ -630,6 +637,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         weight: 1.5,
         interactive: true,
       }).addTo(hazardsLayer);
+      (circle as any)._hazardId = hazard.hazardId;
 
       // Warning Marker: 140x72 bounding box ensures warning circle & badge are fully within clickable boundaries
       const hazardIcon = L.divIcon({
@@ -665,12 +673,13 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         bubblingMouseEvents: false,
         zIndexOffset: 850,
       }).addTo(hazardsLayer);
+      (marker as any)._hazardId = hazard.hazardId;
 
       // Info Popup: Crystal-clear contrast and crisp text for Light & Dark mode
       const popupHtml = `
         <div class="hazard-popup-box" style="font-family: 'Inter', system-ui, -apple-system, sans-serif; min-width: 255px; padding: 2px; color: ${isLight ? '#0f172a' : '#f8fafc'};">
           <!-- Header: Title + Status -->
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid ${isLight ? '#e2e8f0' : '#30363D'}; padding-bottom: 7px; margin-bottom: 8px; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid ${isLight ? '#cbd5e1' : '#30363D'}; padding-bottom: 7px; margin-bottom: 8px; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;">
               <span style="display: inline-block; width: 9px; height: 9px; border-radius: 9999px; background-color: ${isCritical ? '#ef4444' : '#f59e0b'}; flex-shrink: 0;"></span>
               <strong style="font-size: 13.5px; font-weight: 800; color: ${isLight ? '#0f172a' : '#ffffff'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -689,36 +698,36 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           <!-- Body Info: High contrast labels and values -->
           <div style="font-size: 11.5px; line-height: 1.6; margin-bottom: 8px;">
             <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-              <strong style="color: ${isLight ? '#475569' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong>
+              <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong>
               <span style="color: ${isLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.locationName || hazard.roadName || ''}</span>
             </div>
             ${hazard.roadName ? `
               <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-                <strong style="color: ${isLight ? '#475569' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'सड़क:' : 'Road:'}</strong>
+                <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'सड़क:' : 'Road:'}</strong>
                 <span style="color: ${isLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.roadName}</span>
               </div>
             ` : ''}
             <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-              <strong style="color: ${isLight ? '#475569' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong>
+              <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong>
               <span style="color: ${isLight ? '#0f172a' : '#f8fafc'}; font-weight: 700;">${hazard.affectedRadius || 180}m</span>
             </div>
             <div style="margin-top: 4px;">
-              <strong style="color: ${isLight ? '#475569' : '#94a3b8'}; font-weight: 700; display: block; margin-bottom: 2px;">${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong>
-              <div style="color: ${isLight ? '#0f172a' : '#e2e8f0'}; background-color: ${isLight ? '#f1f5f9' : 'rgba(13, 17, 23, 0.85)'}; border: 1px solid ${isLight ? '#cbd5e1' : '#30363D'}; padding: 5px 8px; border-radius: 6px; font-style: italic; line-height: 1.4;">
+              <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; display: block; margin-bottom: 2px;">${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong>
+              <div style="color: ${isLight ? '#0f172a' : '#e2e8f0'}; background-color: ${isLight ? '#f8fafc' : 'rgba(13, 17, 23, 0.85)'}; border: 1.5px solid ${isLight ? '#cbd5e1' : '#30363D'}; padding: 6px 8px; border-radius: 6px; font-weight: 600; line-height: 1.4;">
                 ${hazard.description}
               </div>
             </div>
           </div>
 
-          <!-- Resolve Hazard Button: 100% reliable execution -->
+          <!-- Resolve Hazard Button: In light mode #A7F3ED, in dark mode #059669 -->
           <button
             id="resolve-btn-${hazard.hazardId}"
             data-hazard-id="${hazard.hazardId}"
             type="button"
             onclick="window.__routePilotResolveHazard && window.__routePilotResolveHazard('${hazard.hazardId}', event)"
-            style="width: 100%; padding: 9px 12px; background-color: #059669; color: #ffffff; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.35); margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background-color 0.15s ease;"
-            onmouseover="this.style.backgroundColor='#047857'"
-            onmouseout="this.style.backgroundColor='#059669'"
+            style="width: 100%; padding: 9px 12px; background-color: ${isLight ? '#A7F3ED' : '#059669'}; color: ${isLight ? '#042f2e' : '#ffffff'}; border: ${isLight ? '1.5px solid #5eead4' : 'none'}; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: ${isLight ? '0 2px 8px rgba(167, 243, 237, 0.45)' : '0 4px 10px rgba(5, 150, 105, 0.35)'}; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
+            onmouseover="this.style.backgroundColor='${isLight ? '#8cefe6' : '#047857'}'"
+            onmouseout="this.style.backgroundColor='${isLight ? '#A7F3ED' : '#059669'}'"
           >
             ${t.resolveHazardBtn || '✓ Resolve Hazard'}
           </button>
@@ -768,6 +777,10 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             ev.preventDefault();
             if (onResolveHazard) onResolveHazard(hazard.hazardId);
             realtimeSync.resolveHazard(hazard.hazardId);
+            if (hazardsLayerRef.current) {
+              hazardsLayerRef.current.removeLayer(marker);
+              hazardsLayerRef.current.removeLayer(circle);
+            }
             map.closePopup();
           };
         }
