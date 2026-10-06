@@ -1433,7 +1433,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               )}
 
               {/* Floating A* Decision Badge on Map */}
-              {state.aStarEvaluation && !isMapClearMode && !(journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED') && !(journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && journey.diversionState === 'ALTERNATIVES_DISPLAYED') && (
+              {Boolean(journey.destination?.name && journey.activeRoute && state.aStarEvaluation) && !isMapClearMode && !(journey.detectedHazard && journey.diversionState === 'HAZARD_DETECTED') && !(journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && journey.diversionState === 'ALTERNATIVES_DISPLAYED') && (
                 <button
                   type="button"
                   onClick={() => setIsAStarModalOpen(true)}
@@ -1442,7 +1442,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-pulse"></span>
                   <span className="text-xs font-bold text-[#AEF5F0]">⚡ A* {language === 'hi' ? 'निर्णय तर्क' : 'Decision'}</span>
                   <span className="text-[10px] text-slate-300 font-mono">
-                    [f={state.aStarEvaluation.optimalRoute.aStarMetrics?.totalFCost}]
+                    [f={state.aStarEvaluation?.optimalRoute?.aStarMetrics?.totalFCost}]
                   </span>
                 </button>
               )}
@@ -1772,7 +1772,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   </div>
 
                   {/* Floating A* Decision Pill (Stacked directly below Maneuver card without collision) */}
-                  {state.aStarEvaluation && (
+                  {Boolean(journey.destination?.name && journey.activeRoute && state.aStarEvaluation) && (
                     <button
                       type="button"
                       onClick={() => setIsAStarModalOpen(true)}
@@ -1783,7 +1783,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         <span className="text-[11px] font-bold text-[#AEF5F0] truncate">⚡ A* {language === 'hi' ? 'निर्णय तर्क' : 'Decision'}</span>
                       </div>
                       <span className="text-[10px] text-slate-300 font-mono shrink-0 ml-1">
-                        [f={state.aStarEvaluation.optimalRoute.aStarMetrics?.totalFCost}]
+                        [f={state.aStarEvaluation?.optimalRoute?.aStarMetrics?.totalFCost}]
                       </span>
                     </button>
                   )}

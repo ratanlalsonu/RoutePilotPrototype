@@ -109,7 +109,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   });
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
-  const [selectedHazardModal, setSelectedHazardModal] = useState<Hazard | null>(null);
 
   // High-frequency vehicle location
   const [vehiclePos, setVehiclePos] = useState({
@@ -680,7 +679,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           }
         }
         marker.openPopup();
-        setSelectedHazardModal(hazard);
       };
 
       marker.on('click', handleHazardClick);
@@ -692,7 +690,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           btn.onclick = () => {
             onResolveHazard(hazard.hazardId);
             map.closePopup();
-            setSelectedHazardModal(null);
           };
         }
       });
@@ -918,20 +915,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         </div>
       )}
 
-      {/* Floating Re-center button when driver is exploring the map (positioned above cockpit bar) */}
-      {mode === 'driver' && isUserPanning && (
-        <div className="absolute bottom-28 sm:bottom-20 left-1/2 -translate-x-1/2 z-[996] pointer-events-auto">
-          <button
-            type="button"
-            onClick={handleCenterVehicle}
-            className="px-3.5 py-2 rounded-full bg-[#161B22]/95 hover:bg-[#21262D] text-[#AEF5F0] hover:text-white border border-[#AEF5F0]/60 shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2 transition transform active:scale-95 cursor-pointer animate-fade-in whitespace-nowrap"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#AEF5F0] animate-ping"></span>
-            <span>{activeLang === 'hi' ? '🎯 वाहन पर केंद्रित करें' : '🎯 Re-center on Vehicle'}</span>
-          </button>
-        </div>
-      )}
-
       {/* Vertical Map Utility Dock (Right Side Center) */}
       <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-white/95 dark:bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-slate-300 dark:border-[#30363D] shadow-2xl p-1 gap-1">
         {/* Map View Modes: Light Map (directly above Satellite), Satellite Mode, Dark Map */}
@@ -1105,79 +1088,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           </button>
         )}
       </div>
-
-      {/* Floating Hazard Quick-Details Card (Opens on single click for instant inspection & resolution) */}
-      {selectedHazardModal && (
-        <div className="absolute top-4 left-4 z-[1050] max-w-xs sm:max-w-sm w-full bg-[#161B22]/98 backdrop-blur-md border border-[#30363D] rounded-2xl shadow-2xl p-4 text-slate-100 animate-fade-in pointer-events-auto">
-          <div className="flex items-start justify-between gap-2 border-b border-[#30363D] pb-2.5 mb-2.5">
-            <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${selectedHazardModal.severity === 'CRITICAL' || selectedHazardModal.severity === 'BLOCKED' ? 'bg-red-500 animate-ping' : 'bg-amber-500'}`}></span>
-              <div>
-                <h4 className="font-bold text-sm text-white">{translateText(selectedHazardModal.type, activeLang)}</h4>
-                <p className="text-[10px] text-slate-400 font-mono">ID: {selectedHazardModal.hazardId}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                selectedHazardModal.severity === 'CRITICAL' || selectedHazardModal.severity === 'BLOCKED'
-                  ? 'bg-red-500/20 text-red-300 border border-red-500/40'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-              }`}>
-                {selectedHazardModal.severity}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelectedHazardModal(null)}
-                className="w-6 h-6 rounded-lg bg-[#21262D] hover:bg-[#30363D] text-slate-400 hover:text-white flex items-center justify-center text-xs transition cursor-pointer"
-                title="Close"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-1.5 text-xs text-slate-300 mb-3">
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-slate-400 shrink-0 font-medium">{activeLang === 'hi' ? 'स्थान:' : 'Location:'}</span>
-              <span className="font-semibold text-slate-100 text-right">{selectedHazardModal.locationName || selectedHazardModal.roadName || 'Road Corridor'}</span>
-            </div>
-            {selectedHazardModal.roadName && (
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-slate-400 shrink-0 font-medium">{activeLang === 'hi' ? 'सड़क मार्ग:' : 'Road:'}</span>
-                <span className="font-medium text-slate-200 text-right">{selectedHazardModal.roadName}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-slate-400 font-medium">{activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</span>
-              <span className="font-semibold text-slate-100">{selectedHazardModal.affectedRadius || 180}m</span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-slate-400 font-medium">{activeLang === 'hi' ? 'रिपोर्ट स्रोत:' : 'Source:'}</span>
-              <span className="text-cyan-400 font-mono text-[11px]">{selectedHazardModal.source || 'ADMIN'}</span>
-            </div>
-            {selectedHazardModal.description && (
-              <div className="mt-2 p-2 rounded-lg bg-[#0D1117] border border-[#30363D] text-[11px] text-slate-300 italic leading-relaxed">
-                {selectedHazardModal.description}
-              </div>
-            )}
-          </div>
-
-          {onResolveHazard && (
-            <button
-              type="button"
-              onClick={() => {
-                onResolveHazard(selectedHazardModal.hazardId);
-                setSelectedHazardModal(null);
-                if (mapRef.current) mapRef.current.closePopup();
-              }}
-              className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-              <span>{t.resolveHazardBtn || 'Resolve Hazard'}</span>
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 };

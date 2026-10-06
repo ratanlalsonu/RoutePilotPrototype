@@ -738,20 +738,6 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         </div>
       )}
 
-      {/* Floating Re-center button when driver is exploring the map (positioned above cockpit bar) */}
-      {mode === 'driver' && isUserPanning && (
-        <div className="absolute bottom-28 sm:bottom-20 left-1/2 -translate-x-1/2 z-[996] pointer-events-auto">
-          <button
-            type="button"
-            onClick={handleCenterVehicle}
-            className="px-3.5 py-2 rounded-full bg-[#161B22]/95 hover:bg-[#21262D] text-[#AEF5F0] hover:text-white border border-[#AEF5F0]/60 shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2 transition transform active:scale-95 cursor-pointer animate-fade-in whitespace-nowrap"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#AEF5F0] animate-ping"></span>
-            <span>{activeLang === 'hi' ? '🎯 वाहन पर केंद्रित करें' : '🎯 Re-center on Vehicle'}</span>
-          </button>
-        </div>
-      )}
-
       {/* Vertical Map Utility Dock (Right Side Center) - Always Clean & Non-Overlapping */}
       <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-white/95 dark:bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-slate-300 dark:border-[#30363D] shadow-2xl p-1 gap-1">
         {/* Clean Map Mode Toggle (Hides floating cards for unobstructed road clarity) */}
