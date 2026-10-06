@@ -109,6 +109,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   });
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [selectedHazardModal, setSelectedHazardModal] = useState<Hazard | null>(null);
 
   // High-frequency vehicle location
   const [vehiclePos, setVehiclePos] = useState({
@@ -593,67 +594,105 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       const color = isCritical ? '#ef4444' : '#f59e0b';
       const borderColor = isCritical ? '#dc2626' : '#d97706';
 
-      // Circle
-      L.circle([hazard.latitude, hazard.longitude], {
+      // Circle - Interactive so clicking anywhere in the affected radius opens details
+      const circle = L.circle([hazard.latitude, hazard.longitude], {
         radius: hazard.affectedRadius || 180,
         fillColor: color,
         fillOpacity: 0.22,
         color: borderColor,
         weight: 1.5,
-        interactive: false,
+        interactive: true,
       }).addTo(hazardsLayer);
 
-      // Warning Marker
+      // Warning Marker: 140x72 bounding box ensures warning circle & badge are fully within clickable boundaries
       const hazardIcon = L.divIcon({
         className: 'hazard-marker-container',
         html: `
-          <div class="relative flex flex-col items-center cursor-pointer -translate-x-1/2 -translate-y-1/2">
-            <div class="w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute"></div>
-            <div class="w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
+          <div class="relative w-full h-full flex flex-col items-center justify-start cursor-pointer select-none" style="pointer-events: auto;">
+            <!-- Center Warning Icon (anchored at center x:70, y:18) -->
+            <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
+              <div class="w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute pointer-events-none"></div>
+              <div class="w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95 pointer-events-auto">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
             </div>
-            <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/60 text-red-200' : 'border-amber-500/60 text-amber-200'} text-[11px] font-bold rounded shadow-lg whitespace-nowrap">
+            <!-- Hazard Type Badge -->
+            <div class="px-2.5 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/70 text-red-200' : 'border-amber-500/70 text-amber-200'} text-[11px] font-bold rounded-md shadow-xl whitespace-nowrap z-10 pointer-events-auto">
               ${translateText(hazard.type, activeLang)}
             </div>
           </div>
         `,
-        iconSize: [40, 50],
-        iconAnchor: [20, 25],
+        iconSize: [140, 72],
+        iconAnchor: [70, 18],
       });
 
-      const marker = L.marker([hazard.latitude, hazard.longitude], { icon: hazardIcon }).addTo(hazardsLayer);
+      const marker = L.marker([hazard.latitude, hazard.longitude], {
+        icon: hazardIcon,
+        interactive: true,
+        bubblingMouseEvents: false,
+        zIndexOffset: 850,
+      }).addTo(hazardsLayer);
 
       // Info Popup
       const popupHtml = `
-        <div style="font-family: 'Inter', sans-serif; min-width: 230px; padding: 4px; color: #f1f5f9;">
+        <div style="font-family: 'Inter', sans-serif; min-width: 250px; padding: 4px; color: #f1f5f9;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363D; padding-bottom: 6px; margin-bottom: 8px;">
-            <strong style="font-size: 13px; color: #ffffff;">${translateText(hazard.type, activeLang)}</strong>
+            <div style="display: flex; items-center: center; gap: 6px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 9999px; background-color: ${isCritical ? '#ef4444' : '#f59e0b'};"></span>
+              <strong style="font-size: 13px; color: #ffffff;">${translateText(hazard.type, activeLang)}</strong>
+            </div>
             <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; background-color: ${isCritical ? 'rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5);' : 'rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5);'}">
               ${hazard.severity}
             </span>
           </div>
           <div style="font-size: 11px; line-height: 1.6; color: #cbd5e1; margin-bottom: 8px;">
             <div><strong style="color: #94a3b8;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong> <span style="color: #f1f5f9; font-weight: 500;">${hazard.locationName || hazard.roadName || ''}</span></div>
+            ${hazard.roadName ? `<div><strong style="color: #94a3b8;">${activeLang === 'hi' ? 'सड़क:' : 'Road:'}</strong> <span style="color: #f1f5f9; font-weight: 500;">${hazard.roadName}</span></div>` : ''}
             <div><strong style="color: #94a3b8;">${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong> <span style="color: #f1f5f9; font-weight: 500;">${hazard.affectedRadius || 180}m</span></div>
             <div><strong style="color: #94a3b8;">${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong> <span style="color: #e2e8f0; font-style: italic;">${hazard.description}</span></div>
           </div>
           ${onResolveHazard ? `
-            <button id="resolve-btn-${hazard.hazardId}" style="width: 100%; padding: 7px; background-color: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);">
-              ${t.resolveHazardBtn || 'Resolve Hazard'}
+            <button id="resolve-btn-${hazard.hazardId}" style="width: 100%; padding: 8px; background-color: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); margin-top: 4px;">
+              ✓ ${t.resolveHazardBtn || 'Resolve Hazard'}
             </button>
           ` : ''}
         </div>
       `;
 
-      marker.bindPopup(popupHtml);
+      marker.bindPopup(popupHtml, {
+        closeButton: true,
+        autoPan: true,
+        autoClose: true,
+        closeOnClick: false,
+        offset: [0, -18],
+        maxWidth: 320,
+      });
+
+      // Instant single-click open handler on both marker and affected circle
+      const handleHazardClick = (e: L.LeafletMouseEvent) => {
+        if (e) {
+          L.DomEvent.stopPropagation(e);
+          if (e.originalEvent) {
+            L.DomEvent.stopPropagation(e.originalEvent);
+            L.DomEvent.preventDefault(e.originalEvent);
+          }
+        }
+        marker.openPopup();
+        setSelectedHazardModal(hazard);
+      };
+
+      marker.on('click', handleHazardClick);
+      circle.on('click', handleHazardClick);
+
       marker.on('popupopen', () => {
         const btn = document.getElementById(`resolve-btn-${hazard.hazardId}`);
         if (btn && onResolveHazard) {
           btn.onclick = () => {
             onResolveHazard(hazard.hazardId);
             map.closePopup();
+            setSelectedHazardModal(null);
           };
         }
       });
@@ -723,20 +762,33 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         const { width, height } = getVehicleDimensions(journey.vehicleType);
         const vehicleSvg = getVehicleTopDownSvg(journey.vehicleType);
 
+        // Vehicle container size accommodates vehicle and forward pure-vector arrow
+        const containerSize = 88;
         const vehicleIcon = L.divIcon({
-          className: 'driver-vehicle-marker',
+          className: 'driver-vehicle-marker-wrapper',
           html: `
-            <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2" style="width: ${width}px; height: ${height}px;">
-              <div class="vehicle-rotator relative flex items-center justify-center transition-transform duration-75 ease-linear pointer-events-none" style="transform: rotate(${loc.heading}deg); width: ${width}px; height: ${height}px; transform-origin: center center;">
-                <!-- Front Headlight beam illumination on asphalt -->
-                <div class="absolute -top-6 w-14 h-12 bg-gradient-to-t from-yellow-200/40 via-yellow-100/15 to-transparent rounded-full filter blur-xs pointer-events-none"></div>
-                <!-- Real Top-down Vehicle Sprite -->
-                ${vehicleSvg}
+            <div class="relative flex items-center justify-center pointer-events-none select-none" style="width: ${containerSize}px; height: ${containerSize}px;">
+              <!-- Vehicle rotator aligned with heading angle -->
+              <div class="vehicle-rotator relative flex items-center justify-center transition-transform duration-75 ease-linear pointer-events-none" style="transform: rotate(${loc.heading}deg); width: ${containerSize}px; height: ${containerSize}px; transform-origin: center center;">
+                
+                <!-- Pure Vector Direction Arrow (No glow, no blur, crisp vector edges) -->
+                <div class="absolute flex flex-col items-center pointer-events-none z-20" style="bottom: calc(50% + ${height / 2 + 4}px); left: 50%; transform: translateX(-50%);">
+                  <svg class="w-4 h-4 text-[#00E5FF]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" stroke="#0D1117" stroke-width="1.2" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+
+                <!-- Balanced Vehicle Sprite -->
+                <div class="relative flex items-center justify-center shadow-md" style="width: ${width}px; height: ${height}px;">
+                  <div class="w-full h-full flex items-center justify-center">
+                    ${vehicleSvg}
+                  </div>
+                </div>
               </div>
             </div>
           `,
-          iconSize: [width, height],
-          iconAnchor: [width / 2, height / 2],
+          iconSize: [containerSize, containerSize],
+          iconAnchor: [containerSize / 2, containerSize / 2],
         });
 
         if (!vehicleMarkerRef.current) {
@@ -1053,6 +1105,79 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           </button>
         )}
       </div>
+
+      {/* Floating Hazard Quick-Details Card (Opens on single click for instant inspection & resolution) */}
+      {selectedHazardModal && (
+        <div className="absolute top-4 left-4 z-[1050] max-w-xs sm:max-w-sm w-full bg-[#161B22]/98 backdrop-blur-md border border-[#30363D] rounded-2xl shadow-2xl p-4 text-slate-100 animate-fade-in pointer-events-auto">
+          <div className="flex items-start justify-between gap-2 border-b border-[#30363D] pb-2.5 mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-full ${selectedHazardModal.severity === 'CRITICAL' || selectedHazardModal.severity === 'BLOCKED' ? 'bg-red-500 animate-ping' : 'bg-amber-500'}`}></span>
+              <div>
+                <h4 className="font-bold text-sm text-white">{translateText(selectedHazardModal.type, activeLang)}</h4>
+                <p className="text-[10px] text-slate-400 font-mono">ID: {selectedHazardModal.hazardId}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                selectedHazardModal.severity === 'CRITICAL' || selectedHazardModal.severity === 'BLOCKED'
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              }`}>
+                {selectedHazardModal.severity}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedHazardModal(null)}
+                className="w-6 h-6 rounded-lg bg-[#21262D] hover:bg-[#30363D] text-slate-400 hover:text-white flex items-center justify-center text-xs transition cursor-pointer"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 text-xs text-slate-300 mb-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-slate-400 shrink-0 font-medium">{activeLang === 'hi' ? 'स्थान:' : 'Location:'}</span>
+              <span className="font-semibold text-slate-100 text-right">{selectedHazardModal.locationName || selectedHazardModal.roadName || 'Road Corridor'}</span>
+            </div>
+            {selectedHazardModal.roadName && (
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-slate-400 shrink-0 font-medium">{activeLang === 'hi' ? 'सड़क मार्ग:' : 'Road:'}</span>
+                <span className="font-medium text-slate-200 text-right">{selectedHazardModal.roadName}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 font-medium">{activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</span>
+              <span className="font-semibold text-slate-100">{selectedHazardModal.affectedRadius || 180}m</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 font-medium">{activeLang === 'hi' ? 'रिपोर्ट स्रोत:' : 'Source:'}</span>
+              <span className="text-cyan-400 font-mono text-[11px]">{selectedHazardModal.source || 'ADMIN'}</span>
+            </div>
+            {selectedHazardModal.description && (
+              <div className="mt-2 p-2 rounded-lg bg-[#0D1117] border border-[#30363D] text-[11px] text-slate-300 italic leading-relaxed">
+                {selectedHazardModal.description}
+              </div>
+            )}
+          </div>
+
+          {onResolveHazard && (
+            <button
+              type="button"
+              onClick={() => {
+                onResolveHazard(selectedHazardModal.hazardId);
+                setSelectedHazardModal(null);
+                if (mapRef.current) mapRef.current.closePopup();
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+              <span>{t.resolveHazardBtn || 'Resolve Hazard'}</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

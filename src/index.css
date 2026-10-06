@@ -157,15 +157,34 @@
   animation: vehicle-glow 1.5s infinite ease-in-out;
 }
 
-/* Smooth continuous vehicle marker motion without stuttering */
-.driver-vehicle-marker {
+/* Hazard marker container Leaflet divIcon styling */
+.hazard-marker-container {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  z-index: 850 !important;
+}
+
+.hazard-marker-container * {
+  cursor: pointer !important;
+}
+
+/* Vehicle marker Leaflet divIcon styling */
+.driver-vehicle-marker,
+.driver-vehicle-marker-wrapper {
+  background: transparent !important;
+  border: none !important;
+  pointer-events: none !important;
   transition: transform 0.08s linear !important;
   will-change: transform;
 }
-.driver-vehicle-marker .vehicle-rotator {
+.driver-vehicle-marker .vehicle-rotator,
+.driver-vehicle-marker-wrapper .vehicle-rotator {
   transition: transform 0.08s linear;
   will-change: transform;
 }
+
 
 /* Smooth Section & Tab Transitions (Pure opacity fade with zero vertical jerking) */
 @keyframes viewSmoothEnter {

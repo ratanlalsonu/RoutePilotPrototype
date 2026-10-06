@@ -1137,6 +1137,11 @@ class RealtimeSyncManager {
       const optimal = aStarResult.optimalRoute || routes[0];
       this.state.journey.activeRoute = optimal;
       this.state.journey.activeRouteId = optimal.id;
+      if (optimal && optimal.coordinates && optimal.coordinates.length >= 2) {
+        const initHeading = calculateBearing(optimal.coordinates[0][0], optimal.coordinates[0][1], optimal.coordinates[1][0], optimal.coordinates[1][1]);
+        this.state.journey.currentLocation.heading = initHeading;
+        this.vehicleListeners.forEach((cb) => cb(this.state.journey.currentLocation, this.state.journey.currentSpeedKmh));
+      }
       // The other paths are displayed as alternatives so all show on map & UI!
       this.state.journey.alternativeRoutes = aStarResult.alternativeRoutes || routes.slice(1);
 

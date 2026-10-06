@@ -8,16 +8,16 @@ export interface VehicleDimension {
 export function getVehicleDimensions(type: VehicleType): VehicleDimension {
   switch (type) {
     case 'bike':
-      return { width: 26, height: 54 };
+      return { width: 16, height: 32 };
     case 'van':
-      return { width: 38, height: 74 };
+      return { width: 24, height: 46 };
     case 'bus':
-      return { width: 40, height: 100 };
+      return { width: 26, height: 60 };
     case 'truck':
-      return { width: 42, height: 108 };
+      return { width: 28, height: 64 };
     case 'car':
     default:
-      return { width: 36, height: 66 };
+      return { width: 23, height: 42 };
   }
 }
 
@@ -27,8 +27,8 @@ export function getVehicleDisplaySvg(type: VehicleType, maxHeight: number = 36):
   const targetWidth = Math.round(maxHeight * aspect);
   const fullSvg = getVehicleTopDownSvg(type);
   return fullSvg
-    .replace(/width="[0-9.]+"/, `width="${targetWidth}"`)
-    .replace(/height="[0-9.]+"/, `height="${maxHeight}"`);
+    .replace(/width="[^"]+"/, `width="${targetWidth}"`)
+    .replace(/height="[^"]+"/, `height="${maxHeight}"`);
 }
 
 /**
@@ -40,7 +40,7 @@ export function getVehicleTopDownSvg(type: VehicleType): string {
   switch (type) {
     case 'bike':
       return `
-        <svg width="26" height="54" viewBox="0 0 26 54" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 6px 10px rgba(0,0,0,0.65));">
+        <svg width="100%" height="100%" viewBox="0 0 26 54" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.65));">
           <defs>
             <linearGradient id="bikeTank" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#38bdf8" />
@@ -90,7 +90,7 @@ export function getVehicleTopDownSvg(type: VehicleType): string {
 
     case 'van':
       return `
-        <svg width="38" height="74" viewBox="0 0 38 74" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 8px 14px rgba(0,0,0,0.65));">
+        <svg width="100%" height="100%" viewBox="0 0 38 74" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.65));">
           <defs>
             <linearGradient id="vanBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#38bdf8" />
@@ -166,7 +166,7 @@ export function getVehicleTopDownSvg(type: VehicleType): string {
 
     case 'bus':
       return `
-        <svg width="40" height="100" viewBox="0 0 40 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 10px 18px rgba(0,0,0,0.7));">
+        <svg width="100%" height="100%" viewBox="0 0 40 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7));">
           <defs>
             <linearGradient id="busBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#38bdf8" />
@@ -232,7 +232,7 @@ export function getVehicleTopDownSvg(type: VehicleType): string {
 
     case 'truck':
       return `
-        <svg width="42" height="108" viewBox="0 0 42 108" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 12px 20px rgba(0,0,0,0.7));">
+        <svg width="100%" height="100%" viewBox="0 0 42 108" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7));">
           <defs>
             <linearGradient id="truckCabGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#38bdf8" />
@@ -323,7 +323,7 @@ export function getVehicleTopDownSvg(type: VehicleType): string {
     default:
       // Exact match to user reference screenshot: Blue aerodynamic sports sedan with windshield, roof, rear defroster, and glowing red taillights!
       return `
-        <svg width="36" height="66" viewBox="0 0 36 66" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 8px 14px rgba(0,0,0,0.65));">
+        <svg width="100%" height="100%" viewBox="0 0 36 66" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.65));">
           <defs>
             <!-- Vibrant Metallic Blue body gradient matching user's image -->
             <linearGradient id="carBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">

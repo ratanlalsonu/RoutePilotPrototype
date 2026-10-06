@@ -477,29 +477,39 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         {(() => {
           const dims = getVehicleDimensions(journey.vehicleType);
           const vehicleSvg = getVehicleTopDownSvg(journey.vehicleType);
+          const containerSize = 88;
           return (
             <AdvancedMarker
               position={{ lat: vehiclePos.lat, lng: vehiclePos.lng }}
               title={`Vehicle (${journey.vehicleType})`}
             >
               <div
-                className="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ width: `${dims.width}px`, height: `${dims.height}px` }}
+                className="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
+                style={{ width: `${containerSize}px`, height: `${containerSize}px` }}
               >
                 <div
                   className="vehicle-rotator relative flex items-center justify-center transition-transform duration-75 ease-linear pointer-events-none"
                   style={{
                     transform: `rotate(${vehiclePos.heading}deg)`,
-                    width: `${dims.width}px`,
-                    height: `${dims.height}px`,
+                    width: `${containerSize}px`,
+                    height: `${containerSize}px`,
                     transformOrigin: 'center center',
                   }}
                 >
-                  {/* Front Headlight beam illumination on asphalt */}
-                  <div className="absolute -top-6 w-14 h-12 bg-gradient-to-t from-yellow-200/40 via-yellow-100/15 to-transparent rounded-full filter blur-xs pointer-events-none"></div>
-                  {/* Real Top-down Vehicle Sprite */}
+                  {/* Pure Vector Direction Arrow (No glow, no blur, sharp vector edges) */}
                   <div
-                    className="w-full h-full flex items-center justify-center"
+                    className="absolute flex flex-col items-center pointer-events-none z-20"
+                    style={{ bottom: `calc(50% + ${dims.height / 2 + 4}px)`, left: '50%', transform: 'translateX(-50%)' }}
+                  >
+                    <svg className="w-4 h-4 text-[#00E5FF]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" stroke="#0D1117" strokeWidth="1.2" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+
+                  {/* Balanced Vehicle Sprite */}
+                  <div
+                    className="relative flex items-center justify-center shadow-md"
+                    style={{ width: `${dims.width}px`, height: `${dims.height}px` }}
                     dangerouslySetInnerHTML={{ __html: vehicleSvg }}
                   />
                 </div>
@@ -517,7 +527,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 
           return (
             <React.Fragment key={hazard.hazardId}>
-              {/* Affected radius circle */}
+              {/* Affected radius circle - clickable so clicking radius circle also opens details */}
               <Circle
                 center={{ lat: hazard.latitude, lng: hazard.longitude }}
                 radius={hazard.affectedRadius || 180}
@@ -525,6 +535,8 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                 fillOpacity={0.22}
                 strokeColor={borderColor}
                 strokeWeight={1.5}
+                clickable={true}
+                onClick={() => setSelectedHazard(hazard)}
               />
               {/* Hazard Center Marker */}
               <AdvancedMarker
@@ -532,12 +544,19 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                 onClick={() => setSelectedHazard(hazard)}
                 title={`${hazard.type} - Click for details`}
               >
-                <div className="relative flex flex-col items-center cursor-pointer">
+                <div
+                  className="relative flex flex-col items-center cursor-pointer select-none"
+                  style={{ pointerEvents: 'auto' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedHazard(hazard);
+                  }}
+                >
                   <div
-                    className={`w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute`}
+                    className={`w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute pointer-events-none`}
                   ></div>
                   <div
-                    className={`w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white`}
+                    className={`w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95`}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                       <path
@@ -548,7 +567,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     </svg>
                   </div>
                   <div
-                    className={`px-2 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/60 text-red-200' : 'border-amber-500/60 text-amber-200'} text-[11px] font-bold rounded shadow-lg whitespace-nowrap`}
+                    className={`px-2.5 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/70 text-red-200' : 'border-amber-500/70 text-amber-200'} text-[11px] font-bold rounded-md shadow-xl whitespace-nowrap z-10`}
                   >
                     {translateText(hazard.type, activeLang)}
                   </div>
