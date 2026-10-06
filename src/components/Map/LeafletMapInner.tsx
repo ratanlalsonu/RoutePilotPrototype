@@ -263,7 +263,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     }
   };
 
-  // Track user map exploration/pan so vehicle movement does not hijack camera while user is dragging
+  // Track user map exploration/pan so vehicle movement or location ticks never hijack camera while user is exploring
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -271,26 +271,37 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     const handleUserInteraction = () => {
       isUserPanningRef.current = true;
       setIsUserPanning(true);
-      if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
-      if (mode === 'driver' && journey.isNavigating) {
-        panResumeTimerRef.current = setTimeout(() => {
-          isUserPanningRef.current = false;
-          setIsUserPanning(false);
-        }, 12000);
+      if (panResumeTimerRef.current) {
+        clearTimeout(panResumeTimerRef.current);
+        panResumeTimerRef.current = null;
       }
     };
 
+    const container = map.getContainer();
+    container.addEventListener('pointerdown', handleUserInteraction, { passive: true });
+    container.addEventListener('touchstart', handleUserInteraction, { passive: true });
+    container.addEventListener('mousedown', handleUserInteraction, { passive: true });
+    container.addEventListener('wheel', handleUserInteraction, { passive: true });
+
     map.on('dragstart', handleUserInteraction);
-    map.on('wheel', handleUserInteraction);
-    map.on('touchmove', handleUserInteraction);
+    map.on('drag', handleUserInteraction);
+    map.on('movestart', (e: any) => {
+      if (e?.originalEvent) handleUserInteraction();
+    });
+    map.on('zoomstart', (e: any) => {
+      if (e?.originalEvent) handleUserInteraction();
+    });
 
     return () => {
+      container.removeEventListener('pointerdown', handleUserInteraction);
+      container.removeEventListener('touchstart', handleUserInteraction);
+      container.removeEventListener('mousedown', handleUserInteraction);
+      container.removeEventListener('wheel', handleUserInteraction);
       map.off('dragstart', handleUserInteraction);
-      map.off('wheel', handleUserInteraction);
-      map.off('touchmove', handleUserInteraction);
+      map.off('drag', handleUserInteraction);
       if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
     };
-  }, [mode, journey.isNavigating]);
+  }, []);
 
   // Synchronize cursor and Escape key for hazard placement
   useEffect(() => {
@@ -369,8 +380,9 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
     routesLayer.clearLayers();
 
-    // 1. Origin Marker
-    if (journey.origin && journey.origin.lat) {
+    // 1. Origin Marker - hide when vehicle is currently at origin to prevent overlap with vehicle icon
+    const isVehicleAtOrigin = journey.origin && vehiclePos && Math.hypot(vehiclePos.lat - journey.origin.lat, vehiclePos.lng - journey.origin.lng) < 0.0025;
+    if (journey.origin && journey.origin.lat && !isVehicleAtOrigin) {
       const originIcon = L.divIcon({
         className: 'origin-marker-container',
         html: `
@@ -560,19 +572,21 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       allCoords.push([journey.destination.lat, journey.destination.lng]);
     }
 
-    if (allCoords.length >= 2 && !journey.isNavigating) {
-      try {
-        const bounds = L.latLngBounds(allCoords);
-        if (bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-        }
-      } catch {}
-    } else if (allCoords.length < 2 && !journey.isNavigating && journey.currentLocation?.lat && journey.currentLocation?.lng) {
-      try {
-        map.setView([journey.currentLocation.lat, journey.currentLocation.lng], map.getZoom() || 15);
-      } catch {}
+    if (!isUserPanningRef.current) {
+      if (allCoords.length >= 2 && !journey.isNavigating) {
+        try {
+          const bounds = L.latLngBounds(allCoords);
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+          }
+        } catch {}
+      } else if (allCoords.length < 2 && !journey.isNavigating && journey.currentLocation?.lat && journey.currentLocation?.lng) {
+        try {
+          map.setView([journey.currentLocation.lat, journey.currentLocation.lng], map.getZoom() || 15);
+        } catch {}
+      }
     }
-  }, [journey.activeRoute, journey.alternativeRoutes, journey.origin, journey.destination, journey.currentLocation?.lat, journey.currentLocation?.lng, activeLang, onCommitRoute]);
+  }, [journey.activeRoute?.id, journey.alternativeRoutes?.length, journey.origin?.name, journey.destination?.name, activeLang, onCommitRoute]);
 
   // Render Hazards
   useEffect(() => {
@@ -859,15 +873,15 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         </div>
       )}
 
-      {/* Floating Re-center button when driver is navigating and exploring the map */}
-      {mode === 'driver' && journey.isNavigating && isUserPanning && (
-        <div className="absolute bottom-16 sm:bottom-14 left-1/2 -translate-x-1/2 z-[995]">
+      {/* Floating Re-center button when driver is exploring the map (positioned above cockpit bar) */}
+      {mode === 'driver' && isUserPanning && (
+        <div className="absolute bottom-28 sm:bottom-20 left-1/2 -translate-x-1/2 z-[996] pointer-events-auto">
           <button
             type="button"
             onClick={handleCenterVehicle}
-            className="px-4 py-2 rounded-full bg-[#161B22]/95 hover:bg-[#21262D] text-[#AEF5F0] hover:text-white border border-[#AEF5F0]/60 shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2 transition transform active:scale-95 cursor-pointer animate-fade-in"
+            className="px-3.5 py-2 rounded-full bg-[#161B22]/95 hover:bg-[#21262D] text-[#AEF5F0] hover:text-white border border-[#AEF5F0]/60 shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2 transition transform active:scale-95 cursor-pointer animate-fade-in whitespace-nowrap"
           >
-            <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] animate-ping"></span>
+            <span className="w-2 h-2 rounded-full bg-[#AEF5F0] animate-ping"></span>
             <span>{activeLang === 'hi' ? '🎯 वाहन पर केंद्रित करें' : '🎯 Re-center on Vehicle'}</span>
           </button>
         </div>

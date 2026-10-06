@@ -106,24 +106,40 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 
   useEffect(() => {
     if (!map) return;
-    const listener = map.addListener('dragstart', () => {
+    const onUserTouchOrDrag = () => {
       isUserPanningRef.current = true;
       setIsUserPanning(true);
-      if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
-      if (mode === 'driver' && journey.isNavigating) {
-        panResumeTimerRef.current = setTimeout(() => {
-          isUserPanningRef.current = false;
-          setIsUserPanning(false);
-        }, 12000);
+      if (panResumeTimerRef.current) {
+        clearTimeout(panResumeTimerRef.current);
+        panResumeTimerRef.current = null;
       }
-    });
+    };
+
+    const dragStartListener = map.addListener('dragstart', onUserTouchOrDrag);
+    const dragListener = map.addListener('drag', onUserTouchOrDrag);
+
+    const div = map.getDiv();
+    if (div) {
+      div.addEventListener('pointerdown', onUserTouchOrDrag, { passive: true });
+      div.addEventListener('touchstart', onUserTouchOrDrag, { passive: true });
+      div.addEventListener('mousedown', onUserTouchOrDrag, { passive: true });
+      div.addEventListener('wheel', onUserTouchOrDrag, { passive: true });
+    }
+
     return () => {
       if (typeof google !== 'undefined' && google.maps && google.maps.event) {
-        google.maps.event.removeListener(listener);
+        google.maps.event.removeListener(dragStartListener);
+        google.maps.event.removeListener(dragListener);
+      }
+      if (div) {
+        div.removeEventListener('pointerdown', onUserTouchOrDrag);
+        div.removeEventListener('touchstart', onUserTouchOrDrag);
+        div.removeEventListener('mousedown', onUserTouchOrDrag);
+        div.removeEventListener('wheel', onUserTouchOrDrag);
       }
       if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
     };
-  }, [map, mode, journey.isNavigating]);
+  }, [map]);
 
   useEffect(() => {
     if (theme === 'satellite' || theme === 'dark' || theme === 'standard') {
@@ -206,7 +222,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 
   // Auto-center map on driver's live current location when idle or freshly acquired
   useEffect(() => {
-    if (!map || journey.isNavigating || journey.activeRoute) return;
+    if (!map || journey.isNavigating || journey.activeRoute || isUserPanningRef.current) return;
     if (journey.currentLocation && journey.currentLocation.lat && journey.currentLocation.lng) {
       map.panTo({ lat: journey.currentLocation.lat, lng: journey.currentLocation.lng });
     }
@@ -214,13 +230,13 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 
   // Fit bounds when active route is selected
   useEffect(() => {
-    if (!map || !journey.activeRoute || journey.activeRoute.coordinates.length < 2 || journey.isNavigating) return;
+    if (!map || !journey.activeRoute || journey.activeRoute.coordinates.length < 2 || journey.isNavigating || isUserPanningRef.current) return;
     const bounds = new google.maps.LatLngBounds();
     journey.activeRoute.coordinates.forEach(([lat, lng]) => {
       bounds.extend({ lat, lng });
     });
     map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
-  }, [map, journey.activeRoute, journey.isNavigating]);
+  }, [map, journey.activeRoute?.id, journey.isNavigating]);
 
   // Fit bounds when alternative routes are presented
   useEffect(() => {
@@ -693,6 +709,20 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
           <span className="text-xs font-bold uppercase tracking-wider">
             {t.clickMapPointText}
           </span>
+        </div>
+      )}
+
+      {/* Floating Re-center button when driver is exploring the map (positioned above cockpit bar) */}
+      {mode === 'driver' && isUserPanning && (
+        <div className="absolute bottom-28 sm:bottom-20 left-1/2 -translate-x-1/2 z-[996] pointer-events-auto">
+          <button
+            type="button"
+            onClick={handleCenterVehicle}
+            className="px-3.5 py-2 rounded-full bg-[#161B22]/95 hover:bg-[#21262D] text-[#AEF5F0] hover:text-white border border-[#AEF5F0]/60 shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2 transition transform active:scale-95 cursor-pointer animate-fade-in whitespace-nowrap"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#AEF5F0] animate-ping"></span>
+            <span>{activeLang === 'hi' ? '🎯 वाहन पर केंद्रित करें' : '🎯 Re-center on Vehicle'}</span>
+          </button>
         </div>
       )}
 
