@@ -579,66 +579,72 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         })}
 
         {/* Hazard Detail InfoWindow */}
-        {selectedHazard && (
-          <InfoWindow
-            position={{ lat: selectedHazard.latitude, lng: selectedHazard.longitude }}
-            onCloseClick={() => setSelectedHazard(null)}
-          >
-            <div className="p-2.5 text-white min-w-[240px]">
-              <div className="flex items-center justify-between gap-2 border-b border-[#30363D] pb-2 mb-2.5">
-                <div className="font-bold text-sm text-white tracking-wide flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                  {translateText(selectedHazard.type, activeLang)}
+        {selectedHazard && (() => {
+          const isLight = mapStyle === 'standard' || (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
+          const isCritical = selectedHazard.severity === 'CRITICAL' || selectedHazard.severity === 'BLOCKED';
+          return (
+            <InfoWindow
+              position={{ lat: selectedHazard.latitude, lng: selectedHazard.longitude }}
+              onCloseClick={() => setSelectedHazard(null)}
+            >
+              <div className={`p-2.5 min-w-[250px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                <div className={`flex items-center justify-between gap-2 border-b pb-2 mb-2.5 ${isLight ? 'border-slate-200' : 'border-[#30363D]'}`}>
+                  <div className={`font-bold text-sm tracking-wide flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                    {translateText(selectedHazard.type, activeLang)}
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded tracking-wider shadow-sm uppercase ${
+                      isCritical
+                        ? (isLight ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50')
+                        : (isLight ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-500/20 text-amber-300 border border-amber-500/50')
+                    }`}
+                  >
+                    {translateText(selectedHazard.severity, activeLang)}
+                  </span>
                 </div>
-                <span
-                  className={`px-2 py-0.5 text-[10px] font-bold rounded tracking-wider shadow-sm uppercase ${
-                    selectedHazard.severity === 'CRITICAL' || selectedHazard.severity === 'BLOCKED'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50'
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
-                  }`}
-                >
-                  {translateText(selectedHazard.severity, activeLang)}
-                </span>
-              </div>
-              <div className="text-xs text-slate-200 space-y-1.5 mb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-semibold text-slate-400 shrink-0">{activeLang === 'hi' ? 'स्थान:' : 'Location:'}</span>
-                  <span className="text-right text-slate-100 font-medium">{selectedHazard.locationName}</span>
-                </div>
-                {selectedHazard.roadName && (
+                <div className={`text-xs space-y-1.5 mb-3 ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-semibold text-slate-400 shrink-0">{activeLang === 'hi' ? 'सड़क:' : 'Road:'}</span>
-                    <span className="text-right text-slate-100 font-medium">{selectedHazard.roadName}</span>
+                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'स्थान:' : 'Location:'}</span>
+                    <span className={`text-right font-medium ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{selectedHazard.locationName}</span>
                   </div>
-                )}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-400 shrink-0">{activeLang === 'hi' ? 'प्रभावित क्षेत्र:' : 'Radius:'}</span>
-                  <span className="text-slate-100 font-medium">{selectedHazard.affectedRadius} {activeLang === 'hi' ? 'मीटर' : 'meters'}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-400 shrink-0">{activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}</span>
-                  <span className="text-slate-200 text-[11px]">{selectedHazard.createdAt} ({translateText(selectedHazard.source, activeLang)})</span>
-                </div>
-                {selectedHazard.description && (
-                  <div className="text-[11px] text-slate-300 bg-[#0D1117]/80 rounded p-2 border border-[#30363D]/60 mt-1 italic leading-relaxed">
-                    {selectedHazard.description}
+                  {selectedHazard.roadName && (
+                    <div className="flex items-start justify-between gap-2">
+                      <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'सड़क:' : 'Road:'}</span>
+                      <span className={`text-right font-medium ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{selectedHazard.roadName}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'प्रभावित क्षेत्र:' : 'Radius:'}</span>
+                    <span className={`font-medium ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{selectedHazard.affectedRadius} {activeLang === 'hi' ? 'मीटर' : 'meters'}</span>
                   </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}</span>
+                    <span className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-200'}`}>{selectedHazard.createdAt} ({translateText(selectedHazard.source, activeLang)})</span>
+                  </div>
+                  {selectedHazard.description && (
+                    <div className={`text-[11px] rounded p-2 mt-1 italic leading-relaxed ${isLight ? 'bg-slate-100 text-slate-800 border border-slate-300' : 'bg-[#0D1117]/80 text-slate-300 border border-[#30363D]/60'}`}>
+                      {selectedHazard.description}
+                    </div>
+                  )}
+                </div>
+                {onResolveHazard && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onResolveHazard(selectedHazard.hazardId);
+                      realtimeSync.resolveHazard(selectedHazard.hazardId);
+                      setSelectedHazard(null);
+                    }}
+                    className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    {t.resolveHazardBtn}
+                  </button>
                 )}
               </div>
-              {mode === 'admin' && onResolveHazard && (
-                <button
-                  onClick={() => {
-                    onResolveHazard(selectedHazard.hazardId);
-                    setSelectedHazard(null);
-                  }}
-                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {t.resolveHazardBtn}
-                </button>
-              )}
-            </div>
-          </InfoWindow>
-        )}
+            </InfoWindow>
+          );
+        })()}
 
         {/* Sensor Nodes Markers */}
         {sensorNodes.map((node) => {

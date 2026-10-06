@@ -1299,6 +1299,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 language={language}
                 onCommitRoute={handleCommitRoute}
                 onSelectDestinationFromMap={handleMapClickForDestination}
+                onResolveHazard={(id) => realtimeSync.resolveHazard(id)}
                 theme={state.appSettings.mapTheme}
                 onToggleTheme={() => realtimeSync.toggleMapTheme()}
                 onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
@@ -1630,6 +1631,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               language={language}
               onCommitRoute={handleCommitRoute}
               onSelectDestinationFromMap={handleMapClickForDestination}
+              onResolveHazard={(id) => realtimeSync.resolveHazard(id)}
               theme={state.appSettings.mapTheme}
               onToggleTheme={() => realtimeSync.toggleMapTheme()}
               onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
