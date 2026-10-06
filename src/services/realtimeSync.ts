@@ -643,10 +643,10 @@ class RealtimeSyncManager {
     if (alternatives && alternatives.length > 0) {
       // Find the unblocked optimal route (lowest cost, safe from hazard)
       const optimalDetour = alternatives.find((r) => r.aStarMetrics?.status !== 'HAZARD_BLOCKED') || alternatives[0];
-      const otherDetours = alternatives.filter((r) => r.id !== optimalDetour.id);
+      const otherDetours = alternatives.filter((r) => r.id !== optimalDetour.id).slice(0, 2);
 
       // Re-evaluate candidate routes with A* including the previous obstructed route for visual comparison
-      const candidateList = [optimalDetour, ...otherDetours];
+      const candidateList = [optimalDetour, ...otherDetours].slice(0, 3);
       try {
         const aStarResult = evaluateRoutesWithAStar(
           candidateList,
@@ -660,7 +660,7 @@ class RealtimeSyncManager {
         console.warn('A* Evaluation note:', err);
       }
 
-      // CRITICAL: The new safe optimal route becomes activeRoute!
+      // CRITICAL: The new safe optimal route becomes activeRoute, with other detours as alternatives!
       j.activeRoute = optimalDetour;
       j.activeRouteId = optimalDetour.id;
       j.alternativeRoutes = otherDetours;

@@ -538,6 +538,94 @@ export async function buildRoadGraphAndSearchRoutes(
     }
   }
 
+  // Fallback Pass: Ensure up to 3 distinct routes are discovered using soft penalties or ingested candidates
+  if (allAStarResults.length < 2) {
+    const penaltiesSoft = new Map<string, number>();
+    for (const edgeId of usedEdgeIdsA) penaltiesSoft.set(edgeId, 30);
+    const aStarSoft = runAStarRoadSearch(graph, {
+      startNodeId: startNode.id,
+      goalNodeId: goalNode.id,
+      vehicleType,
+      edgePenalties: penaltiesSoft,
+      activeHazards: hazards,
+    });
+    if (aStarSoft.success && aStarSoft.fullGeometry.length > 2) {
+      const usesDiff = aStarSoft.pathEdges.some((e) => !usedEdgeIdsA.has(e.id));
+      if (usesDiff || Math.abs(aStarSoft.totalDistanceMeters - aStarA.totalDistanceMeters) > 30) {
+        allAStarResults.push(aStarSoft);
+      }
+    }
+  }
+
+  if (allAStarResults.length < 3) {
+    const rawCandidates: any[] = [];
+    if (primaryData?.routes && Array.isArray(primaryData.routes)) {
+      rawCandidates.push(...primaryData.routes.slice(1));
+    }
+    for (const bRes of bypassResults) {
+      if (bRes?.routes && Array.isArray(bRes.routes)) {
+        rawCandidates.push(...bRes.routes);
+      }
+    }
+
+    for (const raw of rawCandidates) {
+      if (allAStarResults.length >= 3) break;
+      const rawCoords: [number, number][] = (raw.geometry?.coordinates || []).map(
+        (c: [number, number]) => [c[1], c[0]]
+      );
+      if (rawCoords.length < 3) continue;
+
+      const rawDistMeters = Math.round(raw.distance || 1500);
+      const isDistinct = allAStarResults.every(
+        (existing) => Math.abs(existing.totalDistanceMeters - rawDistMeters) > 40
+      );
+      if (!isDistinct) continue;
+
+      let hazardPen = 0;
+      for (const h of activeHazards) {
+        const rad = h.affectedRadius || 180;
+        const hit = rawCoords.some(
+          (pt) => getDistanceMeters(pt[0], pt[1], h.latitude, h.longitude) < rad
+        );
+        if (hit) {
+          hazardPen += h.severity === 'BLOCKED' ? 9999 : 800;
+        }
+      }
+
+      const gCost = parseFloat((rawDistMeters / 100).toFixed(1));
+      const hCost = parseFloat((getDistanceMeters(rawCoords[0][0], rawCoords[0][1], goalCoord[0], goalCoord[1]) / 100).toFixed(1));
+      const rawDurSec = Math.round(raw.duration || 120);
+
+      allAStarResults.push({
+        success: true,
+        totalDistanceMeters: rawDistMeters,
+        totalDurationSeconds: rawDurSec,
+        accumulatedGCost: gCost,
+        heuristicHCost: hCost,
+        hazardPenaltyCost: hazardPen,
+        totalFCost: parseFloat((gCost + hCost + hazardPen).toFixed(1)),
+        evaluatedNodesCount: rawCoords.length,
+        pathNodes: [startNode, goalNode],
+        pathEdges: [{
+          id: `raw_edge_${allAStarResults.length}`,
+          fromNodeId: startNode.id,
+          toNodeId: goalNode.id,
+          roadName: raw.legs?.[0]?.summary || `Alternative Road ${allAStarResults.length + 1}`,
+          distanceMeters: rawDistMeters,
+          baseDurationSeconds: rawDurSec,
+          speedLimitKmh: 45,
+          geometry: rawCoords,
+          hazardPenalty: hazardPen,
+          isBlocked: hazardPen >= 5000,
+          turnType: 'straight',
+          instruction: `Continue via ${raw.legs?.[0]?.summary || 'Alternative Corridor'}`,
+        }],
+        fullGeometry: rawCoords,
+        stepLogs: [],
+      });
+    }
+  }
+
   // Convert AStarSearchResults into RouteOptions with full real road geometry
   const hasActiveHazards = activeHazards.length > 0;
   const colors = ['#AEF5F0', '#10b981', '#f59e0b'];
@@ -638,12 +726,13 @@ export async function buildRoadGraphAndSearchRoutes(
     }
   });
 
-  const optimalRoute = generatedRoutes[0];
-  const alternativeRoutes = generatedRoutes.slice(1);
+  const maxThreeRoutes = generatedRoutes.slice(0, 3);
+  const optimalRoute = maxThreeRoutes[0];
+  const alternativeRoutes = maxThreeRoutes.slice(1);
 
   const evaluationSummary = {
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    totalRoutesEvaluated: generatedRoutes.length,
+    totalRoutesEvaluated: maxThreeRoutes.length,
     optimalRouteId: optimalRoute.id,
     optimalRouteName: optimalRoute.name,
     heuristicMethod: 'Admissible Haversine Geodesic Travel Cost',
@@ -653,7 +742,7 @@ export async function buildRoadGraphAndSearchRoutes(
   };
 
   const aStarEvaluation: AStarEvaluationResult = {
-    routes: generatedRoutes,
+    routes: maxThreeRoutes,
     optimalRoute,
     alternativeRoutes,
     evaluationSummary,
@@ -661,7 +750,7 @@ export async function buildRoadGraphAndSearchRoutes(
   };
 
   return {
-    routes: generatedRoutes,
+    routes: maxThreeRoutes,
     optimalRoute,
     alternativeRoutes,
     aStarEvaluation,

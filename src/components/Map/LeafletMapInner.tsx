@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { Hazard, SensorNode, VehicleType, Journey } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
 import { getTranslation, translateText } from '../../services/i18n';
+import { getVehicleTopDownSvg, getVehicleDimensions } from '../../services/vehicleModels';
 
 // Defensive patch against internal Leaflet TypeError: Cannot read properties of undefined (reading '_leaflet_pos')
 if (typeof window !== 'undefined' && L && L.DomUtil) {
@@ -115,22 +116,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     lng: journey.currentLocation.lng,
     heading: journey.currentLocation.heading || 0,
   });
-
-  // Vehicle Icon SVG generator
-  const getVehicleSvg = (type: VehicleType) => {
-    switch (type) {
-      case 'bike':
-        return `<svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 6H6m6 11.5l3.5-7 3.5 2"/></svg>`;
-      case 'van':
-        return `<svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="5" width="16" height="12" rx="2"/><path d="M17 9l4 2v6h-4M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>`;
-      case 'bus':
-        return `<svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="16" rx="2"/><path d="M4 11h16M8 15h.01M16 15h.01M6 19v2M18 19v2"/></svg>`;
-      case 'truck':
-        return `<svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 18.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm13 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>`;
-      default: // car
-        return `<svg class="w-5 h-5 text-slate-950" fill="currentColor" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z"/><circle cx="7.5" cy="14.5" r="1.5"/><circle cx="16.5" cy="14.5" r="1.5"/></svg>`;
-    }
-  };
 
   // Sync theme
   useEffect(() => {
@@ -278,27 +263,33 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     };
 
     const container = map.getContainer();
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.buttons > 0) handleUserInteraction();
+    };
+
     container.addEventListener('pointerdown', handleUserInteraction, { passive: true });
+    container.addEventListener('pointermove', handlePointerMove, { passive: true });
     container.addEventListener('touchstart', handleUserInteraction, { passive: true });
+    container.addEventListener('touchmove', handleUserInteraction, { passive: true });
     container.addEventListener('mousedown', handleUserInteraction, { passive: true });
     container.addEventListener('wheel', handleUserInteraction, { passive: true });
 
     map.on('dragstart', handleUserInteraction);
     map.on('drag', handleUserInteraction);
-    map.on('movestart', (e: any) => {
-      if (e?.originalEvent) handleUserInteraction();
-    });
-    map.on('zoomstart', (e: any) => {
-      if (e?.originalEvent) handleUserInteraction();
-    });
+    map.on('movestart', handleUserInteraction);
+    map.on('zoomstart', handleUserInteraction);
 
     return () => {
       container.removeEventListener('pointerdown', handleUserInteraction);
+      container.removeEventListener('pointermove', handlePointerMove);
       container.removeEventListener('touchstart', handleUserInteraction);
+      container.removeEventListener('touchmove', handleUserInteraction);
       container.removeEventListener('mousedown', handleUserInteraction);
       container.removeEventListener('wheel', handleUserInteraction);
       map.off('dragstart', handleUserInteraction);
       map.off('drag', handleUserInteraction);
+      map.off('movestart', handleUserInteraction);
+      map.off('zoomstart', handleUserInteraction);
       if (panResumeTimerRef.current) clearTimeout(panResumeTimerRef.current);
     };
   }, []);
@@ -729,21 +720,23 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     const createVehicleMarker = (loc: { lat: number; lng: number; heading: number }) => {
       if (!mapRef.current) return;
       try {
+        const { width, height } = getVehicleDimensions(journey.vehicleType);
+        const vehicleSvg = getVehicleTopDownSvg(journey.vehicleType);
+
         const vehicleIcon = L.divIcon({
-          className: 'vehicle-marker-wrapper',
+          className: 'driver-vehicle-marker',
           html: `
-            <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2" style="width: 44px; height: 44px;">
-              <div class="vehicle-rotator relative flex items-center justify-center transition-transform duration-75 ease-linear" style="transform: rotate(${loc.heading}deg);">
-                <div class="absolute -top-6 w-12 h-8 bg-gradient-to-t from-[#AEF5F0]/50 to-transparent rounded-full filter blur-xs pointer-events-none"></div>
-                <div class="w-10 h-10 rounded-full bg-[#AEF5F0]/30 animate-ping absolute"></div>
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#AEF5F0] to-[#5eead4] border-2 border-slate-900 text-slate-950 flex items-center justify-center shadow-2xl vehicle-marker-glow font-bold">
-                  ${getVehicleSvg(journey.vehicleType)}
-                </div>
+            <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2" style="width: ${width}px; height: ${height}px;">
+              <div class="vehicle-rotator relative flex items-center justify-center transition-transform duration-75 ease-linear pointer-events-none" style="transform: rotate(${loc.heading}deg); width: ${width}px; height: ${height}px; transform-origin: center center;">
+                <!-- Front Headlight beam illumination on asphalt -->
+                <div class="absolute -top-6 w-14 h-12 bg-gradient-to-t from-yellow-200/40 via-yellow-100/15 to-transparent rounded-full filter blur-xs pointer-events-none"></div>
+                <!-- Real Top-down Vehicle Sprite -->
+                ${vehicleSvg}
               </div>
             </div>
           `,
-          iconSize: [44, 44],
-          iconAnchor: [22, 22],
+          iconSize: [width, height],
+          iconAnchor: [width / 2, height / 2],
         });
 
         if (!vehicleMarkerRef.current) {
@@ -983,7 +976,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       </div>
 
       {/* Map Engine Badge (Bottom Right) */}
-      <div className="absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 z-[990] flex items-center gap-1.5">
+      <div className="absolute right-3 sm:right-4 bottom-20 sm:bottom-3 z-[990] flex items-center gap-1.5">
         <div className="bg-[#161B22]/90 backdrop-blur-md text-[9px] sm:text-[10px] text-slate-300 px-2.5 py-1 rounded-lg border border-[#30363D] flex items-center gap-1.5 shadow-md select-none">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span className="font-semibold text-white">OpenStreetMap</span>
@@ -1003,7 +996,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       </div>
 
       {/* Collapsible Map Legend (Bottom Left) */}
-      <div className="absolute left-3 sm:left-4 bottom-2.5 sm:bottom-3 z-[990]">
+      <div className="absolute left-3 sm:left-4 bottom-20 sm:bottom-3 z-[990]">
         {isLegendOpen ? (
           <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl text-[11px] text-slate-300 w-64 animate-fade-in space-y-2">
             <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5">
