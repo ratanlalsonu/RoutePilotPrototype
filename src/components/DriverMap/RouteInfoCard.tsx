@@ -26,7 +26,7 @@ export const RouteInfoCard: React.FC<RouteInfoCardProps> = ({
   if (!route) return null;
 
   return (
-    <div className="bg-[#161B22]/95 backdrop-blur-xl border border-[#30363D] hover:border-slate-600 rounded-2xl p-3 shadow-2xl text-xs text-slate-200 max-w-sm w-full transition-all select-none animate-fade-in">
+    <div className="bg-[#161B22]/95 backdrop-blur-xl border border-[#30363D] hover:border-slate-600 rounded-2xl p-3 shadow-2xl text-xs text-slate-200 max-w-sm w-full transition-all select-none animate-fade-in overflow-hidden">
       {/* Top Header */}
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#30363D]">
         <div className="flex items-center gap-1.5">

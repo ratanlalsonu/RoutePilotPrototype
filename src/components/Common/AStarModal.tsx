@@ -127,7 +127,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                 return (
                   <div
                     key={r.id}
-                    className={`relative p-3.5 rounded-xl border transition flex flex-col justify-between ${
+                    className={`relative p-3.5 rounded-xl border transition flex flex-col justify-between overflow-hidden min-w-0 ${
                       isWinner
                         ? 'bg-[#161B22] border-cyan-400 shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-400/50'
                         : isBlocked
@@ -135,15 +135,15 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                         : 'bg-[#161B22]/70 border-[#30363D]'
                     }`}
                   >
-                    <div>
+                    <div className="min-w-0 overflow-hidden">
                       {/* Top Rank Badge */}
                       <div className="flex items-center justify-between mb-2">
                         <span
-                          className="w-3 h-3 rounded-full"
+                          className="w-3 h-3 rounded-full shrink-0"
                           style={{ backgroundColor: r.color }}
                         ></span>
                         <span
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
                             isWinner
                               ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400'
                               : isBlocked
@@ -166,12 +166,12 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                       <div className="font-bold text-xs text-white truncate" title={r.name}>
                         {r.name}
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5" title={r.viaRoads?.join(' • ') || 'Main Corridor'}>
                         {r.viaRoads?.join(' • ') || 'Main Corridor'}
                       </div>
 
                       {/* Travel Metrics */}
-                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#30363D] text-[11px] font-mono">
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#30363D] text-[11px] font-mono flex-wrap">
                         <span className="text-white font-bold">{r.distanceKm} km</span>
                         <span className="text-slate-500">•</span>
                         <span className="text-emerald-400 font-bold">{r.durationMinutes} min</span>

@@ -452,20 +452,21 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                   title={`Click to select ${route.name}`}
                 >
                   <div
-                    className="px-2.5 py-1 rounded-md text-xs font-bold border shadow-xl flex items-center gap-1.5 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition"
+                    className="w-max inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border-2 shadow-2xl cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
                     style={{
                       backgroundColor: '#161B22',
                       borderColor: dotColor,
                       color: dotColor,
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
                     }}
                   >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: dotColor }}></span>
-                    <span>{translateText(route.name, activeLang)}</span>
-                    {isBlocked && <span className="text-red-400 font-mono text-[10px] bg-red-950/60 px-1 py-0.2 rounded border border-red-500/40">🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>}
-                    {isOptimal && <span className="text-emerald-400 font-mono text-[10px] bg-emerald-950/60 px-1 py-0.2 rounded border border-emerald-500/40">⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>}
-                    <span className="text-slate-300 font-normal">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }}></span>
+                    <span className="text-white font-bold">{translateText(route.name, activeLang)}</span>
+                    {isBlocked && <span className="text-red-400 font-mono text-[10px] bg-red-950/80 px-1.5 py-0.5 rounded border border-red-500/40 shrink-0">🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>}
+                    {isOptimal && <span className="text-emerald-400 font-mono text-[10px] bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40 shrink-0">⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>}
+                    <span className="text-slate-300 font-normal shrink-0">
                       • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
-                      {aStarScore ? <span className="text-cyan-400 font-mono ml-1">[f={aStarScore}]</span> : null}
+                      {aStarScore ? <span className="text-cyan-400 font-mono ml-1 font-bold">[f={aStarScore}]</span> : null}
                     </span>
                   </div>
                 </AdvancedMarker>

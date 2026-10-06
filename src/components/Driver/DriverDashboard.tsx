@@ -768,14 +768,14 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                   <div className="border-l-2 border-dashed border-[#30363D] ml-2 h-3.5"></div>
 
-                  <div className="flex items-start justify-between gap-2.5">
-                    <div className="flex items-start gap-2.5 truncate flex-1">
+                  <div className="flex items-start justify-between gap-2.5 min-w-0">
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0 overflow-hidden">
                       <span className="w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-white shrink-0 mt-0.5 shadow-sm"></span>
-                      <div className="truncate flex-1">
-                        <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold truncate">
                           {language === 'hi' ? 'गंतव्य (Destination)' : 'Destination'}
                         </div>
-                        <div className={`font-bold text-xs truncate mt-0.5 ${journey.destination?.name ? 'text-[#AEF5F0]' : 'text-slate-400 italic'}`}>
+                        <div className={`font-bold text-xs truncate mt-0.5 ${journey.destination?.name ? 'text-[#AEF5F0]' : 'text-slate-400 italic'}`} title={journey.destination?.name || ''}>
                           {journey.destination?.name || (language === 'hi' ? 'ऊपर गंतव्य खोजें या मानचित्र पर टैप करें' : 'Search destination above or tap map')}
                         </div>
                       </div>
@@ -974,7 +974,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         </div>
 
                         {/* List of 3 Candidate Routes with Full Information */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 overflow-hidden">
                           {candidateRoutesList.map((route, idx) => {
                             const isSelected = journey.activeRoute?.id === route.id;
                             const isOptimal = route.aStarMetrics?.isOptimal;
@@ -989,12 +989,12 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               <div
                                 key={route.id}
                                 onClick={() => handleSelectOptimalRoute(route.id)}
-                                className={`p-2.5 rounded-xl border transition flex items-center justify-between group cursor-pointer ${cardBorder}`}
+                                className={`p-2.5 rounded-xl border transition flex items-center justify-between group cursor-pointer overflow-hidden ${cardBorder}`}
                                 style={{ borderLeftWidth: '5px', borderLeftColor: isBlocked ? '#ef4444' : route.color }}
                               >
-                                <div className="min-w-0 pr-2">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate">
+                                <div className="flex-1 min-w-0 pr-2 overflow-hidden">
+                                  <div className="flex items-center gap-1.5 flex-wrap min-w-0 overflow-hidden">
+                                    <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate max-w-full" title={translateText(route.name, language)}>
                                       {translateText(route.name, language)}
                                     </span>
                                     {isOptimal && (
@@ -1014,18 +1014,18 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                     )}
                                   </div>
 
-                                  <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                  <div className="text-[10px] text-slate-400 truncate mt-0.5 overflow-hidden" title={route.viaRoads?.join(' • ')}>
                                     {route.viaRoads?.join(' • ') || (language === 'hi' ? 'मुख्य गलियारा' : 'Main Corridor')}
                                   </div>
 
-                                  <div className="text-xs font-mono font-bold text-white mt-1 flex items-center gap-2">
-                                    <span className="text-cyan-400">{route.distanceKm} {language === 'hi' ? 'किमी' : 'km'}</span>
-                                    <span className="text-slate-500">•</span>
-                                    <span className="text-emerald-400">{route.durationMinutes} {language === 'hi' ? 'मिनट' : 'min'}</span>
+                                  <div className="text-xs font-mono font-bold text-white mt-1 flex items-center gap-1.5 flex-wrap overflow-hidden">
+                                    <span className="text-cyan-400 shrink-0">{route.distanceKm} {language === 'hi' ? 'किमी' : 'km'}</span>
+                                    <span className="text-slate-500 shrink-0">•</span>
+                                    <span className="text-emerald-400 shrink-0">{route.durationMinutes} {language === 'hi' ? 'मिनट' : 'min'}</span>
                                     {route.aStarMetrics?.totalFCost !== undefined && (
                                       <>
-                                        <span className="text-slate-500">•</span>
-                                        <span className="text-amber-300 font-normal text-[10px]">
+                                        <span className="text-slate-500 shrink-0">•</span>
+                                        <span className="text-amber-300 font-normal text-[10px] shrink-0">
                                           f(n)={route.aStarMetrics.totalFCost}
                                         </span>
                                       </>
@@ -1039,7 +1039,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                     e.stopPropagation();
                                     handleSelectOptimalRoute(route.id);
                                   }}
-                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition cursor-pointer ${
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition cursor-pointer ml-1.5 ${
                                     isSelected
                                       ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
                                       : 'bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 shadow-md shadow-[#AEF5F0]/25'
@@ -1374,19 +1374,19 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
               {/* TOP-RIGHT CORNER: Maximum 3 Detour Alternative Routes Available */}
               {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && journey.diversionState === 'ALTERNATIVES_DISPLAYED' && !isMapClearMode && (
-                <div className="absolute top-4 right-4 z-[996] w-84 bg-[#161B22]/95 backdrop-blur-md border border-[#AEF5F0]/60 rounded-2xl p-3 shadow-2xl space-y-2 pointer-events-auto animate-section-smooth">
-                  <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5">
-                    <span className="text-xs font-bold text-[#AEF5F0]">
+                <div className="absolute top-4 right-4 z-[996] w-84 max-w-[calc(100vw-2rem)] bg-[#161B22]/95 backdrop-blur-md border border-[#AEF5F0]/60 rounded-2xl p-3 shadow-2xl space-y-2 pointer-events-auto animate-section-smooth overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5 min-w-0">
+                    <span className="text-xs font-bold text-[#AEF5F0] truncate">
                       ⚡ {language === 'hi' ? 'सर्वोत्तम 3 मार्ग उपलब्ध' : 'Top 3 Routes Available'}
                     </span>
-                    <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                    <span className="text-[10px] text-emerald-400 font-mono font-bold shrink-0 ml-1.5">
                       {Math.min(3, (journey.activeRoute ? 1 : 0) + journey.alternativeRoutes.length)} {t.pathsLabel}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-300">
+                  <div className="text-[10px] text-slate-300 break-words">
                     {language === 'hi' ? 'सुरक्षित बायपास के लिए पसंदीदा मार्ग चुनें:' : 'Select preferred route to bypass hazard:'}
                   </div>
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto overflow-x-hidden">
                     {[
                       ...(journey.activeRoute ? [{ ...journey.activeRoute, isCurrentActive: true }] : []),
                       ...journey.alternativeRoutes.map((alt) => ({ ...alt, isCurrentActive: false }))
@@ -1394,25 +1394,25 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       <div
                         key={routeOption.id}
                         onClick={() => handleCommitRoute(routeOption.id)}
-                        className={`p-2 rounded-xl border cursor-pointer transition flex items-center justify-between text-xs ${
+                        className={`p-2 rounded-xl border cursor-pointer transition flex items-center justify-between text-xs overflow-hidden ${
                           routeOption.isCurrentActive
                             ? 'bg-[#AEF5F0]/15 border-[#AEF5F0]'
                             : 'bg-[#21262D] hover:bg-[#30363D] border-[#30363D]'
                         }`}
                         style={{ borderLeftWidth: '3.5px', borderLeftColor: routeOption.color }}
                       >
-                        <div className="truncate mr-2 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-white text-[11px] truncate">
+                        <div className="flex-1 min-w-0 mr-2 overflow-hidden">
+                          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                            <span className="font-bold text-white text-[11px] truncate max-w-full" title={translateText(routeOption.name, language)}>
                               {translateText(routeOption.name, language)}
                             </span>
                             {routeOption.isCurrentActive && (
-                              <span className="text-[8px] bg-cyan-500/20 text-cyan-400 font-bold px-1 rounded">
+                              <span className="text-[8px] bg-cyan-500/20 text-cyan-400 font-bold px-1 rounded shrink-0">
                                 Active
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
                             {routeOption.distanceKm} km • {routeOption.durationMinutes} min
                           </div>
                         </div>
@@ -1422,7 +1422,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                             e.stopPropagation();
                             handleCommitRoute(routeOption.id);
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[10px] cursor-pointer shrink-0"
+                          className="px-2.5 py-1 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[10px] cursor-pointer shrink-0 ml-1.5"
                         >
                           {language === 'hi' ? 'चुनें' : 'Select'}
                         </button>
@@ -1516,30 +1516,30 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     </div>
 
                     {/* List of alternative route options */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 overflow-hidden">
                       {journey.alternativeRoutes.map((alt) => (
                         <div
                           key={alt.id}
                           onClick={() => handleCommitRoute(alt.id)}
-                          className="p-3 rounded-xl border border-[#30363D] bg-[#161B22] hover:border-[#AEF5F0] cursor-pointer transition flex items-center justify-between group"
+                          className="p-3 rounded-xl border border-[#30363D] bg-[#161B22] hover:border-[#AEF5F0] cursor-pointer transition flex items-center justify-between group overflow-hidden"
                           style={{ borderLeftWidth: '4px', borderLeftColor: alt.color }}
                         >
-                          <div className="min-w-0 mr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate">
+                          <div className="flex-1 min-w-0 mr-2 overflow-hidden">
+                            <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                              <span className="font-bold text-xs text-white group-hover:text-[#AEF5F0] truncate max-w-full" title={translateText(alt.name, language)}>
                                 {translateText(alt.name, language)}
                               </span>
                               {alt.isRecommended && (
-                                <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/20 px-1 py-0.2 rounded border border-emerald-500/30">
+                                <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/20 px-1 py-0.2 rounded border border-emerald-500/30 shrink-0">
                                   ⭐ {language === 'hi' ? 'अनुशंसित' : 'Recommended'}
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-300 font-mono mt-0.5">
+                            <div className="text-[11px] text-slate-300 font-mono mt-0.5 truncate">
                               {alt.distanceKm} km • {alt.durationMinutes} min
                             </div>
                             {alt.viaRoads && (
-                              <div className="text-[9px] text-slate-400 truncate mt-0.5">
+                              <div className="text-[9px] text-slate-400 truncate mt-0.5 overflow-hidden" title={alt.viaRoads.join(', ')}>
                                 Via {alt.viaRoads.join(', ')}
                               </div>
                             )}
@@ -1551,7 +1551,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               e.stopPropagation();
                               handleCommitRoute(alt.id);
                             }}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 transition cursor-pointer shrink-0 shadow-sm active:scale-95"
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 transition cursor-pointer shrink-0 shadow-sm active:scale-95 ml-1.5"
                           >
                             {language === 'hi' ? 'यह मार्ग चुनें' : 'Select Route'}
                           </button>
@@ -1675,11 +1675,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               if (searchQuery.trim().length > 0) setShowSearchResults(true);
                             }}
                             placeholder={t.searchMapPlaceholder}
-                            className="w-full bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl pl-8 pr-7 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0] shadow-xl"
+                            className="w-full h-9 bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-xl pl-8 pr-7 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#AEF5F0] shadow-xl"
                           />
-                          <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                          <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                           {isSearching ? (
-                            <div className="absolute right-2.5 top-2.5 w-3.5 h-3.5 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></div>
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-[#AEF5F0] border-t-transparent rounded-full animate-spin"></div>
                           ) : searchQuery ? (
                             <button
                               type="button"
@@ -1688,7 +1688,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                 setSearchResults([]);
                                 setShowSearchResults(false);
                               }}
-                              className="absolute right-2 top-2 text-slate-400 hover:text-white text-xs p-0.5 rounded cursor-pointer"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-1 rounded cursor-pointer"
                             >
                               ✕
                             </button>
@@ -1733,19 +1733,19 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         )}
                       </div>
                     ) : currentManeuver ? (
-                      <div className="flex-1 bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 shadow-xl flex items-center gap-2.5 animate-fade-in min-w-0">
+                      <div className="flex-1 bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-2.5 shadow-xl flex items-center gap-2.5 animate-fade-in min-w-0 overflow-hidden">
                         <div className="w-9 h-9 rounded-xl bg-[#AEF5F0]/20 border border-[#AEF5F0] flex items-center justify-center shrink-0">
                           {getTurnIcon(currentManeuver.turnType)}
                         </div>
-                        <div className="truncate flex-1 min-w-0">
-                          <div className="text-[10px] font-mono text-cyan-400 font-semibold uppercase">
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="text-[10px] font-mono text-cyan-400 font-semibold uppercase truncate">
                             {language === 'hi' ? `${currentManeuver.distanceMeters || 200} मी में` : `In ${currentManeuver.distanceMeters || 200} m`}
                           </div>
-                          <div className="text-xs font-bold text-white truncate">
+                          <div className="text-xs font-bold text-white truncate" title={currentManeuver.instruction}>
                             {currentManeuver.instruction}
                           </div>
                           {currentManeuver.roadName && (
-                            <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                            <div className="text-[10px] text-slate-400 truncate mt-0.5" title={currentManeuver.roadName}>
                               {currentManeuver.roadName}
                             </div>
                           )}
@@ -1760,14 +1760,14 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       </div>
                     ) : null}
 
-                    {/* Clean Map Mode Toggle Button */}
+                    {/* Clean Map Mode Toggle Button - Matched in dimensions and alignment with Search Bar */}
                     <button
                       type="button"
                       onClick={() => setIsMapClearMode(true)}
                       title={t.cleanMapToggle}
-                      className="p-2 rounded-xl bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-300 hover:text-white transition cursor-pointer shadow-xl shrink-0"
+                      className="h-9 w-9 rounded-xl bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-300 hover:text-white transition cursor-pointer shadow-xl shrink-0 flex items-center justify-center active:scale-95"
                     >
-                      <span className="text-xs">👁️</span>
+                      <span className="text-sm select-none leading-none">👁️</span>
                     </button>
                   </div>
 
@@ -1776,11 +1776,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     <button
                       type="button"
                       onClick={() => setIsAStarModalOpen(true)}
-                      className="w-full bg-[#161B22]/95 hover:bg-[#21262D] backdrop-blur-md border border-[#AEF5F0]/50 text-white rounded-xl px-2.5 py-1.5 shadow-xl flex items-center justify-between cursor-pointer transition active:scale-95"
+                      className="w-auto self-start bg-[#161B22]/95 hover:bg-[#21262D] backdrop-blur-md border border-[#AEF5F0]/50 text-white rounded-xl px-2.5 py-1 shadow-xl flex items-center gap-2 cursor-pointer transition active:scale-95"
                     >
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="w-2 h-2 rounded-full bg-[#AEF5F0] animate-pulse shrink-0"></span>
-                        <span className="text-[11px] font-bold text-[#AEF5F0] truncate">⚡ A* {language === 'hi' ? 'निर्णय तर्क' : 'Decision'}</span>
+                        <span className="text-[11px] font-bold text-[#AEF5F0] truncate">⚡ A* {language === 'hi' ? 'निर्णय' : 'Decision'}</span>
                       </div>
                       <span className="text-[10px] text-slate-300 font-mono shrink-0 ml-1">
                         [f={state.aStarEvaluation?.optimalRoute?.aStarMetrics?.totalFCost}]
@@ -1827,21 +1827,21 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                 {/* RIGHT SIDE TOP CORNER — MAXIMUM 3 ALTERNATIVE DETOUR ROUTES AVAILABLE */}
                 {journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && journey.diversionState === 'ALTERNATIVES_DISPLAYED' && !isMapClearMode && (
-                  <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-[996] w-[280px] sm:w-[320px] max-w-[calc(100vw-24px)] bg-[#161B22]/95 backdrop-blur-md border border-[#AEF5F0]/60 rounded-2xl p-3 shadow-2xl space-y-2 pointer-events-auto animate-section-smooth">
-                    <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5">
-                      <span className="text-xs font-bold text-[#AEF5F0]">
+                  <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-[996] w-[280px] sm:w-[320px] max-w-[calc(100vw-24px)] bg-[#161B22]/95 backdrop-blur-md border border-[#AEF5F0]/60 rounded-2xl p-3 shadow-2xl space-y-2 pointer-events-auto animate-section-smooth overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5 min-w-0">
+                      <span className="text-xs font-bold text-[#AEF5F0] truncate">
                         ⚡ {language === 'hi' ? 'सर्वोत्तम 3 मार्ग उपलब्ध' : 'Top 3 Routes Available'}
                       </span>
-                      <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold shrink-0 ml-1.5">
                         {Math.min(3, (journey.activeRoute ? 1 : 0) + journey.alternativeRoutes.length)} {t.pathsLabel}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-300">
+                    <div className="text-[10px] text-slate-300 break-words">
                       {language === 'hi'
                         ? 'खतरे से बचने के लिए नीचे से अपना पसंदीदा मार्ग चुनें:'
                         : 'Choose preferred route to safely bypass hazard:'}
                     </div>
-                    <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto overflow-x-hidden">
                       {[
                         ...(journey.activeRoute ? [{ ...journey.activeRoute, isCurrentActive: true }] : []),
                         ...journey.alternativeRoutes.map((alt) => ({ ...alt, isCurrentActive: false }))
@@ -1849,25 +1849,25 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         <div
                           key={routeOption.id}
                           onClick={() => handleCommitRoute(routeOption.id)}
-                          className={`p-2 rounded-xl border cursor-pointer transition flex items-center justify-between text-xs ${
+                          className={`p-2 rounded-xl border cursor-pointer transition flex items-center justify-between text-xs overflow-hidden ${
                             routeOption.isCurrentActive
                               ? 'bg-[#AEF5F0]/15 border-[#AEF5F0]'
                               : 'bg-[#21262D] hover:bg-[#30363D] border-[#30363D]'
                           }`}
                           style={{ borderLeftWidth: '3.5px', borderLeftColor: routeOption.color }}
                         >
-                          <div className="truncate mr-2 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-white text-[11px] truncate">
+                          <div className="flex-1 min-w-0 mr-2 overflow-hidden">
+                            <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                              <span className="font-bold text-white text-[11px] truncate max-w-full" title={translateText(routeOption.name, language)}>
                                 {translateText(routeOption.name, language)}
                               </span>
                               {routeOption.isCurrentActive && (
-                                <span className="text-[8px] bg-cyan-500/20 text-cyan-400 font-bold px-1 rounded">
+                                <span className="text-[8px] bg-cyan-500/20 text-cyan-400 font-bold px-1 rounded shrink-0">
                                   Current
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
                               {routeOption.distanceKm} km • {routeOption.durationMinutes} min
                             </div>
                           </div>
@@ -1877,7 +1877,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                               e.stopPropagation();
                               handleCommitRoute(routeOption.id);
                             }}
-                            className="px-2.5 py-1 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[10px] cursor-pointer shrink-0"
+                            className="px-2.5 py-1 rounded-lg bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-[10px] cursor-pointer shrink-0 ml-1.5"
                           >
                             {language === 'hi' ? 'चुनें' : 'Select'}
                           </button>
@@ -2095,24 +2095,24 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                     className="p-4 rounded-xl border border-[#30363D] bg-[#21262D] space-y-3 flex flex-col justify-between"
                     style={{ borderTopWidth: '4px', borderTopColor: r.color }}
                   >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-white">{r.name}</span>
+                    <div className="min-w-0 overflow-hidden">
+                      <div className="flex items-center justify-between gap-1.5 min-w-0">
+                        <span className="font-bold text-xs text-white truncate" title={r.name}>{r.name}</span>
                         {r.isRecommended && (
-                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold shrink-0">
                             Recommended
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-1">Via {r.viaRoads?.[0] || 'Corridor'}</div>
+                      <div className="text-[11px] text-slate-400 mt-1 truncate" title={r.viaRoads?.join(', ') || 'Corridor'}>Via {r.viaRoads?.[0] || 'Corridor'}</div>
                       <div className="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-[#30363D] text-xs font-mono">
-                        <div>
+                        <div className="min-w-0 overflow-hidden">
                           <span className="text-[10px] text-slate-400 block font-sans">Distance</span>
-                          <span className="text-white font-bold">{r.distanceKm} km</span>
+                          <span className="text-white font-bold truncate block">{r.distanceKm} km</span>
                         </div>
-                        <div>
+                        <div className="min-w-0 overflow-hidden">
                           <span className="text-[10px] text-slate-400 block font-sans">Duration</span>
-                          <span className="text-emerald-400 font-bold">{r.durationMinutes} min</span>
+                          <span className="text-emerald-400 font-bold truncate block">{r.durationMinutes} min</span>
                         </div>
                       </div>
                     </div>

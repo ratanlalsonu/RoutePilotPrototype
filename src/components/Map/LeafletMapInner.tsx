@@ -526,21 +526,20 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             className: 'alt-route-badge-container',
             html: `
               <div
-                class="px-2.5 py-1 rounded-md text-xs font-bold border shadow-xl flex items-center gap-1.5 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition"
+                class="w-max inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border-2 shadow-2xl cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
                 style="background-color: #161B22; border-color: ${dotColor}; color: ${dotColor};"
               >
-                <span class="w-2 h-2 rounded-full" style="background-color: ${dotColor};"></span>
-                <span>${translateText(altRoute.name, activeLang)}</span>
-                ${isBlocked ? `<span class="text-red-400 font-mono font-bold text-[10px] bg-red-950/60 px-1 py-0.2 rounded border border-red-500/40">🛑 ${activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>` : ''}
-                ${isOptimal ? `<span class="text-emerald-400 font-mono font-bold text-[10px] bg-emerald-950/60 px-1 py-0.2 rounded border border-emerald-500/40">⭐ A* ${activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>` : ''}
-                <span class="text-slate-300 font-normal">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${dotColor};"></span>
+                <span class="text-white font-bold">${translateText(altRoute.name, activeLang)}</span>
+                ${isBlocked ? `<span class="text-red-400 font-mono font-bold text-[10px] bg-red-950/80 px-1.5 py-0.5 rounded border border-red-500/40 shrink-0">🛑 ${activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>` : ''}
+                ${isOptimal ? `<span class="text-emerald-400 font-mono font-bold text-[10px] bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40 shrink-0">⭐ A* ${activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>` : ''}
+                <span class="text-slate-300 font-normal shrink-0">
                   • ${altRoute.distanceKm} ${activeLang === 'hi' ? 'किमी' : 'km'} • ${altRoute.durationMinutes} ${activeLang === 'hi' ? 'मिनट' : 'min'}
-                  ${aStarScore ? `<span class="text-cyan-400 font-mono ml-1">[f=${aStarScore}]</span>` : ''}
+                  ${aStarScore ? `<span class="text-cyan-400 font-mono ml-1 font-bold">[f=${aStarScore}]</span>` : ''}
                 </span>
               </div>
             `,
-            iconSize: [220, 30],
-            iconAnchor: [110, 15],
+            iconAnchor: [0, 0],
           });
 
           const badgeMarker = L.marker(midPt, { icon: badgeIcon }).addTo(routesLayer);
