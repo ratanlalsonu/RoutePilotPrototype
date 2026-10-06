@@ -483,6 +483,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   }}
                   onCommitRoute={(id) => realtimeSync.commitToAlternateRoute(id)}
                   theme={state.appSettings.mapTheme}
+                  appTheme={state.appSettings.appTheme}
                   onToggleTheme={() => realtimeSync.toggleMapTheme()}
                   onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
                 />

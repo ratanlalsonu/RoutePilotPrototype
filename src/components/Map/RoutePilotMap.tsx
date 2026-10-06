@@ -29,6 +29,7 @@ interface RoutePilotMapProps {
   onResolveHazard?: (hazardId: string) => void;
   onCommitRoute?: (routeId: string) => void;
   theme?: 'standard' | 'dark' | 'satellite';
+  appTheme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onChangeTheme?: (theme: 'standard' | 'dark' | 'satellite') => void;
   onChangeSpeed?: (speed: number) => void;
@@ -73,6 +74,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   onResolveHazard,
   onCommitRoute,
   theme,
+  appTheme,
   onToggleTheme,
   onChangeTheme,
   onChangeSpeed,
@@ -96,6 +98,37 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     }
     return 'standard';
   });
+
+  const [domTheme, setDomTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.documentElement.classList.contains('light')
+        ? 'light'
+        : 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return;
+    const observer = new MutationObserver(() => {
+      const isLightNow =
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.documentElement.classList.contains('light');
+      setDomTheme(isLightNow ? 'light' : 'dark');
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'class'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const isLight =
+    domTheme === 'light' ||
+    appTheme === 'light' ||
+    mapStyle === 'standard' ||
+    theme === 'standard';
 
   // Collapsible legend state (default collapsed for crystal clear map visibility)
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -344,7 +377,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               <div className="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
                 <div className="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
               </div>
-              <div className="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-[#AEF5F0] text-[10px] font-semibold rounded border border-[#AEF5F0]/40 shadow whitespace-nowrap flex items-center gap-1">
+              <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-slate-800 border-teal-500/60 shadow-md' : 'bg-[#161B22]/95 text-[#AEF5F0] border-[#AEF5F0]/40 shadow'} text-[10px] font-semibold rounded border whitespace-nowrap flex items-center gap-1`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>{mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
               </div>
@@ -364,7 +397,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                 </svg>
               </div>
-              <div className="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-red-300 text-[11px] font-bold rounded border border-red-500/40 shadow-lg whitespace-nowrap">
+              <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-red-700 border-red-500/50 shadow-md' : 'bg-[#161B22]/95 text-red-300 border-red-500/40 shadow-lg'} text-[11px] font-bold rounded border whitespace-nowrap`}>
                 {journey.destination.name}
               </div>
             </div>
@@ -451,24 +484,49 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                   onClick={() => onCommitRoute && onCommitRoute(route.id)}
                   title={`Click to select ${route.name}`}
                 >
-                  <div
-                    className="w-max inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border-2 shadow-2xl cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
-                    style={{
-                      backgroundColor: '#161B22',
-                      borderColor: dotColor,
-                      color: dotColor,
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }}></span>
-                    <span className="text-white font-bold">{translateText(route.name, activeLang)}</span>
-                    {isBlocked && <span className="text-red-400 font-mono text-[10px] bg-red-950/80 px-1.5 py-0.5 rounded border border-red-500/40 shrink-0">🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>}
-                    {isOptimal && <span className="text-emerald-400 font-mono text-[10px] bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40 shrink-0">⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>}
-                    <span className="text-slate-300 font-normal shrink-0">
-                      • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
-                      {aStarScore ? <span className="text-cyan-400 font-mono ml-1 font-bold">[f={aStarScore}]</span> : null}
-                    </span>
-                  </div>
+                  {(() => {
+                    const fullTranslatedName = translateText(route.name, activeLang);
+                    const compactName = fullTranslatedName.includes(' — ')
+                      ? fullTranslatedName.split(' — ')[0].trim()
+                      : fullTranslatedName;
+
+                    const badgeBg = isLight ? '#ffffff' : '#161B22';
+                    const titleColor = isLight ? '#0f172a' : '#ffffff';
+                    const metricsColor = isLight ? '#1e293b' : '#cbd5e1';
+                    const scoreColor = isLight ? '#0284c7' : '#22d3ee';
+                    const boxShadow = isLight
+                      ? '0 3px 12px rgba(0, 0, 0, 0.16)'
+                      : '0 4px 20px rgba(0, 0, 0, 0.7)';
+
+                    return (
+                      <div
+                        className="alt-route-badge-pill w-max inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border-2 shadow-md cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
+                        style={{
+                          backgroundColor: badgeBg,
+                          borderColor: dotColor,
+                          boxShadow: boxShadow,
+                        }}
+                        title={fullTranslatedName}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }}></span>
+                        <span className="alt-route-title font-bold" style={{ color: titleColor }}>{compactName}</span>
+                        {isBlocked && (
+                          <span className={`text-red-600 font-mono font-bold text-[9px] ${isLight ? 'bg-red-50 border-red-200' : 'bg-red-950/80 border-red-500/40 text-red-400'} px-1 py-0.2 rounded border shrink-0`}>
+                            🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}
+                          </span>
+                        )}
+                        {isOptimal && (
+                          <span className={`text-emerald-600 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0`}>
+                            ⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}
+                          </span>
+                        )}
+                        <span className="alt-route-metrics font-medium shrink-0" style={{ color: metricsColor }}>
+                          • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
+                          {aStarScore ? <span className="alt-route-score font-mono ml-0.5 font-bold" style={{ color: scoreColor }}>[f={aStarScore}]</span> : null}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </AdvancedMarker>
               </React.Fragment>
             );
@@ -628,7 +686,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     </div>
                   )}
                 </div>
-                {onResolveHazard && (
+                {mode === 'admin' && onResolveHazard && (
                   <button
                     type="button"
                     onClick={() => {

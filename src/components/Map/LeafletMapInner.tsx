@@ -49,6 +49,7 @@ interface LeafletMapInnerProps {
   onResolveHazard?: (hazardId: string) => void;
   onCommitRoute?: (routeId: string) => void;
   theme?: 'standard' | 'dark' | 'satellite';
+  appTheme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onChangeTheme?: (theme: 'standard' | 'dark' | 'satellite') => void;
   onChangeSpeed?: (speed: number) => void;
@@ -71,6 +72,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   onResolveHazard,
   onCommitRoute,
   theme,
+  appTheme,
   onToggleTheme,
   onChangeTheme,
   onChangeSpeed,
@@ -107,6 +109,37 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     }
     return 'standard';
   });
+
+  const [domTheme, setDomTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.documentElement.classList.contains('light')
+        ? 'light'
+        : 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return;
+    const observer = new MutationObserver(() => {
+      const isLightNow =
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.documentElement.classList.contains('light');
+      setDomTheme(isLightNow ? 'light' : 'dark');
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'class'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const isLight =
+    domTheme === 'light' ||
+    appTheme === 'light' ||
+    mapStyle === 'standard' ||
+    theme === 'standard';
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
 
@@ -381,7 +414,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             <div class="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
               <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
             </div>
-            <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-[#AEF5F0] text-[10px] font-semibold rounded border border-[#AEF5F0]/40 shadow whitespace-nowrap flex items-center gap-1">
+            <div class="px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-slate-800 border-teal-500/60 shadow-md' : 'bg-[#161B22]/95 text-[#AEF5F0] border-[#AEF5F0]/40 shadow'} text-[10px] font-semibold rounded border whitespace-nowrap flex items-center gap-1">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>${mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
             </div>
@@ -404,7 +437,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
               </svg>
             </div>
-            <div class="px-2 py-0.5 mt-1 bg-[#161B22]/95 text-red-300 text-[11px] font-bold rounded border border-red-500/40 shadow-lg whitespace-nowrap">
+            <div class="px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-red-700 border-red-500/50 shadow-md' : 'bg-[#161B22]/95 text-red-300 border-red-500/40 shadow-lg'} text-[11px] font-bold rounded border whitespace-nowrap">
               ${journey.destination.name}
             </div>
           </div>
@@ -522,20 +555,35 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           const aStarScore = altRoute.aStarMetrics?.totalFCost;
           const isOptimal = altRoute.aStarMetrics?.isOptimal;
 
+          // Format compact route name (e.g. "Route B — Outer Bypass" -> "Route B")
+          const fullTranslatedName = translateText(altRoute.name, activeLang);
+          const compactName = fullTranslatedName.includes(' — ')
+            ? fullTranslatedName.split(' — ')[0].trim()
+            : fullTranslatedName;
+
+          const badgeBg = isLight ? '#ffffff' : '#161B22';
+          const titleColor = isLight ? '#0f172a' : '#ffffff';
+          const metricsColor = isLight ? '#1e293b' : '#cbd5e1';
+          const scoreColor = isLight ? '#0284c7' : '#22d3ee';
+          const boxShadow = isLight
+            ? '0 3px 12px rgba(0, 0, 0, 0.16)'
+            : '0 4px 20px rgba(0, 0, 0, 0.7)';
+
           const badgeIcon = L.divIcon({
             className: 'alt-route-badge-container',
             html: `
               <div
-                class="w-max inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border-2 shadow-2xl cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
-                style="background-color: #161B22; border-color: ${dotColor}; color: ${dotColor};"
+                class="alt-route-badge-pill w-max inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border-2 shadow-md cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
+                style="background-color: ${badgeBg}; border-color: ${dotColor}; box-shadow: ${boxShadow};"
+                title="${fullTranslatedName}"
               >
-                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${dotColor};"></span>
-                <span class="text-white font-bold">${translateText(altRoute.name, activeLang)}</span>
-                ${isBlocked ? `<span class="text-red-400 font-mono font-bold text-[10px] bg-red-950/80 px-1.5 py-0.5 rounded border border-red-500/40 shrink-0">🛑 ${activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>` : ''}
-                ${isOptimal ? `<span class="text-emerald-400 font-mono font-bold text-[10px] bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40 shrink-0">⭐ A* ${activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>` : ''}
-                <span class="text-slate-300 font-normal shrink-0">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${dotColor};"></span>
+                <span class="alt-route-title font-bold" style="color: ${titleColor};">${compactName}</span>
+                ${isBlocked ? `<span class="text-red-600 font-mono font-bold text-[9px] ${isLight ? 'bg-red-50 border-red-200' : 'bg-red-950/80 border-red-500/40 text-red-400'} px-1 py-0.2 rounded border shrink-0">🛑 ${activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>` : ''}
+                ${isOptimal ? `<span class="text-emerald-600 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0">⭐ A* ${activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}</span>` : ''}
+                <span class="alt-route-metrics font-medium shrink-0" style="color: ${metricsColor};">
                   • ${altRoute.distanceKm} ${activeLang === 'hi' ? 'किमी' : 'km'} • ${altRoute.durationMinutes} ${activeLang === 'hi' ? 'मिनट' : 'min'}
-                  ${aStarScore ? `<span class="text-cyan-400 font-mono ml-1 font-bold">[f=${aStarScore}]</span>` : ''}
+                  ${aStarScore ? `<span class="alt-route-score font-mono ml-0.5 font-bold" style="color: ${scoreColor};">[f=${aStarScore}]</span>` : ''}
                 </span>
               </div>
             `,
@@ -576,7 +624,19 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         } catch {}
       }
     }
-  }, [journey.activeRoute?.id, journey.alternativeRoutes?.length, journey.origin?.name, journey.destination?.name, activeLang, onCommitRoute]);
+  }, [
+    journey.activeRoute?.id,
+    journey.alternativeRoutes?.length,
+    journey.origin?.name,
+    journey.destination?.name,
+    activeLang,
+    onCommitRoute,
+    isLight,
+    mapStyle,
+    theme,
+    appTheme,
+    domTheme,
+  ]);
 
   // Register global window handler for 100% reliable click execution from inside Leaflet popups
   useEffect(() => {
@@ -619,8 +679,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     if (!map || !hazardsLayer) return;
 
     hazardsLayer.clearLayers();
-
-    const isLight = mapStyle === 'standard' || (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
 
     hazards.forEach((hazard) => {
       if (hazard.status !== 'ACTIVE') return;
@@ -719,18 +777,20 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             </div>
           </div>
 
-          <!-- Resolve Hazard Button: In light mode #A7F3ED, in dark mode #059669 -->
-          <button
-            id="resolve-btn-${hazard.hazardId}"
-            data-hazard-id="${hazard.hazardId}"
-            type="button"
-            onclick="window.__routePilotResolveHazard && window.__routePilotResolveHazard('${hazard.hazardId}', event)"
-            style="width: 100%; padding: 9px 12px; background-color: ${isLight ? '#A7F3ED' : '#059669'}; color: ${isLight ? '#042f2e' : '#ffffff'}; border: ${isLight ? '1.5px solid #5eead4' : 'none'}; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: ${isLight ? '0 2px 8px rgba(167, 243, 237, 0.45)' : '0 4px 10px rgba(5, 150, 105, 0.35)'}; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
-            onmouseover="this.style.backgroundColor='${isLight ? '#8cefe6' : '#047857'}'"
-            onmouseout="this.style.backgroundColor='${isLight ? '#A7F3ED' : '#059669'}'"
-          >
-            ${t.resolveHazardBtn || '✓ Resolve Hazard'}
-          </button>
+          ${mode === 'admin' ? `
+            <!-- Resolve Hazard Button: Admin only -->
+            <button
+              id="resolve-btn-${hazard.hazardId}"
+              data-hazard-id="${hazard.hazardId}"
+              type="button"
+              onclick="window.__routePilotResolveHazard && window.__routePilotResolveHazard('${hazard.hazardId}', event)"
+              style="width: 100%; padding: 9px 12px; background-color: ${isLight ? '#A7F3ED' : '#059669'}; color: ${isLight ? '#042f2e' : '#ffffff'}; border: ${isLight ? '1.5px solid #5eead4' : 'none'}; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: ${isLight ? '0 2px 8px rgba(167, 243, 237, 0.45)' : '0 4px 10px rgba(5, 150, 105, 0.35)'}; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
+              onmouseover="this.style.backgroundColor='${isLight ? '#8cefe6' : '#047857'}'"
+              onmouseout="this.style.backgroundColor='${isLight ? '#A7F3ED' : '#059669'}'"
+            >
+              ${t.resolveHazardBtn || '✓ Resolve Hazard'}
+            </button>
+          ` : ''}
         </div>
       `;
 
@@ -786,7 +846,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         }
       });
     });
-  }, [hazards, activeLang, onResolveHazard, t, mapStyle]);
+  }, [hazards, activeLang, onResolveHazard, t, mapStyle, mode]);
 
   // Render Sensor Nodes
   useEffect(() => {
@@ -979,8 +1039,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       onToggleTheme();
     }
   };
-
-  const isLight = mapStyle === 'standard' || (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
 
   return (
     <div className={`relative w-full h-full bg-[#0D1117] overflow-hidden select-none ${isLight ? 'leaflet-light-theme' : 'leaflet-dark-theme'}`}>

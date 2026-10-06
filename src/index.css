@@ -200,6 +200,36 @@
   z-index: 800 !important;
 }
 
+.alt-route-badge-pill {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Light theme overrides for route info pill on map */
+[data-theme='light'] .alt-route-badge-pill,
+.light .alt-route-badge-pill,
+.leaflet-light-theme .alt-route-badge-pill {
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme='light'] .alt-route-badge-pill .alt-route-title,
+.light .alt-route-badge-pill .alt-route-title,
+.leaflet-light-theme .alt-route-badge-pill .alt-route-title {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .alt-route-badge-pill .alt-route-metrics,
+.light .alt-route-badge-pill .alt-route-metrics,
+.leaflet-light-theme .alt-route-badge-pill .alt-route-metrics {
+  color: #1e293b !important;
+}
+
+[data-theme='light'] .alt-route-badge-pill .alt-route-score,
+.light .alt-route-badge-pill .alt-route-score,
+.leaflet-light-theme .alt-route-badge-pill .alt-route-score {
+  color: #0284c7 !important;
+}
+
 
 
 /* Smooth Section & Tab Transitions (Pure opacity fade with zero vertical jerking) */

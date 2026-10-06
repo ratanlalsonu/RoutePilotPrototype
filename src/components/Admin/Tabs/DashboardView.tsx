@@ -239,6 +239,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onResolveHazard={(id) => realtimeSync.resolveHazard(id)}
               onCommitRoute={(id) => realtimeSync.commitToAlternateRoute(id)}
               theme={state.appSettings.mapTheme}
+              appTheme={state.appSettings.appTheme}
               onToggleTheme={() => realtimeSync.toggleMapTheme()}
               onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
             />
