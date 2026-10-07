@@ -953,32 +953,50 @@ class RealtimeSyncManager {
         this.notify();
         return;
       }
+      const isResuming = (this.state.journey.progressMeters || 0) > 0 || (this.state.journey.currentLocation.pointIndex || 0) > 0;
       this.state.journey.isNavigating = true;
       this.state.journey.status = 'ON_ROUTE';
       this.state.journey.diversionState = 'ROUTE_ACTIVE';
       this.state.journey.isSimulating = true;
-      if (this.state.journey.progressMeters === undefined || this.state.journey.currentLocation.pointIndex === 0) {
+      if (this.state.journey.progressMeters === undefined) {
         this.state.journey.progressMeters = 0;
       }
-      this.state.journey.currentSpeedKmh = 45;
+      const profile = getVehicleSpeedProfile(this.state.journey.vehicleType);
+      const mult = Math.max(0.25, Math.min(10, this.state.journey.simulationSpeed || 1));
+      this.state.journey.currentSpeedKmh = Math.max(15, Math.round(profile.averageSpeedKmh * mult));
       if (!this.state.journey.startedAt) {
         this.state.journey.startedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
       this.addRouteEvent({
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        event: 'Navigation Started',
+        event: isResuming ? 'Navigation Resumed' : 'Navigation Started',
         driver: this.state.journey.driverId,
         status: 'In Progress',
-        details: `En route to ${this.state.journey.destination.name}`,
+        details: isResuming
+          ? `Resumed from paused location towards ${this.state.journey.destination.name}`
+          : `En route to ${this.state.journey.destination.name}`,
       });
       VoiceService.speak(
-        `Navigation started to ${this.state.journey.destination.name}. Drive safely.`,
-        `यात्रा शुरू हुई। ${this.state.journey.destination.name} की ओर सुरक्षित ड्राइव करें।`
+        isResuming
+          ? `Navigation resumed to ${this.state.journey.destination.name}. Drive safely.`
+          : `Navigation started to ${this.state.journey.destination.name}. Drive safely.`,
+        isResuming
+          ? `यात्रा पुनः शुरू हुई। ${this.state.journey.destination.name} की ओर सुरक्षित ड्राइव करें।`
+          : `यात्रा शुरू हुई। ${this.state.journey.destination.name} की ओर सुरक्षित ड्राइव करें।`
       );
     } else {
       this.state.journey.isNavigating = false;
       this.state.journey.currentSpeedKmh = 0;
       this.state.journey.isSimulating = false;
+      // Vehicle stops right where it paused; notify listeners immediately with current coordinates
+      this.vehicleListeners.forEach((cb) => cb(this.state.journey.currentLocation, 0));
+      this.addRouteEvent({
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        event: 'Navigation Paused',
+        driver: this.state.journey.driverId,
+        status: 'Info',
+        details: `Vehicle paused at waypoint #${this.state.journey.currentLocation.pointIndex || 0} (${this.state.journey.currentLocation.lat.toFixed(5)}, ${this.state.journey.currentLocation.lng.toFixed(5)})`,
+      });
       VoiceService.speak('Navigation paused.', 'यात्रा रोक दी गई है।');
     }
     this.notify();
@@ -1449,6 +1467,33 @@ class RealtimeSyncManager {
     speedKmh?: number
   ) {
     const j = this.state.journey;
+
+    // Check if a trip is active or paused mid-route
+    const isTripInProgress =
+      j.status === 'ON_ROUTE' ||
+      j.status === 'DIVERTED' ||
+      (j.progressMeters !== undefined && j.progressMeters > 0) ||
+      (j.currentLocation.pointIndex !== undefined && j.currentLocation.pointIndex > 0);
+
+    // If a trip is already underway or paused mid-route, DO NOT reset origin or vehicle location!
+    if (isTripInProgress) {
+      // In live real-world driving mode (not simulation) while actively navigating:
+      if (!j.isSimulating && j.isNavigating) {
+        j.currentLocation = {
+          lat,
+          lng,
+          heading: typeof heading === 'number' && !isNaN(heading) ? heading : (j.currentLocation.heading || 0),
+          pointIndex: j.currentLocation.pointIndex || 0,
+        };
+        if (typeof speedKmh === 'number' && !isNaN(speedKmh)) {
+          j.currentSpeedKmh = Math.max(0, Math.round(speedKmh * 3.6));
+        }
+        this.vehicleListeners.forEach((cb) => cb(j.currentLocation, j.currentSpeedKmh));
+      }
+      // When paused or simulating, the vehicle STAYS right where it paused; do not pull it back to source!
+      return;
+    }
+
     j.origin.lat = lat;
     j.origin.lng = lng;
     if (placeName) {

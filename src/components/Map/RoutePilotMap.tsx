@@ -284,6 +284,8 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   // Fit bounds when active route is selected
   useEffect(() => {
     if (!map || !journey.activeRoute || journey.activeRoute.coordinates.length < 2 || journey.isNavigating || isUserPanningRef.current) return;
+    // If vehicle has already started traveling along the route (paused mid-trip), keep camera at paused location
+    if (journey.progressMeters && journey.progressMeters > 50) return;
     const bounds = new google.maps.LatLngBounds();
     journey.activeRoute.coordinates.forEach(([lat, lng]) => {
       bounds.extend({ lat, lng });

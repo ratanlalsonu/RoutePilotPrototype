@@ -1111,10 +1111,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                               )}
                             </svg>
-                            <span>{journey.isNavigating ? (language === 'hi' ? 'नेविगेशन रोकें' : 'Pause Navigation') : (language === 'hi' ? 'नेविगेशन शुरू करें' : 'Start Navigation')}</span>
+                            <span>
+                              {journey.isNavigating
+                                ? (language === 'hi' ? 'नेविगेशन रोकें' : 'Pause Navigation')
+                                : ((journey.progressMeters || 0) > 0 || (journey.currentLocation.pointIndex || 0) > 0)
+                                ? (language === 'hi' ? 'नेविगेशन जारी रखें' : 'Resume Navigation')
+                                : (language === 'hi' ? 'नेविगेशन शुरू करें' : 'Start Navigation')}
+                            </span>
                           </button>
 
-                          {journey.isNavigating && (
+                          {(journey.isNavigating || (journey.progressMeters && journey.progressMeters > 0)) && (
                             <button
                               onClick={handleStopNavigation}
                               title="Cancel & Reset Trip"
@@ -1982,10 +1988,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                         )}
                       </svg>
-                      <span>{journey.isNavigating ? t.pauseNavigationBtn : t.startNavigationBtn}</span>
+                      <span>
+                        {journey.isNavigating
+                          ? t.pauseNavigationBtn
+                          : ((journey.progressMeters || 0) > 0 || (journey.currentLocation.pointIndex || 0) > 0)
+                          ? t.resumeNavigationBtn
+                          : t.startNavigationBtn}
+                      </span>
                     </button>
 
-                    {journey.isNavigating && (
+                    {(journey.isNavigating || (journey.progressMeters && journey.progressMeters > 0)) && (
                       <>
                         <button
                           onClick={handleAdvanceStep}

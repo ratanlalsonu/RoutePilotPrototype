@@ -612,6 +612,13 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
     if (!isUserPanningRef.current) {
       if (allCoords.length >= 2 && !journey.isNavigating) {
+        // If vehicle has already started traveling along the route (paused mid-trip), keep view on vehicle
+        if (journey.progressMeters && journey.progressMeters > 50 && journey.currentLocation?.lat) {
+          try {
+            map.panTo([journey.currentLocation.lat, journey.currentLocation.lng]);
+          } catch {}
+          return;
+        }
         try {
           const bounds = L.latLngBounds(allCoords);
           if (bounds.isValid()) {
