@@ -224,6 +224,17 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     heading: journey.currentLocation.heading || 0,
   });
 
+  // Keep vehiclePos synced when journey.currentLocation updates outside high-frequency subscriber
+  useEffect(() => {
+    if (journey.currentLocation) {
+      setVehiclePos({
+        lat: journey.currentLocation.lat,
+        lng: journey.currentLocation.lng,
+        heading: journey.currentLocation.heading || 0,
+      });
+    }
+  }, [journey.currentLocation?.lat, journey.currentLocation?.lng, journey.currentLocation?.heading]);
+
   // Subscribe to high-frequency vehicle movement for continuous gliding
   useEffect(() => {
     const unsubscribe = realtimeSync.subscribeVehiclePosition((currentLoc) => {
@@ -373,13 +384,26 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
             position={{ lat: journey.origin.lat, lng: journey.origin.lng }}
             title={journey.origin.name}
           >
-            <div className="flex flex-col items-center">
-              <div className="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
-                <div className="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
-              </div>
-              <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-slate-800 border-teal-500/60 shadow-md' : 'bg-[#161B22]/95 text-[#AEF5F0] border-[#AEF5F0]/40 shadow'} text-[10px] font-semibold rounded border whitespace-nowrap flex items-center gap-1`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>{mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
+            <div
+              className="pointer-events-none select-none"
+              style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}
+            >
+              <div
+                className="flex flex-col items-center pointer-events-none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <div className="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+                </div>
+                <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-slate-800 border-teal-500/60 shadow-md' : 'bg-[#161B22]/95 text-[#AEF5F0] border-[#AEF5F0]/40 shadow'} text-[10px] font-semibold rounded border whitespace-nowrap flex items-center gap-1`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>{mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
+                </div>
               </div>
             </div>
           </AdvancedMarker>
@@ -391,14 +415,27 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
             position={{ lat: journey.destination.lat, lng: journey.destination.lng }}
             title={journey.destination.name}
           >
-            <div className="flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-red-600 border-2 border-white flex items-center justify-center shadow-xl text-white">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                </svg>
-              </div>
-              <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-red-700 border-red-500/50 shadow-md' : 'bg-[#161B22]/95 text-red-300 border-red-500/40 shadow-lg'} text-[11px] font-bold rounded border whitespace-nowrap`}>
-                {journey.destination.name}
+            <div
+              className="pointer-events-none select-none"
+              style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}
+            >
+              <div
+                className="flex flex-col items-center pointer-events-none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  transform: 'translate(-50%, -100%)',
+                }}
+              >
+                <div className="w-8 h-8 rounded-full bg-red-600 border-2 border-white flex items-center justify-center shadow-xl text-white">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                  </svg>
+                </div>
+                <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-red-700 border-red-500/50 shadow-md' : 'bg-[#161B22]/95 text-red-300 border-red-500/40 shadow-lg'} text-[11px] font-bold rounded border whitespace-nowrap`}>
+                  {journey.destination.name}
+                </div>
               </div>
             </div>
           </AdvancedMarker>
@@ -478,61 +515,72 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     },
                   ]}
                 />
-                {/* Clickable Route Commitment Badge */}
+                {/* Clickable Route Commitment Badge - Zero-size anchor centered over route midpoint */}
                 <AdvancedMarker
                   position={{ lat: midPt[0], lng: midPt[1] }}
                   onClick={() => onCommitRoute && onCommitRoute(route.id)}
                   title={`Click to select ${route.name}`}
                 >
-                  {(() => {
-                    const fullTranslatedName = translateText(route.name, activeLang);
-                    const compactName = fullTranslatedName.includes(' — ')
-                      ? fullTranslatedName.split(' — ')[0].trim()
-                      : fullTranslatedName;
+                  <div style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    >
+                      {(() => {
+                        const fullTranslatedName = translateText(route.name, activeLang);
+                        const compactName = fullTranslatedName.includes(' — ')
+                          ? fullTranslatedName.split(' — ')[0].trim()
+                          : fullTranslatedName;
 
-                    const badgeBg = isLight ? '#ffffff' : '#161B22';
-                    const titleColor = isLight ? '#0f172a' : '#ffffff';
-                    const metricsColor = isLight ? '#1e293b' : '#cbd5e1';
-                    const scoreColor = isLight ? '#0284c7' : '#22d3ee';
-                    const boxShadow = isLight
-                      ? '0 3px 12px rgba(0, 0, 0, 0.16)'
-                      : '0 4px 20px rgba(0, 0, 0, 0.7)';
+                        const badgeBg = isLight ? '#ffffff' : '#161B22';
+                        const titleColor = isLight ? '#0f172a' : '#ffffff';
+                        const metricsColor = isLight ? '#1e293b' : '#cbd5e1';
+                        const scoreColor = isLight ? '#0284c7' : '#22d3ee';
+                        const boxShadow = isLight
+                          ? '0 3px 12px rgba(0, 0, 0, 0.16)'
+                          : '0 4px 20px rgba(0, 0, 0, 0.7)';
 
-                    return (
-                      <div
-                        className="alt-route-badge-pill w-max inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border-2 shadow-md cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
-                        style={{
-                          backgroundColor: badgeBg,
-                          borderColor: dotColor,
-                          boxShadow: boxShadow,
-                        }}
-                        title={fullTranslatedName}
-                      >
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }}></span>
-                        <span className="alt-route-title font-bold" style={{ color: titleColor }}>{compactName}</span>
-                        {isBlocked && (
-                          <span className={`text-red-600 font-mono font-bold text-[9px] ${isLight ? 'bg-red-50 border-red-200' : 'bg-red-950/80 border-red-500/40 text-red-400'} px-1 py-0.2 rounded border shrink-0`}>
-                            🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}
-                          </span>
-                        )}
-                        {isOptimal && (
-                          <span className={`text-emerald-600 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0`}>
-                            ⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}
-                          </span>
-                        )}
-                        <span className="alt-route-metrics font-medium shrink-0" style={{ color: metricsColor }}>
-                          • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
-                          {aStarScore ? <span className="alt-route-score font-mono ml-0.5 font-bold" style={{ color: scoreColor }}>[f={aStarScore}]</span> : null}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                        return (
+                          <div
+                            className="alt-route-badge-pill w-max inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border-2 shadow-md cursor-pointer whitespace-nowrap active:scale-95 transition select-none"
+                            style={{
+                              backgroundColor: badgeBg,
+                              borderColor: dotColor,
+                              boxShadow: boxShadow,
+                            }}
+                            title={fullTranslatedName}
+                          >
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }}></span>
+                            <span className="alt-route-title font-bold" style={{ color: titleColor }}>{compactName}</span>
+                            {isBlocked && (
+                              <span className={`text-red-600 font-mono font-bold text-[9px] ${isLight ? 'bg-red-50 border-red-200' : 'bg-red-950/80 border-red-500/40 text-red-400'} px-1 py-0.2 rounded border shrink-0`}>
+                                🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}
+                              </span>
+                            )}
+                            {isOptimal && (
+                              <span className={`text-emerald-600 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0`}>
+                                ⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}
+                              </span>
+                            )}
+                            <span className="alt-route-metrics font-medium shrink-0" style={{ color: metricsColor }}>
+                              • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
+                              {aStarScore ? <span className="alt-route-score font-mono ml-0.5 font-bold" style={{ color: scoreColor }}>[f={aStarScore}]</span> : null}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </AdvancedMarker>
               </React.Fragment>
             );
           })}
 
-        {/* Live Vehicle Marker */}
+        {/* Live Vehicle Marker - Anchored with 100% pixel precision at exact road center (Zero offset) */}
         {(() => {
           const dims = getVehicleDimensions(journey.vehicleType);
           const vehicleSvg = getVehicleTopDownSvg(journey.vehicleType);
@@ -540,18 +588,27 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
           return (
             <AdvancedMarker
               position={{ lat: vehiclePos.lat, lng: vehiclePos.lng }}
+              zIndex={1000}
               title={`Vehicle (${journey.vehicleType})`}
             >
               <div
-                className="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
-                style={{ width: `${containerSize}px`, height: `${containerSize}px` }}
+                className="pointer-events-none select-none"
+                style={{
+                  width: 0,
+                  height: 0,
+                  position: 'relative',
+                  overflow: 'visible',
+                }}
               >
                 <div
-                  className="vehicle-rotator relative flex items-center justify-center transition-transform duration-75 ease-linear pointer-events-none"
+                  className="vehicle-rotator flex items-center justify-center transition-transform duration-75 ease-linear pointer-events-none"
                   style={{
-                    transform: `rotate(${vehiclePos.heading}deg)`,
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
                     width: `${containerSize}px`,
                     height: `${containerSize}px`,
+                    transform: `translate(-50%, -50%) rotate(${vehiclePos.heading}deg)`,
                     transformOrigin: 'center center',
                   }}
                 >
@@ -597,38 +654,46 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                 clickable={true}
                 onClick={() => setSelectedHazard(hazard)}
               />
-              {/* Hazard Center Marker */}
+              {/* Hazard Center Marker - Centered directly on hazard location */}
               <AdvancedMarker
                 position={{ lat: hazard.latitude, lng: hazard.longitude }}
                 onClick={() => setSelectedHazard(hazard)}
                 title={`${hazard.type} - Click for details`}
               >
-                <div
-                  className="relative flex flex-col items-center cursor-pointer select-none"
-                  style={{ pointerEvents: 'auto' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedHazard(hazard);
-                  }}
-                >
+                <div style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}>
                   <div
-                    className={`w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute pointer-events-none`}
-                  ></div>
-                  <div
-                    className={`w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95`}
+                    className="relative flex flex-col items-center cursor-pointer select-none"
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      transform: 'translate(-50%, -50%)',
+                      pointerEvents: 'auto',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedHazard(hazard);
+                    }}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
-                  </div>
-                  <div
-                    className={`px-2.5 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/70 text-red-200' : 'border-amber-500/70 text-amber-200'} text-[11px] font-bold rounded-md shadow-xl whitespace-nowrap z-10`}
-                  >
-                    {translateText(hazard.type, activeLang)}
+                    <div
+                      className={`w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute pointer-events-none`}
+                    ></div>
+                    <div
+                      className={`w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                    </div>
+                    <div
+                      className={`px-2.5 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/70 text-red-200' : 'border-amber-500/70 text-amber-200'} text-[11px] font-bold rounded-md shadow-xl whitespace-nowrap z-10`}
+                    >
+                      {translateText(hazard.type, activeLang)}
+                    </div>
                   </div>
                 </div>
               </AdvancedMarker>
@@ -718,17 +783,27 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               onClick={() => setSelectedSensor(node)}
               title={`${node.id} (${node.name})`}
             >
-              <div className="relative flex flex-col items-center cursor-pointer">
-                {isOnline && <div className="w-6 h-6 rounded-full bg-emerald-500/30 animate-ping absolute"></div>}
+              <div style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}>
                 <div
-                  className={`w-6 h-6 rounded-full ${isOnline ? 'bg-emerald-600' : 'bg-slate-700'} border border-slate-300 flex items-center justify-center shadow text-white`}
+                  className="relative flex flex-col items-center cursor-pointer select-none"
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    transform: 'translate(-50%, -50%)',
+                  }}
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" />
-                  </svg>
-                </div>
-                <div className="px-1 py-0.5 mt-0.5 bg-[#161B22]/95 text-[9px] font-mono text-emerald-300 rounded border border-emerald-500/30 whitespace-nowrap">
-                  {node.id}
+                  {isOnline && <div className="w-6 h-6 rounded-full bg-emerald-500/30 animate-ping absolute"></div>}
+                  <div
+                    className={`w-6 h-6 rounded-full ${isOnline ? 'bg-emerald-600' : 'bg-slate-700'} border border-slate-300 flex items-center justify-center shadow text-white`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" />
+                    </svg>
+                  </div>
+                  <div className="px-1 py-0.5 mt-0.5 bg-[#161B22]/95 text-[9px] font-mono text-emerald-300 rounded border border-emerald-500/30 whitespace-nowrap">
+                    {node.id}
+                  </div>
                 </div>
               </div>
             </AdvancedMarker>
