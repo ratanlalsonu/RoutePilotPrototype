@@ -92,6 +92,10 @@ export interface Translations {
   hazardAwayBtn: string;
   secondHazardAheadBtn: string;
   resetDemoBtn: string;
+  resetAdminActivityBtn: string;
+  resetAdminActivityTooltip: string;
+  resetDriverActivityBtn: string;
+  resetDriverActivityTooltip: string;
 
   // Driver Cockpit Steps & Inputs
   interactiveLiveMap: string;
@@ -423,6 +427,10 @@ export const translations: Record<SupportedLanguage, Translations> = {
     hazardAwayBtn: 'Hazard Away (No Alert)',
     secondHazardAheadBtn: '⚠ 2nd Hazard Ahead',
     resetDemoBtn: 'Reset',
+    resetAdminActivityBtn: 'Reset Admin',
+    resetAdminActivityTooltip: 'Reset Admin Activity Only (Hazards & Sensors)',
+    resetDriverActivityBtn: 'Reset Trip',
+    resetDriverActivityTooltip: 'Reset Driver Trip Only (Destination & Navigation)',
 
     interactiveLiveMap: 'Interactive Live Map',
     viewRoadsGps: 'View roads & GPS',
@@ -740,6 +748,10 @@ export const translations: Record<SupportedLanguage, Translations> = {
     hazardAwayBtn: 'मार्ग से दूर खतरा (कोई अलर्ट नहीं)',
     secondHazardAheadBtn: '⚠ आगे दूसरा खतरा',
     resetDemoBtn: 'Reset (रीसेट)',
+    resetAdminActivityBtn: 'एडमिन रीसेट',
+    resetAdminActivityTooltip: 'केवल एडमिन गतिविधि रीसेट करें (खतरे और सेंसर)',
+    resetDriverActivityBtn: 'ट्रिप रीसेट',
+    resetDriverActivityTooltip: 'केवल ड्राइवर यात्रा रीसेट करें (गंतव्य और नेविगेशन)',
 
     interactiveLiveMap: 'इंटरैक्टिव लाइव मैप',
     viewRoadsGps: 'सड़कें और जीपीएस देखें',

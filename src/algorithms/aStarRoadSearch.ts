@@ -2,6 +2,14 @@ import { RoadGraph, RoadNode, RoadEdge, AStarSearchParams, AStarSearchResult } f
 import { MinPriorityQueue } from './priorityQueue';
 import { getDistanceMeters } from './hazardRouteIntersection';
 import { getVehicleSpeedProfile } from '../services/routingService';
+import {
+  ROUTE_WEIGHTS,
+  RouteWeights,
+  TRAFFIC_LEVEL_COST,
+  HAZARD_SEVERITY_COST,
+  DEFAULT_NORMALIZATION_BOUNDS,
+  normalizeVehicleType,
+} from './aStarConfig';
 
 interface OpenSetNode {
   nodeId: string;
@@ -11,103 +19,183 @@ interface OpenSetNode {
 }
 
 /**
+ * 6. HEURISTIC h(n)
  * Calculates admissible heuristic h(n) from a road node to the goal node.
- * Heuristic is based on the theoretical minimum travel time + geodesic distance.
- * Guaranteed admissible: never overestimates actual road travel cost.
+ * Uses straight-line distance via Haversine formula.
+ * Strictly admissible: never overestimates actual road travel cost.
+ * Does NOT include future traffic or future hazards inside h(n).
  */
 export function calculateAdmissibleHeuristic(
   node: RoadNode,
   goalNode: RoadNode,
-  highwaySpeedKmh: number = 85
+  weights: RouteWeights = ROUTE_WEIGHTS,
+  maxRelevantDistanceKm: number = DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm
 ): number {
   const distMeters = getDistanceMeters(node.lat, node.lng, goalNode.lat, goalNode.lng);
   const distKm = distMeters / 1000;
-  // Theoretical minimum minutes at max highway speed
-  const minMinutes = (distKm / highwaySpeedKmh) * 60;
-  // Weighted heuristic matching the g-cost weighting
-  const timeWeight = 1.0;
-  const distWeight = 0.45;
-  const cost = minMinutes * timeWeight + distKm * distWeight;
-  return Math.round(cost * 10) / 10;
+  // Normalized straight line distance
+  const normDist = Math.min(1.0, distKm / Math.max(0.1, maxRelevantDistanceKm));
+  // Scaled by Wd so heuristic is strictly compatible with g(n) distance component
+  const h = weights.distance * normDist;
+  return Math.round(h * 1000) / 1000;
 }
 
 /**
- * Calculates traversal cost for traversing a specific road edge:
- * edgeCost = travelTimeCost + distanceCost + hazardPenalty + blockedRoadPenalty
+ * 3. VEHICLE RESTRICTION & 4. EDGE COST
+ *
+ * calculateEdgeCost(edge, vehicleType, weights)
+ *
+ * edgeCost =
+ *   Wd * distanceNormalized
+ *   + Wt * timeNormalized
+ *   + Wc * trafficNormalized
+ *   + Wh * hazardNormalized
+ *   + Wr * restrictionCost
+ *
+ * If edge is BLOCKED or vehicle is not allowed: returns Infinity.
  */
 export function calculateEdgeCost(
   edge: RoadEdge,
   vehicleType: AStarSearchParams['vehicleType'],
-  edgePenalty: number = 0
+  edgePenalty: number = 0,
+  weights: RouteWeights = ROUTE_WEIGHTS,
+  maxDistanceKm: number = DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm,
+  maxTravelTimeMin: number = DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin
 ): {
   totalCost: number;
-  travelTimeCost: number;
   distanceCost: number;
+  timeCost: number;
+  trafficCost: number;
+  hazardCost: number;
+  restrictionCost: number;
   hazardPenalty: number;
   blockedPenalty: number;
+  isBlocked: boolean;
+  vehicleAllowed: boolean;
 } {
-  const profile = getVehicleSpeedProfile(vehicleType);
-  const distKm = edge.distanceMeters / 1000;
-  const baseMinutes = edge.baseDurationSeconds > 0
-    ? edge.baseDurationSeconds / 60
-    : (distKm / Math.max(20, profile.averageSpeedKmh)) * 60;
+  const normVehicle = normalizeVehicleType(vehicleType);
 
-  // Travel time cost scaled by vehicle type multiplier
-  const adjustedMinutes = baseMinutes * profile.timeMultiplierVsCar;
-  const travelTimeCost = adjustedMinutes * 1.0;
+  // 1. Check blocked status
+  if (edge.isBlocked || edge.roadStatus === 'BLOCKED') {
+    return {
+      totalCost: Infinity,
+      distanceCost: 0,
+      timeCost: 0,
+      trafficCost: 0,
+      hazardCost: 0,
+      restrictionCost: Infinity,
+      hazardPenalty: 999999,
+      blockedPenalty: Infinity,
+      isBlocked: true,
+      vehicleAllowed: true,
+    };
+  }
 
-  // Road distance cost
-  const distanceCost = distKm * 0.45;
+  // 2. Check vehicle restriction
+  let vehicleAllowed = edge.vehicleAllowed !== false;
+  if (edge.allowedVehicles && edge.allowedVehicles.length > 0) {
+    vehicleAllowed = edge.allowedVehicles.includes(vehicleType);
+  }
 
-  // Hazard penalty
-  const hazardPenalty = edge.hazardPenalty || 0;
-
-  // Blocked road penalty: massive cost to divert traffic
-  const blockedPenalty = edge.isBlocked ? 999999 : 0;
-
-  // Vehicle-specific street adjustments
-  let vehicleModifier = 0;
-  const roadLower = edge.roadName.toLowerCase();
-  if (vehicleType === 'truck' || vehicleType === 'bus') {
-    if (roadLower.includes('residential') || roadLower.includes('service') || roadLower.includes('narrow')) {
-      vehicleModifier += 12; // Heavy penalty for heavy vehicles on narrow roads
-    }
-    if (roadLower.includes('bypass') || roadLower.includes('expressway') || roadLower.includes('nh')) {
-      vehicleModifier -= 4; // Trucks favor wide open bypasses
-    }
-  } else if (vehicleType === 'bike') {
-    if (roadLower.includes('residential') || roadLower.includes('link')) {
-      vehicleModifier -= 2; // Bikes navigate city streets effortlessly
+  const roadLower = (edge.roadName || '').toLowerCase();
+  if (normVehicle === 'VAN') {
+    if (roadLower.includes('narrow bridge') || roadLower.includes('pedestrian bridge') || roadLower.includes('light bridge')) {
+      vehicleAllowed = false;
     }
   }
 
+  if (!vehicleAllowed) {
+    return {
+      totalCost: Infinity,
+      distanceCost: 0,
+      timeCost: 0,
+      trafficCost: 0,
+      hazardCost: 0,
+      restrictionCost: Infinity,
+      hazardPenalty: 0,
+      blockedPenalty: Infinity,
+      isBlocked: false,
+      vehicleAllowed: false,
+    };
+  }
+
+  // 3. Normalized parameters
+  const distKm = edge.distanceMeters / 1000;
+  const profile = getVehicleSpeedProfile(vehicleType);
+  const baseMinutes =
+    edge.baseDurationSeconds > 0
+      ? edge.baseDurationSeconds / 60
+      : (distKm / Math.max(20, profile.averageSpeedKmh)) * 60;
+  const estimatedTimeMin = baseMinutes * profile.timeMultiplierVsCar;
+
+  // Normalized values (0.0 to 1.0)
+  const distanceNormalized = Math.min(1.0, Math.max(0, distKm / Math.max(0.1, maxDistanceKm)));
+  const timeNormalized = Math.min(1.0, Math.max(0, estimatedTimeMin / Math.max(0.1, maxTravelTimeMin)));
+
+  // Traffic normalized
+  let trafficNormalized = 0.0;
+  if (edge.trafficCost !== undefined) {
+    trafficNormalized = edge.trafficCost;
+  } else if (edge.trafficLevel) {
+    trafficNormalized = TRAFFIC_LEVEL_COST[edge.trafficLevel] ?? 0.0;
+  } else {
+    // Default low unless corridor is crowded
+    trafficNormalized = roadLower.includes('arterial') || roadLower.includes('central') ? 0.5 : 0.0;
+  }
+
+  // Hazard normalized
+  let hazardNormalized = 0.0;
+  if (edge.hazardCost !== undefined) {
+    hazardNormalized = edge.hazardCost;
+  } else if (edge.hazardSeverity) {
+    hazardNormalized = HAZARD_SEVERITY_COST[edge.hazardSeverity] ?? 0.0;
+  } else if (edge.hazardPenalty && edge.hazardPenalty > 0) {
+    hazardNormalized = edge.hazardPenalty >= 9999 ? 1.0 : edge.hazardPenalty >= 400 ? 0.3 : 0.1;
+  }
+
+  // Restriction cost: 0 since allowed
+  const restrictionCost = edge.restrictionCost || 0;
+
+  // Calculated components
+  const distanceCost = weights.distance * distanceNormalized;
+  const timeCost = weights.time * timeNormalized;
+  const trafficCost = weights.traffic * trafficNormalized;
+  const hazardCost = weights.hazard * hazardNormalized;
+  const restCost = weights.restriction * restrictionCost;
+
   const totalCost = Math.max(
-    0.1,
-    travelTimeCost + distanceCost + hazardPenalty + blockedPenalty + edgePenalty + vehicleModifier
+    0.01,
+    distanceCost + timeCost + trafficCost + hazardCost + restCost + edgePenalty
   );
 
   return {
-    totalCost: Math.round(totalCost * 10) / 10,
-    travelTimeCost: Math.round(travelTimeCost * 10) / 10,
-    distanceCost: Math.round(distanceCost * 10) / 10,
-    hazardPenalty,
-    blockedPenalty,
+    totalCost: Math.round(totalCost * 1000) / 1000,
+    distanceCost: Math.round(distanceCost * 1000) / 1000,
+    timeCost: Math.round(timeCost * 1000) / 1000,
+    trafficCost: Math.round(trafficCost * 1000) / 1000,
+    hazardCost: Math.round(hazardCost * 1000) / 1000,
+    restrictionCost: Math.round(restCost * 1000) / 1000,
+    hazardPenalty: edge.hazardPenalty || 0,
+    blockedPenalty: 0,
+    isBlocked: false,
+    vehicleAllowed: true,
   };
 }
 
 /**
- * Genuine A* Graph Search Engine
+ * 7. GENUINE A* GRAPH SEARCH ENGINE
  *
  * Implements:
- * 1. OPEN set managed via MinPriorityQueue (min-heap)
+ * 1. OPEN set managed via MinPriorityQueue (min-heap) ordered by f(n)
  * 2. CLOSED set managed via Set<string>
  * 3. f(n) = g(n) + h(n)
- * 4. Multi-branch junction evaluation (evaluating all outgoing road edges at every intersection)
- * 5. Backtracking to recover exact real road edges and real road geometry
+ * 4. Multi-branch junction evaluation at every intersection
+ * 5. Backtracking to reconstruct exact road edges and real road geometry
  */
 export function runAStarRoadSearch(
   graph: RoadGraph,
-  params: AStarSearchParams
+  params: AStarSearchParams,
+  weights: RouteWeights = ROUTE_WEIGHTS
 ): AStarSearchResult {
   const { startNodeId, goalNodeId, vehicleType, edgePenalties, disallowedEdgeIds } = params;
 
@@ -142,18 +230,29 @@ export function runAStarRoadSearch(
     };
   }
 
-  const profile = getVehicleSpeedProfile(vehicleType);
-  const initialHCost = calculateAdmissibleHeuristic(startNode, goalNode, profile.highwaySpeedKmh);
+  // Determine dynamic normalization bounds across graph edges
+  let maxEdgeDistKm = 0;
+  let maxEdgeTimeMin = 0;
+  for (const edge of graph.edges.values()) {
+    const dKm = edge.distanceMeters / 1000;
+    const tMin = edge.baseDurationSeconds / 60;
+    if (dKm > maxEdgeDistKm) maxEdgeDistKm = dKm;
+    if (tMin > maxEdgeTimeMin) maxEdgeTimeMin = tMin;
+  }
+  const maxDistanceKm = Math.max(DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm, maxEdgeDistKm * 2.5);
+  const maxTravelTimeMin = Math.max(DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin, maxEdgeTimeMin * 2.5);
+
+  const initialHCost = calculateAdmissibleHeuristic(startNode, goalNode, weights, maxDistanceKm);
 
   stepLogs.push({
     step: 1,
     title: 'Initialize A* Road Graph Search',
-    formula: `h(Start) = ${initialHCost}, g(Start) = 0 → f(Start) = ${initialHCost}`,
-    details: `Searching road network for ${profile.label}. Origin: ${startNode.name || startNodeId}, Goal: ${goalNode.name || goalNodeId}. Admissible heuristic guarantees optimal path.`,
+    formula: `f(Start) = g(0.00) + h(${initialHCost.toFixed(2)}) = ${initialHCost.toFixed(2)}`,
+    details: `Searching road network for ${vehicleType.toUpperCase()} using formula: g(n) = Wd·Dist + Wt·Time + Wc·Traffic + Wh·Hazard + Wr·Restriction.`,
     status: 'info',
   });
 
-  // Track gScores: best known cost from startNode to current node
+  // Track gScores: best known cumulative cost from startNode to current node
   const gScores = new Map<string, number>();
   gScores.set(startNodeId, 0);
 
@@ -161,8 +260,8 @@ export function runAStarRoadSearch(
   const fScores = new Map<string, number>();
   fScores.set(startNodeId, initialHCost);
 
-  // Track cameFrom: maps nodeId -> { prevNodeId, edge }
-  const cameFrom = new Map<string, { prevNodeId: string; edge: RoadEdge }>();
+  // Track cameFrom: maps nodeId -> { prevNodeId, edge, costDetails }
+  const cameFrom = new Map<string, { prevNodeId: string; edge: RoadEdge; costDetails: any }>();
 
   // OPEN set: MinPriorityQueue ordered by f(n)
   const openQueue = new MinPriorityQueue<OpenSetNode>();
@@ -203,8 +302,8 @@ export function runAStarRoadSearch(
       stepLogs.push({
         step: stepLogs.length + 1,
         title: 'Goal Destination Reached',
-        formula: `f(Goal) = g(${current.gCost.toFixed(1)}) + h(0) = ${current.gCost.toFixed(1)}`,
-        details: `Optimal destination node reached via real road network after evaluating ${evaluatedNodesCount} graph intersections.`,
+        formula: `f(Goal) = g(${current.gCost.toFixed(3)}) + h(0) = ${current.gCost.toFixed(3)}`,
+        details: `Optimal destination reached via road network after evaluating ${evaluatedNodesCount} intersections.`,
         status: 'success',
       });
       break;
@@ -213,20 +312,10 @@ export function runAStarRoadSearch(
     // Identify available outgoing road edges at this junction/branch
     const outgoingEdges = graph.adjacency.get(currentId) || [];
 
-    if (outgoingEdges.length > 1 && evaluatedNodesCount <= 12) {
-      stepLogs.push({
-        step: stepLogs.length + 1,
-        title: `Junction Exploration at ${currentNode.name || currentId}`,
-        formula: `Branches available: ${outgoingEdges.length}`,
-        details: `Evaluating ${outgoingEdges.length} outgoing road branches: ${outgoingEdges.map((e) => e.roadName || 'Road').join(', ')}. Computing future f(n) = g(n) + h(n).`,
-        status: 'info',
-      });
-    }
-
     for (const edge of outgoingEdges) {
       const neighborId = edge.toNodeId;
 
-      // Disallow explicitly disabled/severely blocked edges
+      // Disallow explicitly disabled edges
       if (disallowedEdgeIds && disallowedEdgeIds.has(edge.id)) {
         continue;
       }
@@ -239,30 +328,39 @@ export function runAStarRoadSearch(
 
       // Calculate cost to traverse this edge
       const extraPenalty = (edgePenalties && edgePenalties.get(edge.id)) || 0;
-      const { totalCost: edgeCost, hazardPenalty } = calculateEdgeCost(edge, vehicleType, extraPenalty);
+      const costDetails = calculateEdgeCost(
+        edge,
+        vehicleType,
+        extraPenalty,
+        weights,
+        maxDistanceKm,
+        maxTravelTimeMin
+      );
 
-      // Log hazard blockage on edge to step logs for transparent explanation
-      if (edge.isBlocked) {
-        if (stepLogs.length < 25) {
+      // If blocked or vehicle not allowed, skip completely
+      if (costDetails.totalCost === Infinity || !isFinite(costDetails.totalCost)) {
+        if (edge.isBlocked && stepLogs.length < 25) {
           stepLogs.push({
             step: stepLogs.length + 1,
             title: `Road Segment Blocked: ${edge.roadName}`,
-            formula: `+999999 blocked penalty on Edge ${edge.id}`,
-            details: `Active hazard directly obstructs ${edge.roadName}. Branch heavily penalized to divert traffic to safe road corridors.`,
+            formula: `Edge cost = Infinity on ${edge.id}`,
+            details: `Active hazard directly obstructs ${edge.roadName}. Segment omitted from A* exploration.`,
             status: 'danger',
           });
         }
+        continue;
       }
 
+      const edgeCost = costDetails.totalCost;
       const tentativeGCost = (gScores.get(currentId) ?? Infinity) + edgeCost;
       const currentNeighborGCost = gScores.get(neighborId) ?? Infinity;
 
       if (tentativeGCost < currentNeighborGCost) {
-        // Found a strictly superior path to neighborNode!
-        cameFrom.set(neighborId, { prevNodeId: currentId, edge });
+        // Found a superior path to neighborNode!
+        cameFrom.set(neighborId, { prevNodeId: currentId, edge, costDetails });
         gScores.set(neighborId, tentativeGCost);
 
-        const hCost = calculateAdmissibleHeuristic(neighborNode, goalNode, profile.highwaySpeedKmh);
+        const hCost = calculateAdmissibleHeuristic(neighborNode, goalNode, weights, maxDistanceKm);
         const fCost = tentativeGCost + hCost;
         fScores.set(neighborId, fCost);
 
@@ -276,13 +374,20 @@ export function runAStarRoadSearch(
           fCost
         );
 
-        if (hazardPenalty > 0 && stepLogs.length < 25) {
+        if (costDetails.hazardCost > 0 && stepLogs.length < 25) {
           stepLogs.push({
             step: stepLogs.length + 1,
             title: `Hazard Caution on ${edge.roadName}`,
-            formula: `+${hazardPenalty} penalty applied`,
-            details: `Active hazard near road segment. Branch penalized to encourage safer detour.`,
+            formula: `Hazard component Wh·H = ${costDetails.hazardCost.toFixed(3)}`,
+            details: `Active caution near road segment. Evaluated with elevated cost to encourage safer detour.`,
             status: 'warning',
+            costBreakdown: {
+              distanceCost: costDetails.distanceCost,
+              timeCost: costDetails.timeCost,
+              trafficCost: costDetails.trafficCost,
+              hazardCost: costDetails.hazardCost,
+              restrictionCost: costDetails.restrictionCost,
+            },
           });
         }
       }
@@ -303,7 +408,7 @@ export function runAStarRoadSearch(
       totalFCost: 0,
       evaluatedNodesCount,
       stepLogs,
-      errorMessage: 'Unable to calculate a road route. Please check your connection or try another destination.',
+      errorMessage: 'Unable to calculate a feasible road route. All available road corridors may be blocked or restricted.',
     };
   }
 
@@ -315,10 +420,25 @@ export function runAStarRoadSearch(
   const goalNodeObj = graph.nodes.get(goalNodeId);
   if (goalNodeObj) pathNodesReversed.push(goalNodeObj);
 
+  const accumulatedBreakdown = {
+    distanceCost: 0,
+    timeCost: 0,
+    trafficCost: 0,
+    hazardCost: 0,
+    restrictionCost: 0,
+  };
+
   while (currId !== startNodeId) {
     const entry = cameFrom.get(currId);
     if (!entry) break;
     pathEdgesReversed.push(entry.edge);
+    if (entry.costDetails) {
+      accumulatedBreakdown.distanceCost += entry.costDetails.distanceCost;
+      accumulatedBreakdown.timeCost += entry.costDetails.timeCost;
+      accumulatedBreakdown.trafficCost += entry.costDetails.trafficCost;
+      accumulatedBreakdown.hazardCost += entry.costDetails.hazardCost;
+      accumulatedBreakdown.restrictionCost += entry.costDetails.restrictionCost;
+    }
     currId = entry.prevNodeId;
     const prevNodeObj = graph.nodes.get(currId);
     if (prevNodeObj) pathNodesReversed.push(prevNodeObj);
@@ -332,6 +452,7 @@ export function runAStarRoadSearch(
   let totalDistanceMeters = 0;
   let totalDurationSeconds = 0;
   let totalHazardPenalty = 0;
+  const trafficCounts = { LOW: 0, MEDIUM: 0, HIGH: 0 };
 
   for (let i = 0; i < pathEdges.length; i++) {
     const edge = pathEdges[i];
@@ -339,12 +460,14 @@ export function runAStarRoadSearch(
     totalDurationSeconds += edge.baseDurationSeconds;
     totalHazardPenalty += edge.hazardPenalty || 0;
 
+    const tLvl = edge.trafficLevel || 'LOW';
+    trafficCounts[tLvl] = (trafficCounts[tLvl] || 0) + 1;
+
     const edgeGeom = edge.geometry || [];
     if (edgeGeom.length > 0) {
       if (fullGeometry.length === 0) {
         fullGeometry.push(...edgeGeom);
       } else {
-        // Avoid duplicate point at junction boundary
         const last = fullGeometry[fullGeometry.length - 1];
         const first = edgeGeom[0];
         if (Math.abs(last[0] - first[0]) < 1e-6 && Math.abs(last[1] - first[1]) < 1e-6) {
@@ -356,8 +479,29 @@ export function runAStarRoadSearch(
     }
   }
 
+  let trafficSummary: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
+  if (trafficCounts.HIGH > 0) trafficSummary = 'HIGH';
+  else if (trafficCounts.MEDIUM > 0) trafficSummary = 'MEDIUM';
+
+  // Identify hazards and blocked roads avoided by this path
+  const chosenEdgeIds = new Set(pathEdges.map((e) => e.id));
+  const hazardsAvoided: string[] = [];
+  const blockedRoadsAvoided: string[] = [];
+
+  for (const edge of graph.edges.values()) {
+    if (!chosenEdgeIds.has(edge.id)) {
+      if (edge.isBlocked || edge.roadStatus === 'BLOCKED') {
+        const lbl = `${edge.roadName || edge.id} (Blocked)`;
+        if (!blockedRoadsAvoided.includes(lbl)) blockedRoadsAvoided.push(lbl);
+      } else if (edge.hazardSeverity === 'CRITICAL' || edge.hazardSeverity === 'WARNING' || (edge.hazardPenalty || 0) > 0) {
+        const lbl = `${edge.roadName || edge.id} (${edge.hazardSeverity || 'Caution'})`;
+        if (!hazardsAvoided.includes(lbl)) hazardsAvoided.push(lbl);
+      }
+    }
+  }
+
   const finalGCost = gScores.get(goalNodeId) || 0;
-  const finalFCost = Math.round(finalGCost * 10) / 10;
+  const finalFCost = Math.round(finalGCost * 1000) / 1000;
 
   return {
     success: true,
@@ -366,11 +510,21 @@ export function runAStarRoadSearch(
     fullGeometry,
     totalDistanceMeters,
     totalDurationSeconds,
-    accumulatedGCost: Math.round(finalGCost * 10) / 10,
+    accumulatedGCost: Math.round(finalGCost * 1000) / 1000,
     heuristicHCost: initialHCost,
     hazardPenaltyCost: totalHazardPenalty,
     totalFCost: finalFCost,
     evaluatedNodesCount,
+    costBreakdown: {
+      distanceCost: Math.round(accumulatedBreakdown.distanceCost * 1000) / 1000,
+      timeCost: Math.round(accumulatedBreakdown.timeCost * 1000) / 1000,
+      trafficCost: Math.round(accumulatedBreakdown.trafficCost * 1000) / 1000,
+      hazardCost: Math.round(accumulatedBreakdown.hazardCost * 1000) / 1000,
+      restrictionCost: Math.round(accumulatedBreakdown.restrictionCost * 1000) / 1000,
+    },
+    hazardsAvoided,
+    blockedRoadsAvoided,
+    trafficSummary,
     stepLogs,
   };
 }

@@ -300,6 +300,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
     realtimeSync.stopNavigation();
   };
 
+  const handleResetDriver = () => {
+    realtimeSync.resetDriverActivity();
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setIsSearching(false);
+    setIsCalculatingRoutes(false);
+    setShowInlineAStarBreakdown(false);
+  };
+
   const handleAdvanceStep = () => {
     realtimeSync.advanceVehicle(1);
   };
@@ -497,6 +507,20 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
               }}
             />
           </div>
+
+          {/* Quick Reset Driver Trip */}
+          <button
+            type="button"
+            onClick={handleResetDriver}
+            title={language === 'hi' ? 'केवल ड्राइवर यात्रा रीसेट करें (गंतव्य और नेविगेशन)' : 'Reset Driver Trip Only (Destination & Navigation)'}
+            className="flex items-center gap-1 p-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-[#30363D] bg-[#21262D] hover:bg-rose-500/20 hover:border-rose-500/40 text-slate-300 hover:text-rose-300 text-xs font-semibold transition cursor-pointer shrink-0"
+          >
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="hidden sm:inline text-[11px]">{language === 'hi' ? 'रीसेट ट्रिप' : 'Reset Trip'}</span>
+            <span className="sm:hidden font-bold text-[10px]">{language === 'hi' ? 'रीसेट' : 'Reset'}</span>
+          </button>
 
           {/* Settings Icon */}
           <button
@@ -787,15 +811,25 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                       </div>
                     </div>
                     {journey.destination?.name && !journey.isNavigating && (
-                      <button
-                        onClick={() => {
-                          setSearchQuery('');
-                          realtimeSync.setDestination({ name: '', lat: 0, lng: 0 });
-                        }}
-                        className="text-[10px] text-slate-400 hover:text-red-400 underline cursor-pointer shrink-0 py-1"
-                      >
-                        {t.changeDestinationBtn}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={handleResetDriver}
+                          className="text-[10px] text-rose-400 hover:text-rose-300 underline cursor-pointer py-1"
+                          title={language === 'hi' ? 'केवल ड्राइवर यात्रा रीसेट करें' : 'Reset Driver Trip'}
+                        >
+                          {language === 'hi' ? 'ट्रिप रीसेट' : 'Reset Trip'}
+                        </button>
+                        <span className="text-slate-600">|</span>
+                        <button
+                          onClick={() => {
+                            setSearchQuery('');
+                            realtimeSync.setDestination({ name: '', lat: 0, lng: 0 });
+                          }}
+                          className="text-[10px] text-slate-400 hover:text-red-400 underline cursor-pointer shrink-0 py-1"
+                        >
+                          {t.changeDestinationBtn}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2472,10 +2506,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   Configure API Keys
                 </button>
                 <button
-                  onClick={() => realtimeSync.resetDemo()}
+                  onClick={handleResetDriver}
                   className="py-2.5 px-4 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-300 hover:text-white text-xs font-bold cursor-pointer transition"
+                  title={language === 'hi' ? 'केवल ड्राइवर यात्रा रीसेट करें' : 'Reset Driver Trip Only'}
                 >
-                  Reset Trip Data
+                  {language === 'hi' ? 'ड्राइवर ट्रिप रीसेट करें' : 'Reset Driver Trip'}
                 </button>
               </div>
             </div>
@@ -2554,14 +2589,14 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
             </div>
 
             <button
-              onClick={() => realtimeSync.resetDemo()}
+              onClick={handleResetDriver}
               className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg transition cursor-pointer ${
                 isWhiteMode
                   ? 'bg-[#A7F3ED] hover:bg-[#8cefe6] text-[#042f2e] border border-[#5eead4] shadow-teal-500/20'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
               }`}
             >
-              Start New Journey / Reset Demo
+              {language === 'hi' ? 'नई यात्रा शुरू करें / ट्रिप रीसेट' : 'Start New Journey / Reset Trip'}
             </button>
           </div>
         </div>

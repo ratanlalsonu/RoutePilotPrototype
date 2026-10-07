@@ -1571,6 +1571,104 @@ class RealtimeSyncManager {
   }
 
   /**
+   * Reset ONLY Admin activities:
+   * - Resets hazards created by Admin / sensors / tests (preserves driver-reported hazards)
+   * - Clears sensor nodes and road statuses
+   * - Clears A* evaluation state
+   * - Clears active hazard alert on driver ONLY if it was caused by an admin hazard
+   * - PRESERVES driver's active journey, destination, vehicle position, and navigation state completely!
+   */
+  public resetAdminActivity() {
+    // 1. Keep driver-reported hazards (source: 'DRIVER'), remove admin & hardware/simulation hazards
+    const driverReportedHazards = this.state.hazards.filter((h) => h.source === 'DRIVER');
+    this.state.hazards = driverReportedHazards;
+
+    // 2. Clear sensor nodes
+    this.state.sensorNodes = [];
+
+    // 3. Reset road statuses
+    this.state.roadStatuses = [];
+    if (driverReportedHazards.length > 0) {
+      driverReportedHazards.forEach((dh) => this.updateRoadStatusForHazard(dh));
+    }
+
+    // 4. Clear admin A* algorithm evaluation
+    this.state.aStarEvaluation = null;
+
+    // 5. If active driver was alerted or blocked by an admin hazard, clear the alert and restore route
+    if (this.state.journey.detectedHazard && this.state.journey.detectedHazard.source !== 'DRIVER') {
+      this.state.journey.detectedHazard = null;
+      if (
+        this.state.journey.diversionState === 'HAZARD_DETECTED' ||
+        this.state.journey.diversionState === 'WAITING_FOR_USER_CONFIRMATION' ||
+        this.state.journey.diversionState === 'ALTERNATIVES_DISPLAYED'
+      ) {
+        this.state.journey.diversionState = this.state.journey.activeRoute ? 'ROUTE_ACTIVE' : 'IDLE';
+      }
+      this.state.journey.alternativeRoutes = [];
+    }
+
+    // 6. Log admin reset event
+    this.addRouteEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      event: 'Admin Activity Reset by Administrator',
+      driver: 'ADMIN',
+      status: 'Success',
+      details: 'All admin hazards, sensors and road statuses reset. Driver journey, destination & navigation preserved.',
+    });
+
+    this.notify(true, true);
+  }
+
+  /**
+   * Reset ONLY Driver activities:
+   * - Resets driver's destination, active route, alternatives, and navigation telemetry
+   * - Clears hazards reported by the driver (preserves admin hazards, sensor nodes, and road statuses)
+   * - Preserves live GPS origin coordinates if acquired
+   * - PRESERVES admin's hazards, IoT sensors, and road network status completely!
+   */
+  public resetDriverActivity() {
+    // 1. Clear any hazards reported by the driver, keep all admin/sensor hazards
+    const driverHazardIds = new Set(
+      this.state.hazards.filter((h) => h.source === 'DRIVER').map((h) => h.hazardId)
+    );
+    this.state.hazards = this.state.hazards.filter((h) => h.source !== 'DRIVER');
+
+    // Clear road statuses that were only affected by driver-reported hazards
+    this.state.roadStatuses = this.state.roadStatuses.filter(
+      (r) => !r.affectedByHazardId || !driverHazardIds.has(r.affectedByHazardId)
+    );
+
+    // 2. Preserve live GPS origin position if driver acquired it
+    const currentOrigin = this.state.journey.origin?.lat && this.state.journey.origin?.lng
+      ? { ...this.state.journey.origin }
+      : { ...INITIAL_JOURNEY.origin };
+
+    // 3. Reset journey state to clean baseline
+    this.state.journey = {
+      ...INITIAL_JOURNEY,
+      origin: currentOrigin,
+      currentLocation: {
+        lat: currentOrigin.lat,
+        lng: currentOrigin.lng,
+        heading: 0,
+        pointIndex: 0,
+      },
+    };
+
+    // 4. Log driver reset event
+    this.addRouteEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      event: 'Driver Trip Reset by Driver',
+      driver: 'DRIVER',
+      status: 'Success',
+      details: 'Active journey, destination and navigation state reset. Admin hazards & sensors preserved.',
+    });
+
+    this.notify(true, true);
+  }
+
+  /**
    * Reset demo to zero-dummy clean state
    */
   public resetDemo() {

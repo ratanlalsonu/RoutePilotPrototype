@@ -21,6 +21,13 @@ export interface AStarEvaluationResult {
     formula: string;
     details: string;
     status: 'info' | 'success' | 'warning' | 'danger';
+    costBreakdown?: {
+      distanceCost: number;
+      timeCost: number;
+      trafficCost: number;
+      hazardCost: number;
+      restrictionCost: number;
+    };
   }[];
 }
 
@@ -141,6 +148,14 @@ export function evaluateRoutesWithAStar(
       explanation = `Clear road network. g(n)=${gCost}, h(n)=${hCost} → f(n)=${totalFCost}.`;
     }
 
+    const costBreakdown = route.aStarMetrics?.costBreakdown || {
+      distanceCost: Math.round((1.0 * Math.min(1.0, route.distanceKm / 25)) * 1000) / 1000,
+      timeCost: Math.round((1.5 * Math.min(1.0, route.durationMinutes / 45)) * 1000) / 1000,
+      trafficCost: Math.round((2.0 * (route.name.includes('City') || route.name.includes('Arterial') ? 0.5 : 0.0)) * 1000) / 1000,
+      hazardCost: Math.round((5.0 * (isBlocked ? 1.0 : hazardPenalty > 0 ? 0.3 : 0.0)) * 1000) / 1000,
+      restrictionCost: isBlocked ? Infinity : 0,
+    };
+
     const aStarMetrics: AStarMetrics = {
       gCost,
       hCost,
@@ -151,6 +166,10 @@ export function evaluateRoutesWithAStar(
       status,
       explanation,
       evaluatedNodesCount: route.aStarMetrics?.evaluatedNodesCount || route.coordinates.length,
+      costBreakdown,
+      hazardsAvoided: route.aStarMetrics?.hazardsAvoided || (isBlocked ? ['Obstructed Corridor'] : []),
+      blockedRoadsAvoided: route.aStarMetrics?.blockedRoadsAvoided || (isBlocked ? ['Main Bridge Obstruction'] : []),
+      trafficSummary: route.aStarMetrics?.trafficSummary || (route.name.includes('Arterial') ? 'MEDIUM' : 'LOW'),
     };
 
     evaluatedRoutes.push({

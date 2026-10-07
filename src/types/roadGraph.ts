@@ -33,6 +33,20 @@ export interface RoadEdge {
   // Turn navigation metadata
   turnType?: RouteStep['turnType'];
   instruction?: string;
+  // Section 1: Standard Road Graph Attributes
+  edgeId?: string;
+  fromNode?: string;
+  toNode?: string;
+  distance?: number; // In km
+  estimatedTravelTime?: number; // In minutes
+  trafficLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+  trafficCost?: number; // Normalized 0.0 - 1.0
+  hazardSeverity?: 'SAFE' | 'WARNING' | 'CRITICAL' | 'BLOCKED';
+  hazardCost?: number; // Normalized 0.0 - 1.0
+  vehicleAllowed?: boolean;
+  allowedVehicles?: VehicleType[];
+  restrictionCost?: number;
+  roadStatus?: 'OPEN' | 'BLOCKED';
 }
 
 /**
@@ -77,12 +91,29 @@ export interface AStarSearchResult {
   hazardPenaltyCost: number; // Sum of hazard penalties along path
   totalFCost: number;       // f(Goal) = g(Goal) + HazardPenalty
   evaluatedNodesCount: number;
+  costBreakdown?: {
+    distanceCost: number;
+    timeCost: number;
+    trafficCost: number;
+    hazardCost: number;
+    restrictionCost: number;
+  };
+  hazardsAvoided?: string[];
+  blockedRoadsAvoided?: string[];
+  trafficSummary?: 'LOW' | 'MEDIUM' | 'HIGH' | string;
   stepLogs: Array<{
     step: number;
     title: string;
     formula: string;
     details: string;
     status: 'info' | 'success' | 'warning' | 'danger';
+    costBreakdown?: {
+      distanceCost: number;
+      timeCost: number;
+      trafficCost: number;
+      hazardCost: number;
+      restrictionCost: number;
+    };
   }>;
   errorMessage?: string;
 }

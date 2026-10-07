@@ -168,13 +168,28 @@ function addEdgeToGraph(
   instruction?: string
 ): RoadEdge {
   const edgeId = `${fromNode.id}->${toNode.id}_${graph.edges.size}`;
+  const edgeDistKm = Math.max(0.01, Math.round((distanceMeters / 1000) * 100) / 100);
+  const edgeDurationMin = Math.max(0.05, Math.round((durationSeconds / 60) * 10) / 10);
+
   const edge: RoadEdge = {
     id: edgeId,
+    edgeId,
+    fromNode: fromNode.id,
+    toNode: toNode.id,
     fromNodeId: fromNode.id,
     toNodeId: toNode.id,
     roadName: roadName || 'Connecting Road',
     distanceMeters: Math.max(10, Math.round(distanceMeters)),
     baseDurationSeconds: Math.max(1, Math.round(durationSeconds)),
+    distance: edgeDistKm,
+    estimatedTravelTime: edgeDurationMin,
+    trafficLevel: 'LOW',
+    trafficCost: 0.0,
+    hazardSeverity: 'SAFE',
+    hazardCost: 0.0,
+    vehicleAllowed: true,
+    restrictionCost: 0,
+    roadStatus: 'OPEN',
     speedLimitKmh: distanceMeters > 0 && durationSeconds > 0 ? (distanceMeters / durationSeconds) * 3.6 : 45,
     geometry: geometry.length > 0 ? geometry : [[fromNode.lat, fromNode.lng], [toNode.lat, toNode.lng]],
     hazardPenalty: 0,
@@ -295,6 +310,9 @@ export function applyHazardsToRoadGraph(
   for (const edge of graph.edges.values()) {
     edge.hazardPenalty = 0;
     edge.isBlocked = false;
+    edge.roadStatus = 'OPEN';
+    edge.hazardSeverity = 'SAFE';
+    edge.hazardCost = 0.0;
     edge.affectedHazardId = undefined;
 
     for (const h of activeHazards) {
@@ -322,12 +340,22 @@ export function applyHazardsToRoadGraph(
 
       if (minDistance <= radius) {
         edge.affectedHazardId = h.hazardId;
-        if (h.severity === 'BLOCKED' || h.severity === 'CRITICAL') {
+        edge.hazardSeverity = h.severity;
+        if (h.severity === 'BLOCKED') {
           edge.isBlocked = true;
+          edge.roadStatus = 'BLOCKED';
+          edge.hazardCost = 1.0;
           edge.hazardPenalty = 999999;
           break; // Critical blockage takes precedence
-        } else {
-          // Warning/caution penalty
+        } else if (h.severity === 'CRITICAL') {
+          edge.isBlocked = true;
+          edge.roadStatus = 'BLOCKED';
+          edge.hazardCost = 0.7;
+          edge.hazardPenalty = 999999;
+          break;
+        } else if (h.severity === 'WARNING') {
+          edge.hazardSeverity = 'WARNING';
+          edge.hazardCost = 0.3;
           edge.hazardPenalty = Math.max(edge.hazardPenalty, 450);
         }
       }
@@ -704,6 +732,10 @@ export async function buildRoadGraphAndSearchRoutes(
           ? `Caution: Hazard nearby (+${result.hazardPenaltyCost} penalty).`
           : `Optimal road network path via A*. f(n)=${result.totalFCost}`,
         evaluatedNodesCount: result.evaluatedNodesCount,
+        costBreakdown: result.costBreakdown,
+        hazardsAvoided: result.hazardsAvoided,
+        blockedRoadsAvoided: result.blockedRoadsAvoided,
+        trafficSummary: result.trafficSummary,
       },
     };
 

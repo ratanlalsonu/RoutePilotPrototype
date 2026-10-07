@@ -59,15 +59,32 @@ export interface RouteStep {
 }
 
 export interface AStarMetrics {
-  gCost: number; // Actual path traversal cost g(n) (km & time adjusted)
+  gCost: number; // Actual path traversal cost g(n) (accumulated normalized parameters)
   hCost: number; // Admissible heuristic cost h(n) (straight-line distance to goal)
   hazardPenalty: number; // Penalty based on detected hazards / obstacles along path
-  totalFCost: number; // f(n) = g(n) + h(n) + hazardPenalty
+  totalFCost: number; // f(n) = g(n) + h(n)
   rank: number; // 1 (optimal), 2, 3
   isOptimal: boolean;
   status: 'OPTIMAL' | 'ALTERNATIVE' | 'HAZARD_BLOCKED' | 'CAUTION';
   explanation: string;
   evaluatedNodesCount: number;
+  costBreakdown?: {
+    distanceCost: number;
+    timeCost: number;
+    trafficCost: number;
+    hazardCost: number;
+    restrictionCost: number;
+  };
+  hazardsAvoided?: string[];
+  blockedRoadsAvoided?: string[];
+  trafficSummary?: string;
+  weightsUsed?: {
+    distance: number;
+    time: number;
+    traffic: number;
+    hazard: number;
+    restriction: number;
+  };
 }
 
 export interface RouteOption {
