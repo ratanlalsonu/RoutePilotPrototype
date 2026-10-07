@@ -1162,39 +1162,51 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         </button>
       </div>
 
-      {/* Map Engine Badge (Bottom Right) */}
-      <div className="absolute right-3 sm:right-4 bottom-20 sm:bottom-3 z-[990] flex items-center gap-1.5">
-        <div className="bg-[#161B22]/90 backdrop-blur-md text-[9px] sm:text-[10px] text-slate-300 px-2.5 py-1 rounded-lg border border-[#30363D] flex items-center gap-1.5 shadow-md select-none">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="font-semibold text-white">OpenStreetMap</span>
-          <span className="text-slate-400 hidden sm:inline">• Real Roads & Satellite</span>
+      {/* Map Engine Badge (Bottom Right - Anchored directly at the bottom edge) */}
+      <div className="absolute right-2 sm:right-3.5 bottom-2 sm:bottom-2.5 z-[990] flex items-center gap-1.5 pointer-events-auto select-none">
+        <div className={`backdrop-blur-md text-[9px] sm:text-[10px] px-2 sm:px-2.5 py-1 rounded-lg border flex items-center gap-1.5 shadow-md select-none transition ${
+          isLight
+            ? 'bg-white/95 text-slate-800 border-slate-300 shadow-slate-900/10'
+            : 'bg-[#161B22]/90 text-slate-300 border-[#30363D]'
+        }`}>
+          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>OpenStreetMap</span>
+          <span className={`${isLight ? 'text-slate-500' : 'text-slate-400'} hidden sm:inline`}>• Real Roads & Satellite</span>
         </div>
         {onSwitchEngine && (
           <button
             type="button"
             onClick={onSwitchEngine}
             title="Switch to Google Maps"
-            className="bg-[#161B22]/90 hover:bg-[#21262D] text-[9px] sm:text-[10px] text-[#AEF5F0] hover:text-white px-2.5 py-1 rounded-lg border border-[#AEF5F0]/40 shadow-md transition cursor-pointer flex items-center gap-1 font-medium"
+            className={`backdrop-blur-md text-[9px] sm:text-[10px] px-2 sm:px-2.5 py-1 rounded-lg border shadow-md transition cursor-pointer flex items-center gap-1 font-medium select-none ${
+              isLight
+                ? 'bg-white/95 hover:bg-slate-100 text-teal-700 hover:text-teal-900 border-teal-300'
+                : 'bg-[#161B22]/90 hover:bg-[#21262D] text-[#AEF5F0] hover:text-white border-[#AEF5F0]/40'
+            }`}
           >
             <span>🗺️</span>
-            <span>Google Maps</span>
+            <span className="hidden xs:inline">Google Maps</span>
           </button>
         )}
       </div>
 
-      {/* Collapsible Map Legend (Bottom Left) */}
-      <div className="absolute left-3 sm:left-4 bottom-20 sm:bottom-3 z-[990]">
+      {/* Collapsible Map Legend (Bottom Left - Anchored directly at the bottom edge) */}
+      <div className="absolute left-2 sm:left-3.5 bottom-2 sm:bottom-2.5 z-[990] pointer-events-auto">
         {isLegendOpen ? (
-          <div className="bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl p-3 shadow-2xl text-[11px] text-slate-300 w-64 animate-fade-in space-y-2">
-            <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5">
-              <div className="font-semibold text-white flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#AEF5F0]"></span>
+          <div className={`backdrop-blur-md border rounded-2xl p-3 shadow-2xl text-[11px] w-64 animate-fade-in space-y-2 select-none ${
+            isLight
+              ? 'bg-white/98 text-slate-800 border-slate-300 shadow-xl'
+              : 'bg-[#161B22]/95 text-slate-300 border-[#30363D]'
+          }`}>
+            <div className={`flex items-center justify-between border-b pb-1.5 ${isLight ? 'border-slate-200' : 'border-[#30363D]'}`}>
+              <div className={`font-semibold flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>{t.mapLegendTitle}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsLegendOpen(false)}
-                className="text-slate-400 hover:text-white text-xs px-1 rounded cursor-pointer"
+                className={`${isLight ? 'text-slate-500 hover:text-slate-900' : 'text-slate-400 hover:text-white'} text-xs px-1 rounded cursor-pointer`}
                 title={t.dismiss}
               >
                 ✕
@@ -1202,7 +1214,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] border border-white shrink-0"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#AEF5F0] border border-slate-800 shrink-0"></span>
                 <span className="truncate">{t.legendVehicle}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -1218,11 +1230,11 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
                 <span className="truncate">{t.legendAlternative}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-red-400 font-bold shrink-0">⚠</span>
+                <span className="text-red-500 font-bold shrink-0">⚠</span>
                 <span className="truncate">{t.legendHazard}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/40 border border-emerald-400 shrink-0"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/40 border border-emerald-500 shrink-0"></span>
                 <span className="truncate">{t.legendSensorNode}</span>
               </div>
             </div>
@@ -1232,7 +1244,11 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             type="button"
             onClick={() => setIsLegendOpen(true)}
             title={t.mapLegendTitle}
-            className="h-7 px-2.5 rounded-lg bg-[#161B22]/90 backdrop-blur-md border border-[#30363D] hover:border-[#AEF5F0]/40 text-slate-300 hover:text-white text-[11px] font-medium flex items-center gap-1.5 shadow-lg transition cursor-pointer select-none"
+            className={`h-7 px-2.5 rounded-lg backdrop-blur-md border text-[11px] font-medium flex items-center gap-1.5 shadow-lg transition cursor-pointer select-none ${
+              isLight
+                ? 'bg-white/95 border-slate-300 text-slate-800 hover:bg-slate-100 hover:text-slate-950'
+                : 'bg-[#161B22]/90 border-[#30363D] hover:border-[#AEF5F0]/40 text-slate-300 hover:text-white'
+            }`}
           >
             <span>ℹ️</span>
             <span className="hidden sm:inline">{activeLang === 'hi' ? 'संकेतिका' : 'Legend'}</span>
