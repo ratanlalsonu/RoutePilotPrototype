@@ -285,14 +285,25 @@ export async function fetchGoogleDirectionsRoutes(
       waypoints.length > 0
         ? `&waypoints=${waypoints.map((w) => `${w[0]},${w[1]}`).join('|')}`
         : '';
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${startLat},${startLng}&destination=${endLat},${endLng}&alternatives=true${wpParam}&key=${apiKey}`;
+    const proxyUrl = `/api/directions?origin=${startLat},${startLng}&destination=${endLat},${endLng}${wpParam}&key=${apiKey}`;
+    const directUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${startLat},${startLng}&destination=${endLat},${endLng}&alternatives=true${wpParam}&key=${apiKey}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, { signal: controller.signal });
+    let res: Response | null = null;
+    try {
+      res = await fetch(proxyUrl, { signal: controller.signal });
+      if (!res.ok) {
+        res = await fetch(directUrl, { signal: controller.signal });
+      }
+    } catch {
+      try {
+        res = await fetch(directUrl, { signal: controller.signal });
+      } catch {}
+    }
     clearTimeout(timeout);
 
-    if (!res.ok) return [];
+    if (!res || !res.ok) return [];
     const data = await res.json();
     if (!data.routes || !Array.isArray(data.routes) || data.routes.length === 0) return [];
 

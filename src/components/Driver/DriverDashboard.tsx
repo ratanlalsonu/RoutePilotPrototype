@@ -392,7 +392,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
     }
   };
 
-  const isWhiteMode = state.appSettings.appTheme === 'light' || state.appSettings.mapTheme === 'standard';
+  const isWhiteMode = state.appSettings.appTheme === 'light';
 
   return (
     <div className={`flex flex-col h-full w-full max-w-full h-[100dvh] ${state.appSettings.appTheme === 'light' ? 'bg-[#f8fafc] text-slate-900' : 'bg-[#0D1117] text-slate-100'} overflow-hidden font-sans select-none min-h-0`}>

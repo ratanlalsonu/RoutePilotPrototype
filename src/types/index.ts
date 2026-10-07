@@ -137,7 +137,7 @@ export interface Journey {
   remainingDurationMinutes: number;
   progressPercent: number;
   eta: string;
-  status: 'IDLE' | 'ON_ROUTE' | 'DIVERTED' | 'ARRIVED';
+  status: 'IDLE' | 'ON_ROUTE' | 'DIVERTED' | 'ARRIVED' | 'PAUSED';
   isNavigating: boolean;
   isSimulating: boolean;
   simulationSpeed: number; // multiplier e.g. 1x, 2x, 4x

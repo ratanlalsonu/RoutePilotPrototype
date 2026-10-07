@@ -243,6 +243,90 @@ function placesApiProxyPlugin(): Plugin {
           return res.end(JSON.stringify({ error: err.message || 'Nearest road proxy error' }));
         }
       });
+
+      // 5. Google Directions Proxy (for seamless Google Maps route calculation)
+      server.middlewares.use('/api/directions', async (req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          return res.end();
+        }
+
+        try {
+          const url = new URL(req.url || '', 'http://localhost:3000');
+          const origin = url.searchParams.get('origin') || '';
+          const destination = url.searchParams.get('destination') || '';
+          const waypoints = url.searchParams.get('waypoints') || '';
+          let apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY || '';
+          const paramKey = url.searchParams.get('key');
+          if (paramKey && paramKey.startsWith('AIzaSy')) {
+            apiKey = paramKey;
+          }
+
+          if (!origin || !destination || !apiKey) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ routes: [] }));
+          }
+
+          let gUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&alternatives=true&key=${apiKey}`;
+          if (waypoints) {
+            gUrl += `&waypoints=${encodeURIComponent(waypoints)}`;
+          }
+
+          const gRes = await fetch(gUrl);
+          const data = await gRes.json();
+          res.statusCode = gRes.status;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify(data));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ error: err.message || 'Directions proxy error' }));
+        }
+      });
+
+      // 6. Google Snap to Roads Proxy
+      server.middlewares.use('/api/roads/snap', async (req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          return res.end();
+        }
+
+        try {
+          const url = new URL(req.url || '', 'http://localhost:3000');
+          const pathParam = url.searchParams.get('path') || '';
+          let apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY || '';
+          const paramKey = url.searchParams.get('key');
+          if (paramKey && paramKey.startsWith('AIzaSy')) {
+            apiKey = paramKey;
+          }
+
+          if (!pathParam || !apiKey) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ snappedPoints: [] }));
+          }
+
+          const snapUrl = `https://roads.googleapis.com/v1/snapToRoads?path=${encodeURIComponent(pathParam)}&interpolate=true&key=${apiKey}`;
+          const gRes = await fetch(snapUrl);
+          const data = await gRes.json();
+          res.statusCode = gRes.status;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify(data));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ error: err.message || 'Road snap proxy error' }));
+        }
+      });
     },
   };
 }

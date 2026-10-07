@@ -281,20 +281,22 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
   return (
     <div className="p-4 space-y-4 text-xs">
       {/* Top Banner */}
-      <div className="bg-[#161B22] border border-[#30363D] p-4 rounded-2xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className={`border p-4 rounded-2xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+        isLight ? 'bg-white border-slate-200' : 'bg-[#161B22] border-[#30363D]'
+      }`}>
         <div>
           <div className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold flex items-center justify-center text-sm shadow">
               A*
             </span>
             <div>
-              <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+              <h2 className={`text-base font-extrabold flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 <span>A* (A-Star) Pathfinding Algorithm Engine</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                   f(n) = g(n) + h(n)
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className={`text-xs ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                 Live visualization of how the routing engine computes the optimal path and dynamically avoids road/bridge hazards for the driver.
               </p>
             </div>
@@ -302,14 +304,18 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
         </div>
 
         {/* Hazard Simulator Switch */}
-        <div className="flex items-center gap-2 bg-[#0D1117] p-2 rounded-xl border border-[#30363D]">
-          <span className="text-xs font-semibold text-slate-300">Simulate Hazard on Bridge (Node E):</span>
+        <div className={`flex items-center gap-2 p-2 rounded-xl border ${
+          isLight ? 'bg-slate-100 border-slate-200' : 'bg-[#0D1117] border-[#30363D]'
+        }`}>
+          <span className={`text-xs font-semibold ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Simulate Hazard on Bridge (Node E):</span>
           <button
             type="button"
             onClick={() => setInjectHazardOnBridge(!injectHazardOnBridge)}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               injectHazardOnBridge
                 ? 'bg-rose-500 text-white shadow-md shadow-rose-500/25'
+                : isLight
+                ? 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
                 : 'bg-[#21262D] text-slate-400 border border-[#30363D] hover:text-white'
             }`}
           >
@@ -322,16 +328,20 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         {/* Left Column (8 cols): Interactive Graph Canvas */}
-        <div className="lg:col-span-8 bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-xl flex flex-col justify-between space-y-3">
+        <div className={`lg:col-span-8 border rounded-2xl p-4 shadow-xl flex flex-col justify-between space-y-3 ${
+          isLight ? 'bg-white border-slate-200' : 'bg-[#161B22] border-[#30363D]'
+        }`}>
           
-          <div className="flex items-center justify-between border-b border-[#30363D] dark:border-[#30363D] pb-2 text-xs">
+          <div className={`flex items-center justify-between border-b pb-2 text-xs ${
+            isLight ? 'border-slate-200' : 'border-[#30363D]'
+          }`}>
             <div className="flex items-center gap-3">
-              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span className={`font-bold flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
                 <span>Jhansi City Road Network Graph</span>
               </span>
-              <span className="text-[11px] text-slate-600 dark:text-slate-400">
-                Step <span className="font-mono text-cyan-600 dark:text-cyan-300 font-bold">{currentStep.stepIndex}</span> of <span className="font-mono">{simulationSteps.length - 1}</span>
+              <span className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                Step <span className={`font-mono font-bold ${isLight ? 'text-cyan-600' : 'text-cyan-300'}`}>{currentStep.stepIndex}</span> of <span className="font-mono">{simulationSteps.length - 1}</span>
               </span>
             </div>
 
@@ -339,25 +349,29 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
             <div className="hidden sm:flex items-center gap-3 text-[10px]">
               <div className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Start / Path</span>
+                <span className={`${isLight ? 'text-slate-700' : 'text-slate-300'} font-medium`}>Start / Path</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Open Set</span>
+                <span className={`${isLight ? 'text-slate-700' : 'text-slate-300'} font-medium`}>Open Set</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Closed Set</span>
+                <span className={`${isLight ? 'text-slate-700' : 'text-slate-300'} font-medium`}>Closed Set</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                <span className="text-rose-600 dark:text-rose-400 font-bold">Hazard</span>
+                <span className={`${isLight ? 'text-rose-600' : 'text-rose-400'} font-bold`}>Hazard</span>
               </div>
             </div>
           </div>
 
           {/* SVG Visual Graph */}
-          <div className="relative w-full h-80 sm:h-96 bg-slate-50 dark:bg-[#0D1117] rounded-xl border border-slate-200 dark:border-[#30363D] overflow-hidden flex items-center justify-center shadow-inner">
+          <div className={`relative w-full h-80 sm:h-96 rounded-xl border overflow-hidden flex items-center justify-center shadow-inner ${
+            isLight
+              ? 'bg-slate-50 border-slate-200'
+              : 'bg-[#0D1117] border-[#30363D]'
+          }`}>
             <svg viewBox="0 0 720 400" className="w-full h-full select-none">
               <defs>
                 {/* Glowing Filter for Optimal Route */}
@@ -586,7 +600,9 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
           </div>
 
           {/* Player Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#0D1117] rounded-xl border border-[#30363D]">
+          <div className={`flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl border ${
+            isLight ? 'bg-slate-100 border-slate-200' : 'bg-[#0D1117] border-[#30363D]'
+          }`}>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -594,7 +610,9 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                   setCurrentStepIndex(0);
                   setIsPlaying(false);
                 }}
-                className="px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] text-slate-300 transition text-xs font-semibold cursor-pointer"
+                className={`px-2.5 py-1 rounded transition text-xs font-semibold cursor-pointer ${
+                  isLight ? 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-[#21262D] hover:bg-[#30363D] text-slate-300'
+                }`}
                 title="Reset to Step 0"
               >
                 ⏮ Reset
@@ -603,7 +621,9 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                 type="button"
                 onClick={() => setCurrentStepIndex((prev) => Math.max(0, prev - 1))}
                 disabled={currentStepIndex === 0}
-                className="px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] disabled:opacity-40 text-slate-300 transition text-xs font-semibold cursor-pointer"
+                className={`px-2.5 py-1 rounded disabled:opacity-40 transition text-xs font-semibold cursor-pointer ${
+                  isLight ? 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-[#21262D] hover:bg-[#30363D] text-slate-300'
+                }`}
               >
                 ◀ Prev Step
               </button>
@@ -622,30 +642,32 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                 type="button"
                 onClick={() => setCurrentStepIndex((prev) => Math.min(simulationSteps.length - 1, prev + 1))}
                 disabled={currentStepIndex >= simulationSteps.length - 1}
-                className="px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] disabled:opacity-40 text-slate-300 transition text-xs font-semibold cursor-pointer"
+                className={`px-2.5 py-1 rounded disabled:opacity-40 transition text-xs font-semibold cursor-pointer ${
+                  isLight ? 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-[#21262D] hover:bg-[#30363D] text-slate-300'
+                }`}
               >
                 Step Next ▶
               </button>
             </div>
 
             {/* Speed slider */}
-            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+            <div className={`flex items-center gap-2 text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
               <span>Speed:</span>
               <button
                 onClick={() => setSimulationSpeedMs(1800)}
-                className={`px-1.5 py-0.5 rounded text-[10px] ${simulationSpeedMs === 1800 ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400'}`}
+                className={`px-1.5 py-0.5 rounded text-[10px] ${simulationSpeedMs === 1800 ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 font-bold' : isLight ? 'text-slate-600' : 'text-slate-400'}`}
               >
                 0.5x
               </button>
               <button
                 onClick={() => setSimulationSpeedMs(1000)}
-                className={`px-1.5 py-0.5 rounded text-[10px] ${simulationSpeedMs === 1000 ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400'}`}
+                className={`px-1.5 py-0.5 rounded text-[10px] ${simulationSpeedMs === 1000 ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 font-bold' : isLight ? 'text-slate-600' : 'text-slate-400'}`}
               >
                 1x
               </button>
               <button
                 onClick={() => setSimulationSpeedMs(500)}
-                className={`px-1.5 py-0.5 rounded text-[10px] ${simulationSpeedMs === 500 ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400'}`}
+                className={`px-1.5 py-0.5 rounded text-[10px] ${simulationSpeedMs === 500 ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 font-bold' : isLight ? 'text-slate-600' : 'text-slate-400'}`}
               >
                 2x
               </button>
@@ -653,12 +675,14 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
           </div>
 
           {/* Current Step Explanation Box */}
-          <div className="p-3 bg-[#0D1117] border border-cyan-500/30 rounded-xl space-y-1">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-bold flex items-center justify-between">
+          <div className={`p-3 border rounded-xl space-y-1 ${
+            isLight ? 'bg-slate-50 border-cyan-500/40' : 'bg-[#0D1117] border-cyan-500/30'
+          }`}>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-500 font-bold flex items-center justify-between">
               <span>Algorithmic Execution Trace</span>
-              <span className="text-slate-400">Step {currentStep.stepIndex}</span>
+              <span className={isLight ? 'text-slate-500' : 'text-slate-400'}>Step {currentStep.stepIndex}</span>
             </div>
-            <p className="text-xs text-slate-200 leading-relaxed font-mono">
+            <p className={`text-xs leading-relaxed font-mono ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
               {currentStep.explanation}
             </p>
           </div>
@@ -668,13 +692,17 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
         <div className="lg:col-span-4 space-y-4">
           
           {/* Priority Queue (Open Set) */}
-          <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-xl space-y-3">
-            <div className="flex items-center justify-between border-b border-[#30363D] pb-2">
-              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+          <div className={`border rounded-2xl p-4 shadow-xl space-y-3 ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#161B22] border-[#30363D]'
+          }`}>
+            <div className={`flex items-center justify-between border-b pb-2 ${isLight ? 'border-slate-200' : 'border-[#30363D]'}`}>
+              <span className={`font-bold text-xs flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 <span>📋</span>
                 <span>Open Set (Priority Queue)</span>
               </span>
-              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded">
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                isLight ? 'text-cyan-700 bg-cyan-100 font-semibold' : 'text-cyan-300 bg-cyan-500/10'
+              }`}>
                 Min-Heap Order
               </span>
             </div>
@@ -693,25 +721,33 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                       key={item.id}
                       className={`p-2 rounded-lg border text-[11px] font-mono flex items-center justify-between ${
                         isTop
-                          ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-200 shadow'
+                          ? isLight
+                            ? 'bg-cyan-50 border-cyan-300 text-cyan-900 shadow'
+                            : 'bg-cyan-500/15 border-cyan-500/40 text-cyan-200 shadow'
+                          : isLight
+                          ? 'bg-slate-50 border-slate-200 text-slate-800'
                           : 'bg-[#0D1117] border-[#30363D] text-slate-300'
                       }`}
                     >
                       <div className="flex items-center gap-2">
                         <span className={`w-5 h-5 rounded flex items-center justify-center font-bold text-xs ${
-                          isTop ? 'bg-cyan-400 text-slate-950' : 'bg-[#21262D] text-slate-300'
+                          isTop
+                            ? 'bg-cyan-400 text-slate-950'
+                            : isLight
+                            ? 'bg-slate-200 text-slate-700'
+                            : 'bg-[#21262D] text-slate-300'
                         }`}>
                           {item.id}
                         </span>
                         <div className="truncate max-w-[110px]">
-                          <div className="font-bold text-white truncate">{nodeObj?.label}</div>
-                          <div className="text-[9px] text-slate-400">Parent: {item.parent || 'None'}</div>
+                          <div className={`font-bold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>{nodeObj?.label}</div>
+                          <div className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Parent: {item.parent || 'None'}</div>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <div className="font-bold text-cyan-300">f = {item.f.toFixed(1)}k</div>
-                        <div className="text-[9px] text-slate-400">
+                        <div className={`font-bold ${isLight ? 'text-cyan-700' : 'text-cyan-300'}`}>f = {item.f.toFixed(1)}k</div>
+                        <div className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                           g:{item.g.toFixed(1)} + h:{item.h.toFixed(1)}
                         </div>
                       </div>
@@ -723,24 +759,30 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
           </div>
 
           {/* Mathematical Working Formulation */}
-          <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 shadow-xl space-y-3">
-            <span className="font-bold text-white text-xs flex items-center gap-1.5">
+          <div className={`border rounded-2xl p-4 shadow-xl space-y-3 ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#161B22] border-[#30363D]'
+          }`}>
+            <span className={`font-bold text-xs flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
               <span>🧮</span>
               <span>A* Mathematical Evaluation</span>
             </span>
 
-            <div className="p-3 bg-[#0D1117] rounded-xl border border-[#30363D] space-y-2 font-mono text-[11px]">
-              <div className="text-cyan-400 font-bold text-xs">f(n) = g(n) + h(n)</div>
-              <div className="text-slate-300 text-[10px] space-y-1">
+            <div className={`p-3 rounded-xl border space-y-2 font-mono text-[11px] ${
+              isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-[#0D1117] border-[#30363D]'
+            }`}>
+              <div className={`font-bold text-xs ${isLight ? 'text-cyan-700' : 'text-cyan-400'}`}>f(n) = g(n) + h(n)</div>
+              <div className={`text-[10px] space-y-1 ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
                 <div>
-                  <span className="text-emerald-400 font-bold">• g(n):</span> Exact cost from Start to node n along the road graph.
+                  <span className={`font-bold ${isLight ? 'text-emerald-600' : 'text-emerald-400'}`}>• g(n):</span> Exact cost from Start to node n along the road graph.
                 </div>
                 <div>
-                  <span className="text-indigo-400 font-bold">• h(n):</span> Admissible heuristic straight-line distance to Goal G.
+                  <span className={`font-bold ${isLight ? 'text-indigo-600' : 'text-indigo-400'}`}>• h(n):</span> Admissible heuristic straight-line distance to Goal G.
                 </div>
                 <div>
-                  <span className="text-rose-400 font-bold">• Hazard Penalty:</span> If node or bridge segment has hazard:
-                  <div className="p-1.5 bg-[#161B22] rounded mt-0.5 text-rose-300 text-[9.5px]">
+                  <span className={`font-bold ${isLight ? 'text-rose-600' : 'text-rose-400'}`}>• Hazard Penalty:</span> If node or bridge segment has hazard:
+                  <div className={`p-1.5 rounded mt-0.5 text-[9.5px] ${
+                    isLight ? 'bg-rose-50 border border-rose-200 text-rose-800' : 'bg-[#161B22] text-rose-300'
+                  }`}>
                     Cost(u, v) = dist(u, v) + (HazardActive ? 50.0 km : 0)
                   </div>
                 </div>
@@ -748,20 +790,22 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
             </div>
 
             {/* Path Result comparison */}
-            <div className="p-2.5 bg-[#0D1117] rounded-xl border border-[#30363D] space-y-1.5">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Computed Optimal Route:</div>
+            <div className={`p-2.5 rounded-xl border space-y-1.5 ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0D1117] border-[#30363D]'
+            }`}>
+              <div className={`text-[10px] uppercase font-bold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Computed Optimal Route:</div>
               {optimalPathNodes.length > 0 ? (
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1 font-mono text-xs font-bold text-emerald-400">
+                  <div className={`flex items-center gap-1 font-mono text-xs font-bold ${isLight ? 'text-emerald-600' : 'text-emerald-400'}`}>
                     {optimalPathNodes.join(' ➔ ')}
                   </div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[10px]">
                     {injectHazardOnBridge ? (
-                      <span className="text-amber-300">
+                      <span className={isLight ? 'text-amber-700 font-medium' : 'text-amber-300'}>
                         ✓ Bridge Node E successfully avoided! Diverted through outer bypass (Node D & H).
                       </span>
                     ) : (
-                      <span className="text-emerald-300">
+                      <span className={isLight ? 'text-emerald-700 font-medium' : 'text-emerald-300'}>
                         ✓ Normal direct path via Bridge Node E selected (Minimal cost).
                       </span>
                     )}
@@ -783,35 +827,35 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
       {/* Comparison: A* vs Dijkstra & Complexity breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
-        <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 space-y-2">
-          <div className="font-bold text-white text-xs flex items-center gap-1.5">
+        <div className={`border rounded-2xl p-4 space-y-2 ${isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#161B22] border-[#30363D]'}`}>
+          <div className={`font-bold text-xs flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
             <span>⚡</span>
             <span>Why A* over Dijkstra?</span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed">
-            Dijkstra searches in all 360° directions blindly (h=0), evaluating hundreds of unnecessary road vertices. A* uses an <span className="text-cyan-400 font-semibold">admissible heuristic h(n)</span> to focus search exploration directly towards the destination, reducing graph operations by over <span className="text-emerald-400 font-bold">65%</span>.
+          <p className={`text-[11px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+            Dijkstra searches in all 360° directions blindly (h=0), evaluating hundreds of unnecessary road vertices. A* uses an <span className={`font-semibold ${isLight ? 'text-cyan-700' : 'text-cyan-400'}`}>admissible heuristic h(n)</span> to focus search exploration directly towards the destination, reducing graph operations by over <span className={`font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>65%</span>.
           </p>
         </div>
 
-        <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 space-y-2">
-          <div className="font-bold text-white text-xs flex items-center gap-1.5">
+        <div className={`border rounded-2xl p-4 space-y-2 ${isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#161B22] border-[#30363D]'}`}>
+          <div className={`font-bold text-xs flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
             <span>🛡️</span>
             <span>Dynamic Hazard Interception</span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed">
-            When an ESP32 sensor (HC-SR04 ultrasonic or MPU-6050) flags flood water or bridge vibration, our system injects a penalty weight into that specific vertex. A* immediately recalculates without rebuilding the whole map graph, outputting the optimal detour in under <span className="text-emerald-400 font-bold">15ms</span>.
+          <p className={`text-[11px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+            When an ESP32 sensor (HC-SR04 ultrasonic or MPU-6050) flags flood water or bridge vibration, our system injects a penalty weight into that specific vertex. A* immediately recalculates without rebuilding the whole map graph, outputting the optimal detour in under <span className={`font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>15ms</span>.
           </p>
         </div>
 
-        <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-4 space-y-2">
-          <div className="font-bold text-white text-xs flex items-center gap-1.5">
+        <div className={`border rounded-2xl p-4 space-y-2 ${isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#161B22] border-[#30363D]'}`}>
+          <div className={`font-bold text-xs flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
             <span>⏱️</span>
             <span>Complexity &amp; Optimality</span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed font-mono text-[10.5px]">
-            • Time Complexity: <span className="text-cyan-300">O(E log V)</span> with Min-Heap<br />
-            • Space Complexity: <span className="text-cyan-300">O(V)</span> Open &amp; Closed sets<br />
-            • Optimality: <span className="text-emerald-400">Guaranteed</span> since Euclidean distance is strictly admissible (never overestimates true road distance).
+          <p className={`text-[11px] leading-relaxed font-mono text-[10.5px] ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+            • Time Complexity: <span className={isLight ? 'text-cyan-700 font-bold' : 'text-cyan-300'}>O(E log V)</span> with Min-Heap<br />
+            • Space Complexity: <span className={isLight ? 'text-cyan-700 font-bold' : 'text-cyan-300'}>O(V)</span> Open &amp; Closed sets<br />
+            • Optimality: <span className={isLight ? 'text-emerald-700 font-bold' : 'text-emerald-400'}>Guaranteed</span> since Euclidean distance is strictly admissible (never overestimates true road distance).
           </p>
         </div>
 

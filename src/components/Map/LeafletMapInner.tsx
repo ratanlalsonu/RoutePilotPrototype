@@ -107,7 +107,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       const saved = localStorage.getItem('routepilot_map_theme');
       if (saved === 'satellite' || saved === 'dark' || saved === 'standard') return saved as any;
     }
-    return 'standard';
+    return appTheme === 'light' ? 'standard' : 'dark';
   });
 
   const [domTheme, setDomTheme] = useState<'light' | 'dark'>(() => {
@@ -136,10 +136,9 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   }, []);
 
   const isLight =
-    domTheme === 'light' ||
-    appTheme === 'light' ||
-    mapStyle === 'standard' ||
-    theme === 'standard';
+    (appTheme ? appTheme === 'light' : domTheme === 'light') &&
+    mapStyle !== 'dark' &&
+    theme !== 'dark';
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
 
@@ -150,12 +149,28 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     heading: journey.currentLocation.heading || 0,
   });
 
+  // Keep vehiclePos synced when journey.currentLocation updates (ensures paused vehicle stays in place)
+  useEffect(() => {
+    if (journey.currentLocation) {
+      setVehiclePos({
+        lat: journey.currentLocation.lat,
+        lng: journey.currentLocation.lng,
+        heading: journey.currentLocation.heading || 0,
+      });
+      if (vehicleMarkerRef.current) {
+        vehicleMarkerRef.current.setLatLng([journey.currentLocation.lat, journey.currentLocation.lng]);
+      }
+    }
+  }, [journey.currentLocation?.lat, journey.currentLocation?.lng, journey.currentLocation?.heading]);
+
   // Sync theme
   useEffect(() => {
     if (theme === 'satellite' || theme === 'dark' || theme === 'standard') {
       setMapStyle(theme);
+    } else if (appTheme) {
+      setMapStyle(appTheme === 'light' ? 'standard' : 'dark');
     }
-  }, [theme]);
+  }, [theme, appTheme]);
 
   // Initialize Map
   useEffect(() => {
@@ -613,7 +628,11 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     if (!isUserPanningRef.current) {
       if (allCoords.length >= 2 && !journey.isNavigating) {
         // If vehicle has already started traveling along the route (paused mid-trip), keep view on vehicle
-        if (journey.progressMeters && journey.progressMeters > 50 && journey.currentLocation?.lat) {
+        const isTripPausedOrActive =
+          (journey.progressMeters && journey.progressMeters > 0) ||
+          (journey.currentLocation.pointIndex && journey.currentLocation.pointIndex > 0) ||
+          journey.status === 'PAUSED';
+        if (isTripPausedOrActive && journey.currentLocation?.lat) {
           try {
             map.panTo([journey.currentLocation.lat, journey.currentLocation.lng]);
           } catch {}
@@ -741,20 +760,21 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       (marker as any)._hazardId = hazard.hazardId;
 
       // Info Popup: Crystal-clear contrast and crisp text for Light & Dark mode
+      const isPopupLight = appTheme === 'light';
       const popupHtml = `
-        <div class="hazard-popup-box" style="font-family: 'Inter', system-ui, -apple-system, sans-serif; min-width: 255px; padding: 2px; color: ${isLight ? '#0f172a' : '#f8fafc'};">
+        <div class="hazard-popup-box" style="font-family: 'Inter', system-ui, -apple-system, sans-serif; min-width: 260px; max-width: 320px; padding: 2px; color: ${isPopupLight ? '#0f172a' : '#f8fafc'};">
           <!-- Header: Title + Status -->
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid ${isLight ? '#cbd5e1' : '#30363D'}; padding-bottom: 7px; margin-bottom: 8px; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid ${isPopupLight ? '#cbd5e1' : '#30363D'}; padding-bottom: 7px; margin-bottom: 8px; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;">
               <span style="display: inline-block; width: 9px; height: 9px; border-radius: 9999px; background-color: ${isCritical ? '#ef4444' : '#f59e0b'}; flex-shrink: 0;"></span>
-              <strong style="font-size: 13.5px; font-weight: 800; color: ${isLight ? '#0f172a' : '#ffffff'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <strong style="font-size: 13.5px; font-weight: 800; color: ${isPopupLight ? '#0f172a' : '#ffffff'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 ${translateText(hazard.type, activeLang)}
               </strong>
             </div>
             <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 5px; letter-spacing: 0.5px; flex-shrink: 0; ${
               isCritical
-                ? (isLight ? 'background-color: #fee2e2; color: #991b1b; border: 1.5px solid #ef4444;' : 'background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5);')
-                : (isLight ? 'background-color: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b;' : 'background-color: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5);')
+                ? (isPopupLight ? 'background-color: #fee2e2; color: #991b1b; border: 1.5px solid #ef4444;' : 'background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5);')
+                : (isPopupLight ? 'background-color: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b;' : 'background-color: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5);')
             }">
               ${hazard.severity}
             </span>
@@ -763,25 +783,33 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           <!-- Body Info: High contrast labels and values -->
           <div style="font-size: 11.5px; line-height: 1.6; margin-bottom: 8px;">
             <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-              <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong>
-              <span style="color: ${isLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.locationName || hazard.roadName || ''}</span>
+              <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong>
+              <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.locationName || hazard.roadName || ''}</span>
             </div>
             ${hazard.roadName ? `
               <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-                <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'सड़क:' : 'Road:'}</strong>
-                <span style="color: ${isLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.roadName}</span>
+                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'सड़क:' : 'Road:'}</strong>
+                <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.roadName}</span>
               </div>
             ` : ''}
             <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-              <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong>
-              <span style="color: ${isLight ? '#0f172a' : '#f8fafc'}; font-weight: 700;">${hazard.affectedRadius || 180}m</span>
+              <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong>
+              <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700;">${hazard.affectedRadius || 180}m</span>
             </div>
-            <div style="margin-top: 4px;">
-              <strong style="color: ${isLight ? '#334155' : '#94a3b8'}; font-weight: 700; display: block; margin-bottom: 2px;">${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong>
-              <div style="color: ${isLight ? '#0f172a' : '#e2e8f0'}; background-color: ${isLight ? '#f8fafc' : 'rgba(13, 17, 23, 0.85)'}; border: 1.5px solid ${isLight ? '#cbd5e1' : '#30363D'}; padding: 6px 8px; border-radius: 6px; font-weight: 600; line-height: 1.4;">
-                ${hazard.description}
+            ${hazard.createdAt ? `
+              <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
+                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}</strong>
+                <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 600; font-size: 11px;">${hazard.createdAt} (${translateText(hazard.source, activeLang)})</span>
               </div>
-            </div>
+            ` : ''}
+            ${hazard.description ? `
+              <div style="margin-top: 4px;">
+                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; display: block; margin-bottom: 2px;">${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong>
+                <div class="hazard-desc-box" style="color: ${isPopupLight ? '#0f172a' : '#f1f5f9'}; background-color: ${isPopupLight ? '#f1f5f9' : '#0D1117'}; border: 1.5px solid ${isPopupLight ? '#cbd5e1' : '#30363D'}; padding: 6px 8px; border-radius: 6px; font-weight: 600; line-height: 1.4;">
+                  ${hazard.description}
+                </div>
+              </div>
+            ` : ''}
           </div>
 
           ${mode === 'admin' ? `
@@ -791,9 +819,9 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
               data-hazard-id="${hazard.hazardId}"
               type="button"
               onclick="window.__routePilotResolveHazard && window.__routePilotResolveHazard('${hazard.hazardId}', event)"
-              style="width: 100%; padding: 9px 12px; background-color: ${isLight ? '#A7F3ED' : '#059669'}; color: ${isLight ? '#042f2e' : '#ffffff'}; border: ${isLight ? '1.5px solid #5eead4' : 'none'}; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: ${isLight ? '0 2px 8px rgba(167, 243, 237, 0.45)' : '0 4px 10px rgba(5, 150, 105, 0.35)'}; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
-              onmouseover="this.style.backgroundColor='${isLight ? '#8cefe6' : '#047857'}'"
-              onmouseout="this.style.backgroundColor='${isLight ? '#A7F3ED' : '#059669'}'"
+              style="width: 100%; padding: 9px 12px; background-color: ${isPopupLight ? '#0d9488' : '#059669'}; color: #ffffff; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: ${isPopupLight ? '0 2px 8px rgba(13, 148, 136, 0.45)' : '0 4px 10px rgba(5, 150, 105, 0.35)'}; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
+              onmouseover="this.style.backgroundColor='${isPopupLight ? '#0f766e' : '#047857'}'"
+              onmouseout="this.style.backgroundColor='${isPopupLight ? '#0d9488' : '#059669'}'"
             >
               ${t.resolveHazardBtn || '✓ Resolve Hazard'}
             </button>
@@ -886,20 +914,21 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
       const marker = L.marker([node.lat, node.lng], { icon: sensorIcon }).addTo(sensorsLayer);
 
+      const isSensorLight = appTheme === 'light';
       const sensorPopup = `
-        <div style="font-family: 'Inter', sans-serif; min-width: 190px; padding: 4px; color: #0f172a;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px;">
-            <strong style="font-size: 12px; color: #0f172a;">${node.id} (${node.name})</strong>
-            <span style="font-size: 9px; font-weight: bold; padding: 2px 4px; border-radius: 4px; background-color: ${isOnline ? '#d1fae5; color: #047857;' : '#fee2e2; color: #b91c1c;'}">
+        <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; min-width: 210px; padding: 4px; color: ${isSensorLight ? '#0f172a' : '#f8fafc'};">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid ${isSensorLight ? '#cbd5e1' : '#30363D'}; padding-bottom: 6px; margin-bottom: 8px;">
+            <strong style="font-size: 13px; font-weight: 800; color: ${isSensorLight ? '#0f172a' : '#ffffff'};">${node.id} (${node.name})</strong>
+            <span style="font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 5px; ${isOnline ? (isSensorLight ? 'background-color: #d1fae5; color: #047857; border: 1px solid #10b981;' : 'background-color: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4);') : (isSensorLight ? 'background-color: #fee2e2; color: #b91c1c; border: 1px solid #ef4444;' : 'background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4);')}">
               ${node.status}
             </span>
           </div>
-          <div style="font-size: 11px; line-height: 1.4; color: #334155;">
-            <div><strong>${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong> ${node.location}</div>
-            <div><strong>${activeLang === 'hi' ? 'बैटरी:' : 'Battery:'}</strong> ${node.battery}%</div>
-            ${node.lastReading?.vibrationMmS !== undefined ? `<div><strong>${activeLang === 'hi' ? 'कंपन:' : 'Vibration:'}</strong> ${node.lastReading.vibrationMmS} mm/s</div>` : ''}
-            ${node.lastReading?.waterLevelM !== undefined ? `<div><strong>${activeLang === 'hi' ? 'जल स्तर:' : 'Water Level:'}</strong> ${node.lastReading.waterLevelM} m</div>` : ''}
-            ${node.lastReading?.tiltDegrees !== undefined ? `<div><strong>${activeLang === 'hi' ? 'झुकाव:' : 'Tilt:'}</strong> ${node.lastReading.tiltDegrees}°</div>` : ''}
+          <div style="font-size: 11.5px; line-height: 1.6; color: ${isSensorLight ? '#334155' : '#cbd5e1'};">
+            <div style="display: flex; justify-content: space-between;"><strong style="color: ${isSensorLight ? '#475569' : '#94a3b8'};">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong> <span style="color: ${isSensorLight ? '#0f172a' : '#f8fafc'}; font-weight: 600;">${node.location}</span></div>
+            <div style="display: flex; justify-content: space-between;"><strong style="color: ${isSensorLight ? '#475569' : '#94a3b8'};">${activeLang === 'hi' ? 'बैटरी:' : 'Battery:'}</strong> <span style="color: #34d399; font-weight: 700;">${node.battery}%</span></div>
+            ${node.lastReading?.vibrationMmS !== undefined ? `<div style="display: flex; justify-content: space-between;"><strong style="color: ${isSensorLight ? '#475569' : '#94a3b8'};">${activeLang === 'hi' ? 'कंपन:' : 'Vibration:'}</strong> <span style="font-family: monospace; font-weight: 600;">${node.lastReading.vibrationMmS} mm/s</span></div>` : ''}
+            ${node.lastReading?.waterLevelM !== undefined ? `<div style="display: flex; justify-content: space-between;"><strong style="color: ${isSensorLight ? '#475569' : '#94a3b8'};">${activeLang === 'hi' ? 'जल स्तर:' : 'Water Level:'}</strong> <span style="font-family: monospace; font-weight: 600;">${node.lastReading.waterLevelM} m</span></div>` : ''}
+            ${node.lastReading?.tiltDegrees !== undefined ? `<div style="display: flex; justify-content: space-between;"><strong style="color: ${isSensorLight ? '#475569' : '#94a3b8'};">${activeLang === 'hi' ? 'झुकाव:' : 'Tilt:'}</strong> <span style="font-family: monospace; font-weight: 600;">${node.lastReading.tiltDegrees}°</span></div>` : ''}
           </div>
         </div>
       `;
@@ -998,14 +1027,6 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
     return () => {
       unsubscribe();
-      try {
-        if (vehicleMarkerRef.current) {
-          vehicleMarkerRef.current.remove();
-          vehicleMarkerRef.current = null;
-        }
-      } catch {
-        // Defensive ignore
-      }
     };
   }, [mode, journey.isNavigating, journey.vehicleType]);
 
@@ -1014,10 +1035,22 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     const map = mapRef.current;
     if (!map || !journey.activeRoute || journey.activeRoute.coordinates.length < 2 || journey.isNavigating) return;
 
+    // If trip is in progress or paused, keep view centered on paused vehicle! Do NOT fitBounds to origin/destination!
+    const isTripPausedOrActive =
+      (journey.progressMeters && journey.progressMeters > 0) ||
+      (journey.currentLocation.pointIndex && journey.currentLocation.pointIndex > 0) ||
+      journey.status === 'PAUSED';
+    if (isTripPausedOrActive && journey.currentLocation?.lat) {
+      try {
+        map.panTo([journey.currentLocation.lat, journey.currentLocation.lng]);
+      } catch {}
+      return;
+    }
+
     const latLngs: L.LatLngExpression[] = journey.activeRoute.coordinates.map(([lat, lng]) => [lat, lng]);
     const bounds = L.latLngBounds(latLngs);
     map.fitBounds(bounds, { padding: [60, 60] });
-  }, [journey.activeRoute, journey.isNavigating]);
+  }, [journey.activeRoute?.id, journey.isNavigating]);
 
   // UI Handlers
   const handleZoomIn = () => {
@@ -1075,7 +1108,9 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       )}
 
       {/* Vertical Map Utility Dock (Right Side Center) */}
-      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-white/95 dark:bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-slate-300 dark:border-[#30363D] shadow-2xl p-1 gap-1">
+      <div className={`absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col ${
+        isLight ? 'bg-white/95 border-slate-300 shadow-xl' : 'bg-[#161B22]/95 border-[#30363D] shadow-2xl'
+      } backdrop-blur-md rounded-2xl border p-1 gap-1`}>
         {/* Map View Modes: Light Map (directly above Satellite), Satellite Mode, Dark Map */}
         <div className="flex flex-col gap-1">
           {/* Light Mode Map Button - Directly above Satellite Mode */}
@@ -1085,7 +1120,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
               mapStyle === 'standard'
                 ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
-                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+                : isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
             }`}
             aria-label="Light Map Mode"
           >
@@ -1102,7 +1137,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
               mapStyle === 'satellite'
                 ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
-                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+                : isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
             }`}
             aria-label="Toggle Satellite Mode"
           >
@@ -1119,7 +1154,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
               mapStyle === 'dark'
                 ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
-                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+                : isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
             }`}
             aria-label="Dark Map Mode"
           >
@@ -1130,13 +1165,15 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           </button>
         </div>
 
-        <div className="h-px bg-slate-200 dark:bg-[#30363D] mx-1 my-0.5"></div>
+        <div className={`h-px ${isLight ? 'bg-slate-200' : 'bg-[#30363D]'} mx-1 my-0.5`}></div>
 
         {/* Zoom In (+) */}
         <button
           onClick={handleZoomIn}
           title={t.zoomInBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${
+            isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
+          } flex items-center justify-center transition active:scale-95 cursor-pointer`}
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" />
@@ -1147,7 +1184,9 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         <button
           onClick={handleZoomOut}
           title={t.zoomOutBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${
+            isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
+          } flex items-center justify-center transition active:scale-95 cursor-pointer`}
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M5 12h14" />

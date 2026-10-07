@@ -42,16 +42,28 @@ export async function snapToRoads(
       .map(([lat, lng]) => `${lat},${lng}`)
       .join('|');
 
-    const url = `https://roads.googleapis.com/v1/snapToRoads?path=${encodeURIComponent(
+    // Try local Vite proxy first to prevent browser CORS block
+    const proxyUrl = `/api/roads/snap?path=${encodeURIComponent(pathString)}&key=${apiKey}`;
+    const directUrl = `https://roads.googleapis.com/v1/snapToRoads?path=${encodeURIComponent(
       pathString
     )}&interpolate=true&key=${apiKey}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(url, { signal: controller.signal });
+    let res: Response | null = null;
+    try {
+      res = await fetch(proxyUrl, { signal: controller.signal });
+      if (!res.ok) {
+        res = await fetch(directUrl, { signal: controller.signal });
+      }
+    } catch {
+      try {
+        res = await fetch(directUrl, { signal: controller.signal });
+      } catch {}
+    }
     clearTimeout(timeout);
 
-    if (!res.ok) return points;
+    if (!res || !res.ok) return points;
     const data = await res.json();
 
     if (data.snappedPoints && Array.isArray(data.snappedPoints) && data.snappedPoints.length > 0) {

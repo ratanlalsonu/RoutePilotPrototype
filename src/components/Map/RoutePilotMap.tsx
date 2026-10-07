@@ -96,7 +96,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
       const saved = localStorage.getItem('routepilot_map_theme');
       if (saved === 'satellite' || saved === 'dark' || saved === 'standard') return saved as any;
     }
-    return 'standard';
+    return appTheme === 'light' ? 'standard' : 'dark';
   });
 
   const [domTheme, setDomTheme] = useState<'light' | 'dark'>(() => {
@@ -124,11 +124,19 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (theme === 'satellite' || theme === 'dark' || theme === 'standard') {
+      setMapStyle(theme);
+    } else if (appTheme) {
+      setMapStyle(appTheme === 'light' ? 'standard' : 'dark');
+    }
+  }, [theme, appTheme]);
+
+  // isLight should ONLY be true if the application or explicit map style is light
   const isLight =
-    domTheme === 'light' ||
-    appTheme === 'light' ||
-    mapStyle === 'standard' ||
-    theme === 'standard';
+    (appTheme ? appTheme === 'light' : domTheme === 'light') &&
+    mapStyle !== 'dark' &&
+    theme !== 'dark';
 
   // Collapsible legend state (default collapsed for crystal clear map visibility)
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -285,7 +293,16 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   useEffect(() => {
     if (!map || !journey.activeRoute || journey.activeRoute.coordinates.length < 2 || journey.isNavigating || isUserPanningRef.current) return;
     // If vehicle has already started traveling along the route (paused mid-trip), keep camera at paused location
-    if (journey.progressMeters && journey.progressMeters > 50) return;
+    const isTripPausedOrActive =
+      (journey.progressMeters && journey.progressMeters > 0) ||
+      (journey.currentLocation.pointIndex && journey.currentLocation.pointIndex > 0) ||
+      journey.status === 'PAUSED';
+    if (isTripPausedOrActive && journey.currentLocation?.lat) {
+      try {
+        map.panTo({ lat: journey.currentLocation.lat, lng: journey.currentLocation.lng });
+      } catch {}
+      return;
+    }
     const bounds = new google.maps.LatLngBounds();
     journey.activeRoute.coordinates.forEach(([lat, lng]) => {
       bounds.extend({ lat, lng });
@@ -384,28 +401,19 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         {journey.origin && !isVehicleAtOrigin && (
           <AdvancedMarker
             position={{ lat: journey.origin.lat, lng: journey.origin.lng }}
+            anchorPoint={['50%', '100%']}
             title={journey.origin.name}
           >
             <div
-              className="pointer-events-none select-none"
-              style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}
+              className="pointer-events-none select-none flex flex-col items-center"
+              style={{ width: 'max-content' }}
             >
-              <div
-                className="flex flex-col items-center pointer-events-none"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  transform: 'translate(-50%, -50%)',
-                }}
-              >
-                <div className="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
-                </div>
-                <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-slate-800 border-teal-500/60 shadow-md' : 'bg-[#161B22]/95 text-[#AEF5F0] border-[#AEF5F0]/40 shadow'} text-[10px] font-semibold rounded border whitespace-nowrap flex items-center gap-1`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>{mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
-                </div>
+              <div className="w-7 h-7 rounded-full bg-[#AEF5F0] border-2 border-slate-900 flex items-center justify-center shadow-md">
+                <div className="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+              </div>
+              <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-slate-800 border-teal-500/60 shadow-md' : 'bg-[#161B22]/95 text-[#AEF5F0] border-[#AEF5F0]/40 shadow'} text-[10px] font-semibold rounded border whitespace-nowrap flex items-center gap-1`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>{mode === 'driver' ? `${activeLang === 'hi' ? 'स्रोत: ' : 'Source: '}${journey.origin.name}` : journey.origin.name}</span>
               </div>
             </div>
           </AdvancedMarker>
@@ -415,29 +423,20 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         {journey.destination && journey.destination.name && journey.destination.lat !== 0 && (
           <AdvancedMarker
             position={{ lat: journey.destination.lat, lng: journey.destination.lng }}
+            anchorPoint={['50%', '100%']}
             title={journey.destination.name}
           >
             <div
-              className="pointer-events-none select-none"
-              style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}
+              className="pointer-events-none select-none flex flex-col items-center"
+              style={{ width: 'max-content' }}
             >
-              <div
-                className="flex flex-col items-center pointer-events-none"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  transform: 'translate(-50%, -100%)',
-                }}
-              >
-                <div className="w-8 h-8 rounded-full bg-red-600 border-2 border-white flex items-center justify-center shadow-xl text-white">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                  </svg>
-                </div>
-                <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-red-700 border-red-500/50 shadow-md' : 'bg-[#161B22]/95 text-red-300 border-red-500/40 shadow-lg'} text-[11px] font-bold rounded border whitespace-nowrap`}>
-                  {journey.destination.name}
-                </div>
+              <div className="w-8 h-8 rounded-full bg-red-600 border-2 border-white flex items-center justify-center shadow-xl text-white">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                </svg>
+              </div>
+              <div className={`px-2 py-0.5 mt-1 ${isLight ? 'bg-white/95 text-red-700 border-red-500/50 shadow-md' : 'bg-[#161B22]/95 text-red-300 border-red-500/40 shadow-lg'} text-[11px] font-bold rounded border whitespace-nowrap`}>
+                🏁 {mode === 'driver' ? `${activeLang === 'hi' ? 'गंतव्य: ' : 'Destination: '}${journey.destination.name}` : journey.destination.name}
               </div>
             </div>
           </AdvancedMarker>
@@ -590,27 +589,23 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
           return (
             <AdvancedMarker
               position={{ lat: vehiclePos.lat, lng: vehiclePos.lng }}
+              anchorPoint={['50%', '50%']}
               zIndex={1000}
               title={`Vehicle (${journey.vehicleType})`}
             >
               <div
-                className="pointer-events-none select-none"
+                className="pointer-events-none select-none relative flex items-center justify-center"
                 style={{
-                  width: 0,
-                  height: 0,
-                  position: 'relative',
-                  overflow: 'visible',
+                  width: `${containerSize}px`,
+                  height: `${containerSize}px`,
                 }}
               >
                 <div
                   className="vehicle-rotator flex items-center justify-center transition-transform duration-75 ease-linear pointer-events-none"
                   style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
                     width: `${containerSize}px`,
                     height: `${containerSize}px`,
-                    transform: `translate(-50%, -50%) rotate(${vehiclePos.heading}deg)`,
+                    transform: `rotate(${vehiclePos.heading}deg)`,
                     transformOrigin: 'center center',
                   }}
                 >
@@ -705,21 +700,27 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 
         {/* Hazard Detail InfoWindow */}
         {selectedHazard && (() => {
-          const isLight = mapStyle === 'standard' || (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
+          const isLight = appTheme === 'light';
           const isCritical = selectedHazard.severity === 'CRITICAL' || selectedHazard.severity === 'BLOCKED';
           return (
             <InfoWindow
               position={{ lat: selectedHazard.latitude, lng: selectedHazard.longitude }}
               onCloseClick={() => setSelectedHazard(null)}
             >
-              <div className={`p-2.5 min-w-[250px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              <div className={`p-1.5 sm:p-2 min-w-[260px] max-w-[320px] ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                {/* Header: Title + Severity badge */}
                 <div className={`flex items-center justify-between gap-2 border-b pb-2 mb-2.5 ${isLight ? 'border-slate-200' : 'border-[#30363D]'}`}>
-                  <div className={`font-bold text-sm tracking-wide flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                    {translateText(selectedHazard.type, activeLang)}
+                  <div className="font-bold text-sm tracking-wide flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isCritical ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isCritical ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+                    </span>
+                    <span className={`font-extrabold text-[13.5px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      {translateText(selectedHazard.type, activeLang)}
+                    </span>
                   </div>
                   <span
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded tracking-wider shadow-sm uppercase ${
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded tracking-wider shadow-sm uppercase shrink-0 ${
                       isCritical
                         ? (isLight ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50')
                         : (isLight ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-500/20 text-amber-300 border border-amber-500/50')
@@ -728,31 +729,63 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     {translateText(selectedHazard.severity, activeLang)}
                   </span>
                 </div>
-                <div className={`text-xs space-y-1.5 mb-3 ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+
+                {/* Details list */}
+                <div className="text-xs space-y-2 mb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'स्थान:' : 'Location:'}</span>
-                    <span className={`text-right font-medium ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{selectedHazard.locationName}</span>
+                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      {activeLang === 'hi' ? 'स्थान:' : 'Location:'}
+                    </span>
+                    <span className={`text-right font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                      {selectedHazard.locationName || selectedHazard.roadName || ''}
+                    </span>
                   </div>
                   {selectedHazard.roadName && (
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'सड़क:' : 'Road:'}</span>
-                      <span className={`text-right font-medium ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{selectedHazard.roadName}</span>
+                      <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                        {activeLang === 'hi' ? 'सड़क:' : 'Road:'}
+                      </span>
+                      <span className={`text-right font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                        {selectedHazard.roadName}
+                      </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'प्रभावित क्षेत्र:' : 'Radius:'}</span>
-                    <span className={`font-medium ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{selectedHazard.affectedRadius} {activeLang === 'hi' ? 'मीटर' : 'meters'}</span>
+                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      {activeLang === 'hi' ? 'प्रभावित क्षेत्र:' : 'Radius:'}
+                    </span>
+                    <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                      {selectedHazard.affectedRadius || 180} {activeLang === 'hi' ? 'मीटर' : 'meters'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}</span>
-                    <span className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-200'}`}>{selectedHazard.createdAt} ({translateText(selectedHazard.source, activeLang)})</span>
+                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      {activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}
+                    </span>
+                    <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>
+                      {selectedHazard.createdAt} ({translateText(selectedHazard.source, activeLang)})
+                    </span>
                   </div>
                   {selectedHazard.description && (
-                    <div className={`text-[11px] rounded p-2 mt-1 italic leading-relaxed ${isLight ? 'bg-slate-100 text-slate-800 border border-slate-300' : 'bg-[#0D1117]/80 text-slate-300 border border-[#30363D]/60'}`}>
+                    <div
+                      className="hazard-desc-box mt-1.5"
+                      style={{
+                        backgroundColor: isLight ? '#f1f5f9' : '#0D1117',
+                        color: isLight ? '#0f172a' : '#f1f5f9',
+                        border: isLight ? '1px solid #cbd5e1' : '1px solid #30363D',
+                        borderRadius: '8px',
+                        padding: '8px 10px',
+                        fontSize: '11.5px',
+                        fontWeight: 500,
+                        lineHeight: 1.5,
+                      }}
+                    >
                       {selectedHazard.description}
                     </div>
                   )}
                 </div>
+
+                {/* Admin Mode: Resolve Hazard Button */}
                 {mode === 'admin' && onResolveHazard && (
                   <button
                     type="button"
@@ -761,10 +794,10 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                       realtimeSync.resolveHazard(selectedHazard.hazardId);
                       setSelectedHazard(null);
                     }}
-                    className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                    className={`w-full py-2 px-3 rounded-lg text-xs font-bold transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
                       isLight
-                        ? 'bg-[#A7F3ED] hover:bg-[#8cefe6] text-[#042f2e] border border-[#5eead4] shadow-teal-500/20 font-extrabold'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        ? 'bg-[#0d9488] hover:bg-[#0f766e] text-white shadow-teal-500/20'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'
                     }`}
                   >
                     {t.resolveHazardBtn}
@@ -885,7 +918,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
       )}
 
       {/* Vertical Map Utility Dock (Right Side Center) - Always Clean & Non-Overlapping */}
-      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col bg-white/95 dark:bg-[#161B22]/95 backdrop-blur-md rounded-2xl border border-slate-300 dark:border-[#30363D] shadow-2xl p-1 gap-1">
+      <div className={`absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-[990] flex flex-col ${
+        isLight ? 'bg-white/95 border-slate-300 shadow-xl' : 'bg-[#161B22]/95 border-[#30363D] shadow-2xl'
+      } backdrop-blur-md rounded-2xl border p-1 gap-1`}>
         {/* Clean Map Mode Toggle (Hides floating cards for unobstructed road clarity) */}
         {onToggleClearMode && (
           <>
@@ -895,7 +930,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
                 isMapClearMode
                   ? 'bg-amber-500 text-white font-bold shadow-md shadow-amber-500/30'
-                  : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+                  : isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
               }`}
               aria-label="Toggle Clean Map View"
             >
@@ -904,7 +939,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                 {isMapClearMode ? t.showHudToggle : t.cleanMapToggle}
               </span>
             </button>
-            <div className="h-px bg-slate-200 dark:bg-[#30363D] mx-1 my-0.5"></div>
+            <div className={`h-px ${isLight ? 'bg-slate-200' : 'bg-[#30363D]'} mx-1 my-0.5`}></div>
           </>
         )}
 
@@ -917,7 +952,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
               mapStyle === 'standard'
                 ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
-                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+                : isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
             }`}
             aria-label="Light Map Mode"
           >
@@ -938,7 +973,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
               mapStyle === 'satellite'
                 ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
-                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+                : isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
             }`}
             aria-label="Satellite Map Mode"
           >
@@ -955,7 +990,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative group ${
               mapStyle === 'dark'
                 ? 'bg-[#0d9488] text-white font-bold shadow-md shadow-teal-600/30'
-                : 'hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200'
+                : isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
             }`}
             aria-label="Dark Map Mode"
           >
@@ -966,13 +1001,15 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
           </button>
         </div>
 
-        <div className="h-px bg-slate-200 dark:bg-[#30363D] mx-1 my-0.5"></div>
+        <div className={`h-px ${isLight ? 'bg-slate-200' : 'bg-[#30363D]'} mx-1 my-0.5`}></div>
 
         {/* Zoom In (+) */}
         <button
           onClick={handleZoomIn}
           title={t.zoomInBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${
+            isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
+          } flex items-center justify-center transition active:scale-95 cursor-pointer`}
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" />
@@ -983,7 +1020,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         <button
           onClick={handleZoomOut}
           title={t.zoomOutBtn}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-[#21262D] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 cursor-pointer"
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${
+            isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-[#21262D] text-slate-200'
+          } flex items-center justify-center transition active:scale-95 cursor-pointer`}
         >
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path d="M5 12h14" />

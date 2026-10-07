@@ -153,7 +153,7 @@ function getInitialState(): RoutePilotState {
         const parsed = JSON.parse(saved);
         if (parsed.hazards && parsed.journey) {
           if (parsed.appSettings && parsed.appSettings.mapTheme !== 'satellite') {
-            parsed.appSettings.mapTheme = 'standard';
+            parsed.appSettings.mapTheme = parsed.appSettings.appTheme === 'light' ? 'standard' : 'dark';
           }
           if (envMapsKey) {
             parsed.appSettings.googleMapsApiKey = envMapsKey;
@@ -206,17 +206,19 @@ function getInitialState(): RoutePilotState {
   }
 
   const rawStoredTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_theme') : null;
-  const storedMapTheme: 'standard' | 'dark' | 'satellite' =
-    rawStoredTheme === 'satellite' || rawStoredTheme === 'dark' ? rawStoredTheme : 'standard';
-
   const rawStoredAppTheme = typeof window !== 'undefined' ? localStorage.getItem('routepilot_app_theme') : null;
   const storedAppTheme: 'dark' | 'light' = rawStoredAppTheme === 'light' ? 'light' : 'dark';
 
+  const storedMapTheme: 'standard' | 'dark' | 'satellite' =
+    rawStoredTheme === 'satellite'
+      ? 'satellite'
+      : (storedAppTheme === 'light' ? 'standard' : 'dark');
+
   const rawStoredMapStyle = typeof window !== 'undefined' ? localStorage.getItem('routepilot_map_style') : null;
   const storedMapStyle: 'standard' | 'dark' | 'satellite' | 'terrain' =
-    rawStoredMapStyle === 'dark' || rawStoredMapStyle === 'satellite' || rawStoredMapStyle === 'terrain'
+    rawStoredMapStyle === 'satellite' || rawStoredMapStyle === 'terrain'
       ? rawStoredMapStyle
-      : (storedMapTheme === 'satellite' ? 'satellite' : 'standard');
+      : (storedMapTheme === 'satellite' ? 'satellite' : (storedAppTheme === 'light' ? 'standard' : 'dark'));
 
   const rawStoredLang = typeof window !== 'undefined' ? localStorage.getItem('routepilot_language') : null;
   const storedLanguage: 'en' | 'hi' = rawStoredLang === 'hi' ? 'hi' : 'en';
@@ -403,9 +405,10 @@ class RealtimeSyncManager {
     return nextLang;
   }
 
-  public toggleMapTheme(): 'standard' | 'satellite' {
-    const nextTheme: 'standard' | 'satellite' =
-      this.state.appSettings.mapTheme === 'satellite' ? 'standard' : 'satellite';
+  public toggleMapTheme(): 'standard' | 'dark' | 'satellite' {
+    const isDark = this.state.appSettings.appTheme !== 'light';
+    const nextTheme: 'standard' | 'dark' | 'satellite' =
+      this.state.appSettings.mapTheme === 'satellite' ? (isDark ? 'dark' : 'standard') : 'satellite';
     this.state.appSettings.mapTheme = nextTheme;
     if (typeof window !== 'undefined') {
       try {
@@ -988,6 +991,7 @@ class RealtimeSyncManager {
       this.state.journey.isNavigating = false;
       this.state.journey.currentSpeedKmh = 0;
       this.state.journey.isSimulating = false;
+      this.state.journey.status = 'PAUSED';
       // Vehicle stops right where it paused; notify listeners immediately with current coordinates
       this.vehicleListeners.forEach((cb) => cb(this.state.journey.currentLocation, 0));
       this.addRouteEvent({
@@ -998,6 +1002,8 @@ class RealtimeSyncManager {
         details: `Vehicle paused at waypoint #${this.state.journey.currentLocation.pointIndex || 0} (${this.state.journey.currentLocation.lat.toFixed(5)}, ${this.state.journey.currentLocation.lng.toFixed(5)})`,
       });
       VoiceService.speak('Navigation paused.', 'यात्रा रोक दी गई है।');
+      this.notify(true, true);
+      return;
     }
     this.notify();
   }
@@ -1133,11 +1139,18 @@ class RealtimeSyncManager {
     this.state.journey.vehicleType = vType;
 
     const currentLoc = this.state.journey.currentLocation;
-    const origin = {
-      name: this.state.journey.origin?.name || 'Device Current Location',
-      lat: currentLoc.lat,
-      lng: currentLoc.lng,
-    };
+    const isMidTrip =
+      this.state.journey.status === 'ON_ROUTE' ||
+      this.state.journey.status === 'PAUSED' ||
+      (this.state.journey.progressMeters || 0) > 0;
+
+    const origin = isMidTrip && this.state.journey.origin?.lat
+      ? this.state.journey.origin
+      : {
+          name: this.state.journey.origin?.name || 'Device Current Location',
+          lat: currentLoc.lat,
+          lng: currentLoc.lng,
+        };
     this.state.journey.origin = origin;
     const dest = this.state.journey.destination;
 
@@ -1472,6 +1485,7 @@ class RealtimeSyncManager {
     const isTripInProgress =
       j.status === 'ON_ROUTE' ||
       j.status === 'DIVERTED' ||
+      j.status === 'PAUSED' ||
       (j.progressMeters !== undefined && j.progressMeters > 0) ||
       (j.currentLocation.pointIndex !== undefined && j.currentLocation.pointIndex > 0);
 
