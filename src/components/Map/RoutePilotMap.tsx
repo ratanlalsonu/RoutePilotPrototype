@@ -707,77 +707,81 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               position={{ lat: selectedHazard.latitude, lng: selectedHazard.longitude }}
               onCloseClick={() => setSelectedHazard(null)}
             >
-              <div className={`p-1.5 sm:p-2 min-w-[260px] max-w-[320px] ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
-                {/* Header: Title + Severity badge */}
-                <div className={`flex items-center justify-between gap-2 border-b pb-2 mb-2.5 ${isLight ? 'border-slate-200' : 'border-[#30363D]'}`}>
-                  <div className="font-bold text-sm tracking-wide flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <div className={`p-1.5 w-[225px] sm:w-[240px] max-w-[245px] ${isLight ? 'text-slate-900' : 'text-slate-100'} select-none`}>
+                {/* Header: Title + Severity badge + Highly Visible Close (Cut) Button */}
+                <div className={`flex items-center justify-between gap-1.5 border-b pb-1.5 mb-2 pr-5 ${isLight ? 'border-slate-200' : 'border-[#30363D]'}`}>
+                  <div className="font-bold text-xs tracking-wide flex items-center gap-1.5 min-w-0 pr-1">
+                    <span className="relative flex h-2 w-2 shrink-0">
                       <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isCritical ? 'bg-red-500' : 'bg-amber-500'}`}></span>
-                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isCritical ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${isCritical ? 'bg-red-500' : 'bg-amber-500'}`}></span>
                     </span>
-                    <span className={`font-extrabold text-[13.5px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    <span className={`font-bold text-xs truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>
                       {translateText(selectedHazard.type, activeLang)}
                     </span>
                   </div>
-                  <span
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded tracking-wider shadow-sm uppercase shrink-0 ${
-                      isCritical
-                        ? (isLight ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50')
-                        : (isLight ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-500/20 text-amber-300 border border-amber-500/50')
-                    }`}
-                  >
-                    {translateText(selectedHazard.severity, activeLang)}
-                  </span>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span
+                      className={`px-1.5 py-0.5 text-[9px] font-bold rounded tracking-wider shadow-sm uppercase shrink-0 ${
+                        isCritical
+                          ? (isLight ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50')
+                          : (isLight ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-500/20 text-amber-300 border border-amber-500/50')
+                      }`}
+                    >
+                      {translateText(selectedHazard.severity, activeLang)}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Details list */}
-                <div className="text-xs space-y-2 mb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                {/* Details list (Compact & Space-efficient) */}
+                <div className="text-[11px] space-y-1 mb-2">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <span className={`font-medium shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                       {activeLang === 'hi' ? 'स्थान:' : 'Location:'}
                     </span>
-                    <span className={`text-right font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                    <span className={`text-right font-bold truncate max-w-[140px] ${isLight ? 'text-slate-900' : 'text-slate-100'}`} title={selectedHazard.locationName || selectedHazard.roadName || ''}>
                       {selectedHazard.locationName || selectedHazard.roadName || ''}
                     </span>
                   </div>
-                  {selectedHazard.roadName && (
-                    <div className="flex items-start justify-between gap-2">
-                      <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+
+                  {selectedHazard.roadName && selectedHazard.roadName !== selectedHazard.locationName && (
+                    <div className="flex items-start justify-between gap-1.5">
+                      <span className={`font-medium shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                         {activeLang === 'hi' ? 'सड़क:' : 'Road:'}
                       </span>
-                      <span className={`text-right font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                      <span className={`text-right font-bold truncate max-w-[140px] ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
                         {selectedHazard.roadName}
                       </span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                      {activeLang === 'hi' ? 'प्रभावित क्षेत्र:' : 'Radius:'}
+
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className={`font-medium shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      {activeLang === 'hi' ? 'त्रिज्या:' : 'Radius:'}
                     </span>
-                    <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
-                      {selectedHazard.affectedRadius || 180} {activeLang === 'hi' ? 'मीटर' : 'meters'}
+                    <span className={`font-semibold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                      {selectedHazard.affectedRadius || 180}m
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`font-semibold shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                      {activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}
+
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className={`font-medium shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      {activeLang === 'hi' ? 'समय:' : 'Reported:'}
                     </span>
-                    <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>
+                    <span className={`text-[10px] font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
                       {selectedHazard.createdAt} ({translateText(selectedHazard.source, activeLang)})
                     </span>
                   </div>
-                  {selectedHazard.description && (
+
+                  {selectedHazard.description &&
+                   selectedHazard.description !== selectedHazard.locationName &&
+                   selectedHazard.description !== `${selectedHazard.type} reported at ${selectedHazard.locationName}` && (
                     <div
-                      className="hazard-desc-box mt-1.5"
+                      className="hazard-desc-box mt-1 text-[10px] py-1 px-1.5 rounded-md leading-tight line-clamp-2"
                       style={{
                         backgroundColor: isLight ? '#f1f5f9' : '#0D1117',
                         color: isLight ? '#0f172a' : '#f1f5f9',
                         border: isLight ? '1px solid #cbd5e1' : '1px solid #30363D',
-                        borderRadius: '8px',
-                        padding: '8px 10px',
-                        fontSize: '11.5px',
-                        fontWeight: 500,
-                        lineHeight: 1.5,
                       }}
                     >
                       {selectedHazard.description}
@@ -794,7 +798,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                       realtimeSync.resolveHazard(selectedHazard.hazardId);
                       setSelectedHazard(null);
                     }}
-                    className={`w-full py-2 px-3 rounded-lg text-xs font-bold transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                    className={`w-full py-1.5 px-2.5 rounded-lg text-[11px] font-bold transition shadow-md flex items-center justify-center gap-1 cursor-pointer active:scale-95 ${
                       isLight
                         ? 'bg-[#0d9488] hover:bg-[#0f766e] text-white shadow-teal-500/20'
                         : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'
@@ -851,9 +855,9 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
             position={{ lat: selectedSensor.lat, lng: selectedSensor.lng }}
             onCloseClick={() => setSelectedSensor(null)}
           >
-            <div className="p-2.5 text-white min-w-[210px]">
-              <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5 mb-2">
-                <span className="font-bold text-xs text-white">
+            <div className="p-2 text-white min-w-[210px] max-w-[240px]">
+              <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5 mb-2 pr-6">
+                <span className="font-bold text-xs text-white truncate max-w-[130px]" title={`${selectedSensor.id} (${selectedSensor.name})`}>
                   {selectedSensor.id} ({selectedSensor.name})
                 </span>
                 <span

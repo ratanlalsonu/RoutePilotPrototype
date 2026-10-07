@@ -762,50 +762,49 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       // Info Popup: Crystal-clear contrast and crisp text for Light & Dark mode
       const isPopupLight = appTheme === 'light';
       const popupHtml = `
-        <div class="hazard-popup-box" style="font-family: 'Inter', system-ui, -apple-system, sans-serif; min-width: 260px; max-width: 320px; padding: 2px; color: ${isPopupLight ? '#0f172a' : '#f8fafc'};">
+        <div class="hazard-popup-box" style="font-family: 'Inter', system-ui, -apple-system, sans-serif; min-width: 215px; max-width: 240px; padding: 1px; color: ${isPopupLight ? '#0f172a' : '#f8fafc'};">
           <!-- Header: Title + Status -->
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid ${isPopupLight ? '#cbd5e1' : '#30363D'}; padding-bottom: 7px; margin-bottom: 8px; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;">
-              <span style="display: inline-block; width: 9px; height: 9px; border-radius: 9999px; background-color: ${isCritical ? '#ef4444' : '#f59e0b'}; flex-shrink: 0;"></span>
-              <strong style="font-size: 13.5px; font-weight: 800; color: ${isPopupLight ? '#0f172a' : '#ffffff'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid ${isPopupLight ? '#cbd5e1' : '#30363D'}; padding-bottom: 5px; margin-bottom: 6px; gap: 6px; padding-right: 18px;">
+            <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 9999px; background-color: ${isCritical ? '#ef4444' : '#f59e0b'}; flex-shrink: 0;"></span>
+              <strong style="font-size: 12px; font-weight: 800; color: ${isPopupLight ? '#0f172a' : '#ffffff'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 ${translateText(hazard.type, activeLang)}
               </strong>
             </div>
-            <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 5px; letter-spacing: 0.5px; flex-shrink: 0; ${
+            <span style="font-size: 9px; font-weight: 800; padding: 1.5px 5px; border-radius: 4px; letter-spacing: 0.5px; flex-shrink: 0; ${
               isCritical
-                ? (isPopupLight ? 'background-color: #fee2e2; color: #991b1b; border: 1.5px solid #ef4444;' : 'background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5);')
-                : (isPopupLight ? 'background-color: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b;' : 'background-color: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5);')
+                ? (isPopupLight ? 'background-color: #fee2e2; color: #991b1b; border: 1px solid #ef4444;' : 'background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5);')
+                : (isPopupLight ? 'background-color: #fef3c7; color: #92400e; border: 1px solid #f59e0b;' : 'background-color: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5);')
             }">
               ${hazard.severity}
             </span>
           </div>
 
           <!-- Body Info: High contrast labels and values -->
-          <div style="font-size: 11.5px; line-height: 1.6; margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-              <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong>
-              <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.locationName || hazard.roadName || ''}</span>
+          <div style="font-size: 11px; line-height: 1.45; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+              <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 600; flex-shrink: 0;">${activeLang === 'hi' ? 'स्थान:' : 'Location:'}</strong>
+              <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 135px;" title="${hazard.locationName || hazard.roadName || ''}">${hazard.locationName || hazard.roadName || ''}</span>
             </div>
-            ${hazard.roadName ? `
-              <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'सड़क:' : 'Road:'}</strong>
-                <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right;">${hazard.roadName}</span>
+            ${hazard.roadName && hazard.roadName !== hazard.locationName ? `
+              <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 600; flex-shrink: 0;">${activeLang === 'hi' ? 'सड़क:' : 'Road:'}</strong>
+                <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 135px;">${hazard.roadName}</span>
               </div>
             ` : ''}
-            <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-              <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'प्रभाव त्रिज्या:' : 'Radius:'}</strong>
+            <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+              <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 600; flex-shrink: 0;">${activeLang === 'hi' ? 'त्रिज्या:' : 'Radius:'}</strong>
               <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 700;">${hazard.affectedRadius || 180}m</span>
             </div>
             ${hazard.createdAt ? `
-              <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px;">
-                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; flex-shrink: 0;">${activeLang === 'hi' ? 'दर्ज समय:' : 'Reported:'}</strong>
-                <span style="color: ${isPopupLight ? '#0f172a' : '#f8fafc'}; font-weight: 600; font-size: 11px;">${hazard.createdAt} (${translateText(hazard.source, activeLang)})</span>
+              <div style="display: flex; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 600; flex-shrink: 0;">${activeLang === 'hi' ? 'समय:' : 'Time:'}</strong>
+                <span style="color: ${isPopupLight ? '#0f172a' : '#cbd5e1'}; font-weight: 500; font-size: 10px;">${hazard.createdAt} (${translateText(hazard.source, activeLang)})</span>
               </div>
             ` : ''}
-            ${hazard.description ? `
+            ${hazard.description && hazard.description !== hazard.locationName && hazard.description !== `${hazard.type} reported at ${hazard.locationName}` ? `
               <div style="margin-top: 4px;">
-                <strong style="color: ${isPopupLight ? '#334155' : '#94a3b8'}; font-weight: 700; display: block; margin-bottom: 2px;">${activeLang === 'hi' ? 'विवरण:' : 'Details:'}</strong>
-                <div class="hazard-desc-box" style="color: ${isPopupLight ? '#0f172a' : '#f1f5f9'}; background-color: ${isPopupLight ? '#f1f5f9' : '#0D1117'}; border: 1.5px solid ${isPopupLight ? '#cbd5e1' : '#30363D'}; padding: 6px 8px; border-radius: 6px; font-weight: 600; line-height: 1.4;">
+                <div class="hazard-desc-box" style="color: ${isPopupLight ? '#0f172a' : '#f1f5f9'}; background-color: ${isPopupLight ? '#f1f5f9' : '#0D1117'}; border: 1px solid ${isPopupLight ? '#cbd5e1' : '#30363D'}; padding: 4px 6px; border-radius: 5px; font-weight: 500; line-height: 1.3; font-size: 10px;">
                   ${hazard.description}
                 </div>
               </div>
@@ -819,7 +818,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
               data-hazard-id="${hazard.hazardId}"
               type="button"
               onclick="window.__routePilotResolveHazard && window.__routePilotResolveHazard('${hazard.hazardId}', event)"
-              style="width: 100%; padding: 9px 12px; background-color: ${isPopupLight ? '#0d9488' : '#059669'}; color: #ffffff; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: ${isPopupLight ? '0 2px 8px rgba(13, 148, 136, 0.45)' : '0 4px 10px rgba(5, 150, 105, 0.35)'}; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
+              style="width: 100%; padding: 6px 10px; background-color: ${isPopupLight ? '#0d9488' : '#059669'}; color: #ffffff; border: none; border-radius: 7px; font-size: 11px; font-weight: 800; cursor: pointer; box-shadow: ${isPopupLight ? '0 2px 6px rgba(13, 148, 136, 0.35)' : '0 3px 8px rgba(5, 150, 105, 0.3)'}; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s ease;"
               onmouseover="this.style.backgroundColor='${isPopupLight ? '#0f766e' : '#047857'}'"
               onmouseout="this.style.backgroundColor='${isPopupLight ? '#0d9488' : '#059669'}'"
             >
@@ -835,7 +834,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         autoClose: true,
         closeOnClick: false,
         offset: [0, -18],
-        maxWidth: 320,
+        maxWidth: 240,
       });
 
       // Instant single-click open handler on both marker and affected circle

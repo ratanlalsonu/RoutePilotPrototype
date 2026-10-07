@@ -97,13 +97,50 @@
 }
 
 .gm-ui-hover-effect {
-  filter: invert(1) !important;
-  opacity: 0.8;
-  transition: opacity 0.2s;
+  top: 6px !important;
+  right: 6px !important;
+  width: 24px !important;
+  height: 24px !important;
+  background-color: #21262D !important;
+  border: 1px solid #484F58 !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+  filter: none !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  z-index: 20 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5) !important;
 }
 
 .gm-ui-hover-effect:hover {
-  opacity: 1;
+  background-color: #ef4444 !important;
+  border-color: #f87171 !important;
+  transform: scale(1.08) !important;
+}
+
+.gm-ui-hover-effect > span {
+  background-color: #ffffff !important;
+  margin: auto !important;
+}
+
+.gm-ui-hover-effect img,
+.gm-ui-hover-effect svg {
+  filter: brightness(0) invert(1) !important;
+  opacity: 1 !important;
+  width: 12px !important;
+  height: 12px !important;
+  margin: auto !important;
+}
+
+.gm-ui-hover-effect svg path,
+.gm-ui-hover-effect svg polygon,
+.gm-ui-hover-effect svg line {
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 /* Ensure high-contrast readability inside dark-mode InfoWindows */
@@ -817,7 +854,29 @@ html.light textarea::placeholder {
 }
 
 [data-theme='light'] .gm-ui-hover-effect {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme='light'] .gm-ui-hover-effect > span {
+  background-color: #0f172a !important;
+}
+
+[data-theme='light'] .gm-ui-hover-effect img,
+[data-theme='light'] .gm-ui-hover-effect svg {
   filter: none !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme='light'] .gm-ui-hover-effect:hover {
+  background-color: #fee2e2 !important;
+  border-color: #f87171 !important;
+}
+
+[data-theme='light'] .gm-ui-hover-effect:hover img,
+[data-theme='light'] .gm-ui-hover-effect:hover svg {
+  filter: brightness(0) invert(1) !important;
 }
 
 /* Leaflet Popup in Light Mode */
