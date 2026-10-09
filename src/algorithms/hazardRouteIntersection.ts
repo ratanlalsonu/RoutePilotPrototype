@@ -180,33 +180,33 @@ export function calculateBearing(
  * 0.0 means completely separate paths with zero shared road segments.
  * 1.0 means identical paths along the exact same road.
  *
- * To avoid false overlap at terminal locations, the departure segment (first 6%)
- * and arrival segment (last 6%) are excluded from the intermediate corridor comparison.
+ * To avoid false overlap at terminal locations, the departure segment (first 8%)
+ * and arrival segment (last 8%) are excluded from the intermediate corridor comparison.
  */
 export function calculateRoutesOverlapRatio(
   coordsA: [number, number][],
   coordsB: [number, number][],
-  bufferMeters: number = 320
+  bufferMeters: number = 90
 ): number {
   if (!coordsA || !coordsB || coordsA.length < 4 || coordsB.length < 4) {
     return 0;
   }
 
-  // Sample intermediate points along coordsB, skipping the first 6% and last 6%
-  const startIndexB = Math.max(1, Math.floor(coordsB.length * 0.06));
-  const endIndexB = Math.min(coordsB.length - 2, Math.floor(coordsB.length * 0.94));
+  // Sample intermediate points along coordsB, skipping the first 8% and last 8%
+  const startIndexB = Math.max(1, Math.floor(coordsB.length * 0.08));
+  const endIndexB = Math.min(coordsB.length - 2, Math.floor(coordsB.length * 0.92));
 
   if (startIndexB >= endIndexB) return 0;
 
-  // Take up to 45 representative sample points evenly spaced along coordsB
+  // Take up to 50 representative sample points evenly spaced along coordsB
   const intermediatePointsCount = endIndexB - startIndexB + 1;
-  const sampleStep = Math.max(1, Math.floor(intermediatePointsCount / 45));
+  const sampleStep = Math.max(1, Math.floor(intermediatePointsCount / 50));
 
   let sharedPointsCount = 0;
   let evaluatedPointsCount = 0;
 
-  const startIndexA = Math.max(1, Math.floor(coordsA.length * 0.06));
-  const endIndexA = Math.min(coordsA.length - 2, Math.floor(coordsA.length * 0.94));
+  const startIndexA = Math.max(1, Math.floor(coordsA.length * 0.08));
+  const endIndexA = Math.min(coordsA.length - 2, Math.floor(coordsA.length * 0.92));
 
   for (let i = startIndexB; i <= endIndexB; i += sampleStep) {
     evaluatedPointsCount++;
@@ -218,11 +218,12 @@ export function calculateRoutesOverlapRatio(
       const a = coordsA[j];
       const b = coordsA[j + 1];
 
-      // Fast bounding box check before distanceToSegmentMeters
-      const minLat = Math.min(a[0], b[0]) - 0.004;
-      const maxLat = Math.max(a[0], b[0]) + 0.004;
-      const minLng = Math.min(a[1], b[1]) - 0.004;
-      const maxLng = Math.max(a[1], b[1]) + 0.004;
+      // Fast bounding box check before distanceToSegmentMeters (approx 150m box)
+      const latDiff = 0.0015;
+      const minLat = Math.min(a[0], b[0]) - latDiff;
+      const maxLat = Math.max(a[0], b[0]) + latDiff;
+      const minLng = Math.min(a[1], b[1]) - latDiff;
+      const maxLng = Math.max(a[1], b[1]) + latDiff;
 
       if (pLat < minLat || pLat > maxLat || pLng < minLng || pLng > maxLng) {
         continue;
@@ -250,7 +251,7 @@ export function calculateRoutesOverlapRatio(
 export function getSymmetricRouteOverlap(
   coordsA: [number, number][],
   coordsB: [number, number][],
-  bufferMeters: number = 320
+  bufferMeters: number = 90
 ): number {
   const overlapBInA = calculateRoutesOverlapRatio(coordsA, coordsB, bufferMeters);
   const overlapAInB = calculateRoutesOverlapRatio(coordsB, coordsA, bufferMeters);

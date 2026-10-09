@@ -1,5 +1,5 @@
 import { RouteOption, Hazard, VehicleType, AStarMetrics } from '../types';
-import { getDistanceMeters, hazardAffectsRoute } from './hazardRouteIntersection';
+import { getDistanceMeters, hazardAffectsRoute, getSymmetricRouteOverlap } from './hazardRouteIntersection';
 
 export interface AStarEvaluationResult {
   routes: RouteOption[];
@@ -196,12 +196,38 @@ export function evaluateRoutesWithAStar(
     return (a.aStarMetrics?.totalFCost || 0) - (b.aStarMetrics?.totalFCost || 0);
   });
 
+  // STRICT ZERO-OVERLAP FILTERING:
+  // When candidates are presented, filter them so that no routes overlap.
+  // Overlap threshold: max 15% intermediate road corridor.
+  // If >3 routes exist, select the 3 best non-overlapping routes based on A* cost and travel time.
+  const MAX_ALLOWED_OVERLAP = 0.15;
+  const nonOverlappingRoutes: RouteOption[] = [];
+  if (evaluatedRoutes.length > 0) {
+    nonOverlappingRoutes.push(evaluatedRoutes[0]);
+  }
+
+  for (let i = 1; i < evaluatedRoutes.length && nonOverlappingRoutes.length < 3; i++) {
+    const cand = evaluatedRoutes[i];
+    if (nonOverlappingRoutes.some((sel) => sel.id === cand.id)) continue;
+
+    const hasOverlap = nonOverlappingRoutes.some((sel) => {
+      const overlap = getSymmetricRouteOverlap(sel.coordinates, cand.coordinates, 90);
+      return overlap > MAX_ALLOWED_OVERLAP;
+    });
+
+    if (!hasOverlap) {
+      nonOverlappingRoutes.push(cand);
+    }
+  }
+
   // Assign ranks, names & categories strictly per user specifications:
   // - 1 route: Optimal Route (#10b981)
   // - 2 routes: Optimal Route (#10b981) & Average Route (#38bdf8)
-  // - 3 routes (or >3): Optimal Route (#10b981), Average Route (#38bdf8) & Worst Route (#f59e0b)
-  const totalCount = evaluatedRoutes.length;
-  evaluatedRoutes.forEach((route, idx) => {
+  // - 3 routes (or >3 found): Optimal Route (#10b981), Average Route (#38bdf8) & Worst Route (#f59e0b)
+  // In all 4 cases: routes must be completely distinct without overlapping paths.
+  const finalDiverseRoutes = nonOverlappingRoutes.length > 0 ? nonOverlappingRoutes : evaluatedRoutes.slice(0, 1);
+  const totalCount = finalDiverseRoutes.length;
+  finalDiverseRoutes.forEach((route, idx) => {
     let cat: 'OPTIMAL' | 'AVERAGE' | 'WORST' = 'OPTIMAL';
     let baseName = 'Optimal Route';
     let color = '#10b981';
@@ -264,10 +290,10 @@ export function evaluateRoutesWithAStar(
     }
   });
 
-  const optimalRoute = evaluatedRoutes[0];
-  const alternativeRoutes = evaluatedRoutes.slice(1);
+  const optimalRoute = finalDiverseRoutes[0];
+  const alternativeRoutes = finalDiverseRoutes.slice(1);
 
-  const hasBlocked = evaluatedRoutes.some((r) => r.aStarMetrics?.status === 'HAZARD_BLOCKED');
+  const hasBlocked = finalDiverseRoutes.some((r) => r.aStarMetrics?.status === 'HAZARD_BLOCKED');
 
   let decisionReason = `A* selected ${optimalRoute.name} with lowest cost f(n)=${optimalRoute.aStarMetrics?.totalFCost}. Shortest balanced travel time (${optimalRoute.durationMinutes} min) and zero hazard risk.`;
   let decisionReasonHi = `A* एल्गोरिथ्म ने न्यूनतम लागत f(n)=${optimalRoute.aStarMetrics?.totalFCost} के साथ ${optimalRoute.name} को सर्वोत्तम मार्ग चुना। सबसे सुरक्षित व तीव्र यात्रा समय (${optimalRoute.durationMinutes} मिनट)।`;
@@ -278,7 +304,7 @@ export function evaluateRoutesWithAStar(
   }
 
   stepLogs.push({
-    step: evaluatedRoutes.length + 2,
+    step: finalDiverseRoutes.length + 2,
     title: 'A* Optimal Decision Computed',
     formula: `argmin f(n) = ${optimalRoute.name} [f = ${optimalRoute.aStarMetrics?.totalFCost}]`,
     details: decisionReason,
@@ -286,12 +312,12 @@ export function evaluateRoutesWithAStar(
   });
 
   return {
-    routes: evaluatedRoutes,
+    routes: finalDiverseRoutes,
     optimalRoute,
     alternativeRoutes,
     evaluationSummary: {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      totalRoutesEvaluated: evaluatedRoutes.length,
+      totalRoutesEvaluated: finalDiverseRoutes.length,
       optimalRouteId: optimalRoute.id,
       optimalRouteName: optimalRoute.name,
       heuristicMethod: 'Admissible Haversine Geodesic Distance',

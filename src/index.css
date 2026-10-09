@@ -383,7 +383,8 @@ html.light .hazard-desc-box,
   background-color: #0D1117 !important;
 }
 
-.google-map-dark-mode .gm-style > div:first-child {
+.google-map-dark-mode .gm-style > div:first-child,
+.google-map-dark-mode .gm-style div[aria-hidden="true"] {
   filter: invert(90%) hue-rotate(180deg) contrast(1.15) brightness(0.85) !important;
   background-color: #0D1117 !important;
 }
@@ -396,7 +397,8 @@ html.light .hazard-desc-box,
 .google-map-dark-mode .alt-route-badge-pill,
 .google-map-dark-mode .driver-vehicle-marker,
 .google-map-dark-mode .hazard-marker-container,
-.google-map-dark-mode .gmnoprint {
+.google-map-dark-mode .gmnoprint,
+.google-map-dark-mode button {
   filter: none !important;
 }
 

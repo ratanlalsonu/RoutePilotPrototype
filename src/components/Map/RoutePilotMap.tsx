@@ -425,7 +425,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     <div className={`relative w-full h-full bg-[#0D1117] overflow-hidden select-none ${mapStyle === 'dark' ? 'google-map-dark-mode' : ''}`}>
       <Map
         key={`gmap-${mapStyle}`}
-        mapId="DEMO_MAP_ID"
+        mapId={mapStyle === 'dark' ? undefined : "DEMO_MAP_ID"}
         colorScheme={mapStyle === 'dark' ? ColorScheme.DARK : ColorScheme.LIGHT}
         styles={mapStyle === 'dark' ? DARK_MAP_STYLES : undefined}
         defaultCenter={cameraRef.current.center}

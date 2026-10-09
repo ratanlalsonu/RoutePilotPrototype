@@ -744,42 +744,29 @@ export async function buildRoadGraphAndSearchRoutes(
   });
 
   // STRICT ZERO-OVERLAP SELECTION ALGORITHM:
-  // Threshold: Max 20% shared intermediate road corridor.
-  // Overlap is STRICTLY FORBIDDEN. Never fall back to an overlapping route.
-  const MAX_ALLOWED_OVERLAP = 0.20;
+  // Threshold: Max 15% shared intermediate road corridor.
+  // Overlap is STRICTLY FORBIDDEN across all cases (1, 2, 3, or >3 routes).
+  const MAX_ALLOWED_OVERLAP = 0.15;
   const selectedDiverseRoutes: RouteOption[] = [];
 
   if (validCandidates.length > 0) {
-    // 1. First route: The #1 lowest-cost safe candidate
+    // 1. First route: The #1 lowest-cost safe candidate (Optimal Route)
     selectedDiverseRoutes.push(validCandidates[0]);
   }
 
-  // 2. Second route: Must not overlap with Route 1 (shared road <= 20%)
-  if (validCandidates.length > 1) {
-    for (let i = 1; i < validCandidates.length; i++) {
-      const cand = validCandidates[i];
-      const overlapWithFirst = getSymmetricRouteOverlap(selectedDiverseRoutes[0].coordinates, cand.coordinates);
+  // 2. Select up to 2 additional non-overlapping routes (Average Route and Worst Route)
+  for (let i = 1; i < validCandidates.length && selectedDiverseRoutes.length < 3; i++) {
+    const cand = validCandidates[i];
+    if (selectedDiverseRoutes.some((sel) => sel.id === cand.id)) continue;
 
-      if (overlapWithFirst <= MAX_ALLOWED_OVERLAP) {
-        selectedDiverseRoutes.push(cand);
-        break; // Best in cost among valid non-overlapping alternatives
-      }
-    }
-  }
+    // Must not overlap with ANY already selected route
+    const hasOverlap = selectedDiverseRoutes.some((sel) => {
+      const overlap = getSymmetricRouteOverlap(sel.coordinates, cand.coordinates, 90);
+      return overlap > MAX_ALLOWED_OVERLAP;
+    });
 
-  // 3. Third route: Must not overlap with Route 1 OR Route 2 (shared road <= 20%)
-  if (selectedDiverseRoutes.length === 2 && validCandidates.length > 2) {
-    for (let i = 1; i < validCandidates.length; i++) {
-      const cand = validCandidates[i];
-      if (cand.id === selectedDiverseRoutes[1].id) continue;
-
-      const overlapWithFirst = getSymmetricRouteOverlap(selectedDiverseRoutes[0].coordinates, cand.coordinates);
-      const overlapWithSecond = getSymmetricRouteOverlap(selectedDiverseRoutes[1].coordinates, cand.coordinates);
-
-      if (overlapWithFirst <= MAX_ALLOWED_OVERLAP && overlapWithSecond <= MAX_ALLOWED_OVERLAP) {
-        selectedDiverseRoutes.push(cand);
-        break; // Best in cost among valid non-overlapping alternatives
-      }
+    if (!hasOverlap) {
+      selectedDiverseRoutes.push(cand);
     }
   }
 
