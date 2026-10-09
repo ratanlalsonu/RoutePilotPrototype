@@ -65,6 +65,7 @@ export interface AStarMetrics {
   totalFCost: number; // f(n) = g(n) + h(n)
   rank: number; // 1 (optimal), 2, 3
   isOptimal: boolean;
+  category?: 'OPTIMAL' | 'AVERAGE' | 'WORST';
   status: 'OPTIMAL' | 'ALTERNATIVE' | 'HAZARD_BLOCKED' | 'CAUTION';
   explanation: string;
   evaluatedNodesCount: number;
@@ -89,7 +90,8 @@ export interface AStarMetrics {
 
 export interface RouteOption {
   id: string;
-  name: string; // e.g. "Route A", "Route B", "Route C"
+  name: string; // e.g. "Optimal Route", "Average Route", "Worst Route"
+  category?: 'OPTIMAL' | 'AVERAGE' | 'WORST';
   color: string;
   distanceKm: number;
   durationMinutes: number;

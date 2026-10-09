@@ -1046,6 +1046,16 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                                         ⭐ {language === 'hi' ? 'A* सर्वोत्तम' : 'A* BEST'}
                                       </span>
                                     )}
+                                    {!isBlocked && route.category === 'AVERAGE' && (
+                                      <span className="text-[8px] font-bold text-sky-200 bg-sky-700/80 px-1.5 py-0.5 rounded border border-sky-400/40 shrink-0">
+                                        ⚡ {language === 'hi' ? 'औसत' : 'AVERAGE'}
+                                      </span>
+                                    )}
+                                    {!isBlocked && route.category === 'WORST' && (
+                                      <span className="text-[8px] font-bold text-amber-200 bg-amber-700/80 px-1.5 py-0.5 rounded border border-amber-400/40 shrink-0">
+                                        ⚠️ {language === 'hi' ? 'धीमा' : 'WORST'}
+                                      </span>
+                                    )}
                                     {isBlocked && (
                                       <span className="text-[8px] font-bold text-red-200 bg-red-600 px-1.5 py-0.5 rounded shrink-0">
                                         🛑 {language === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}
@@ -1428,7 +1438,12 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                 <div className="absolute top-4 right-4 z-[996] w-84 max-w-[calc(100vw-2rem)] bg-[#161B22]/95 backdrop-blur-md border border-[#AEF5F0]/60 rounded-2xl p-3 shadow-2xl space-y-2 pointer-events-auto animate-section-smooth overflow-hidden">
                   <div className="flex items-center justify-between border-b border-[#30363D] pb-1.5 min-w-0">
                     <span className="text-xs font-bold text-[#AEF5F0] truncate">
-                      ⚡ {language === 'hi' ? 'सर्वोत्तम 3 मार्ग उपलब्ध' : 'Top 3 Routes Available'}
+                      ⚡ {(() => {
+                        const total = Math.min(3, (journey.activeRoute ? 1 : 0) + journey.alternativeRoutes.length);
+                        if (total === 1) return language === 'hi' ? 'इष्टतम मार्ग उपलब्ध' : 'Optimal Route Available';
+                        if (total === 2) return language === 'hi' ? '2 मार्ग उपलब्ध (इष्टतम और औसत)' : '2 Routes Available (Optimal & Average)';
+                        return language === 'hi' ? '3 अलग मार्ग उपलब्ध (इष्टतम, औसत, धीमा)' : '3 Distinct Routes (Optimal, Average, Worst)';
+                      })()}
                     </span>
                     <span className="text-[10px] text-emerald-400 font-mono font-bold shrink-0 ml-1.5">
                       {Math.min(3, (journey.activeRoute ? 1 : 0) + journey.alternativeRoutes.length)} {t.pathsLabel}

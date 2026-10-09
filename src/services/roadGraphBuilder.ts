@@ -1,7 +1,11 @@
 import { RoadGraph, RoadNode, RoadEdge, AStarSearchResult } from '../types/roadGraph';
 import { RouteOption, Hazard, VehicleType, RouteStep } from '../types';
 import { runAStarRoadSearch } from '../algorithms/aStarRoadSearch';
-import { getDistanceMeters, distanceToSegmentMeters } from '../algorithms/hazardRouteIntersection';
+import {
+  getDistanceMeters,
+  distanceToSegmentMeters,
+  getSymmetricRouteOverlap,
+} from '../algorithms/hazardRouteIntersection';
 import { calculateVehicleDuration, getVehicleSpeedProfile } from './routingService';
 import { AStarEvaluationResult } from '../algorithms/aStarPathEvaluator';
 
@@ -474,17 +478,22 @@ export async function buildRoadGraphAndSearchRoutes(
     }
   }
 
-  // 2. Query general lateral corridors to provide rich alternate branch connectivity
-  const lateralShift1 = Math.min(0.022, Math.max(0.007, dist * 0.18));
-  const lateralShift2 = Math.min(0.038, Math.max(0.015, dist * 0.32));
+  // 2. Query multi-scale lateral corridors to explore distinct regional highways
+  const offsetNarrow = Math.max(0.018, Math.min(0.28, dist * 0.18));
+  const offsetMedium = Math.max(0.035, Math.min(0.55, dist * 0.32));
+  const offsetWide = Math.max(0.060, Math.min(0.95, dist * 0.48));
   const midLat = (startCoord[0] + goalCoord[0]) / 2;
   const midLng = (startCoord[1] + goalCoord[1]) / 2;
 
   bypassQueries.push(
-    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng + perpLng * lateralShift1, midLat + perpLat * lateralShift1], [goalCoord[1], goalCoord[0]]], false),
-    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng - perpLng * lateralShift1, midLat - perpLat * lateralShift1], [goalCoord[1], goalCoord[0]]], false),
-    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng + perpLng * lateralShift2, midLat + perpLat * lateralShift2], [goalCoord[1], goalCoord[0]]], false),
-    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng - perpLng * lateralShift2, midLat - perpLat * lateralShift2], [goalCoord[1], goalCoord[0]]], false)
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng + perpLng * offsetMedium, midLat + perpLat * offsetMedium], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng - perpLng * offsetMedium, midLat - perpLat * offsetMedium], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [startCoord[1] + fwdLng * (dist * 0.35) + perpLng * offsetNarrow, startCoord[0] + fwdLat * (dist * 0.35) + perpLat * offsetNarrow], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [startCoord[1] + fwdLng * (dist * 0.35) - perpLng * offsetNarrow, startCoord[0] + fwdLat * (dist * 0.35) - perpLat * offsetNarrow], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [startCoord[1] + fwdLng * (dist * 0.65) + perpLng * offsetNarrow, startCoord[0] + fwdLat * (dist * 0.65) + perpLat * offsetNarrow], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [startCoord[1] + fwdLng * (dist * 0.65) - perpLng * offsetNarrow, startCoord[0] + fwdLat * (dist * 0.65) - perpLat * offsetNarrow], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng + perpLng * offsetWide, midLat + perpLat * offsetWide], [goalCoord[1], goalCoord[0]]], false),
+    fetchRawOSRMData([[startCoord[1], startCoord[0]], [midLng - perpLng * offsetWide, midLat - perpLat * offsetWide], [goalCoord[1], goalCoord[0]]], false)
   );
 
   const bypassResults = await Promise.all(bypassQueries);
@@ -512,175 +521,109 @@ export async function buildRoadGraphAndSearchRoutes(
     return null;
   }
 
-  const allAStarResults: AStarSearchResult[] = [aStarA];
-  const usedEdgeIdsA = new Set(aStarA.pathEdges.map((e) => e.id));
+  // Candidate routes collection across all discovery mechanisms
+  const candidatePool: RouteOption[] = [];
 
-  // Search 2: Alternative Route B (apply diversity penalty on Route A edges to force A* to explore alternate branches)
-  const penaltiesB = new Map<string, number>();
-  for (const edgeId of usedEdgeIdsA) {
-    penaltiesB.set(edgeId, 75); // Significant penalty to explore alternative junction branches
-  }
+  // Helper to convert raw coordinate polyline into candidate RouteOption
+  const convertGeometryToRoute = (
+    coords: [number, number][],
+    distMeters: number,
+    durSeconds: number,
+    roadSummary: string,
+    idTag: string,
+    stepDetails?: RouteStep[]
+  ): RouteOption | null => {
+    if (!coords || coords.length < 3) return null;
 
-  const aStarB = runAStarRoadSearch(graph, {
-    startNodeId: startNode.id,
-    goalNodeId: goalNode.id,
-    vehicleType,
-    edgePenalties: penaltiesB,
-    activeHazards: hazards,
-  });
-
-  if (aStarB.success && aStarB.fullGeometry.length > 2) {
-    // Only accept if distinct from Route A
-    const distDiff = Math.abs(aStarB.totalDistanceMeters - aStarA.totalDistanceMeters);
-    const usesDifferentEdges = aStarB.pathEdges.some((e) => !usedEdgeIdsA.has(e.id));
-    if (distDiff > 40 || usesDifferentEdges) {
-      allAStarResults.push(aStarB);
-    }
-  }
-
-  // Search 3: Alternative Route C (penalize Route A and Route B edges to explore outer link)
-  if (allAStarResults.length >= 2) {
-    const usedEdgeIdsB = new Set(allAStarResults[1].pathEdges.map((e) => e.id));
-    const penaltiesC = new Map<string, number>();
-    for (const edgeId of usedEdgeIdsA) penaltiesC.set(edgeId, 85);
-    for (const edgeId of usedEdgeIdsB) penaltiesC.set(edgeId, 70);
-
-    const aStarC = runAStarRoadSearch(graph, {
-      startNodeId: startNode.id,
-      goalNodeId: goalNode.id,
-      vehicleType,
-      edgePenalties: penaltiesC,
-      activeHazards: hazards,
-    });
-
-    if (aStarC.success && aStarC.fullGeometry.length > 2) {
-      const usesDifferentEdgesFromA = aStarC.pathEdges.some((e) => !usedEdgeIdsA.has(e.id));
-      const usesDifferentEdgesFromB = aStarC.pathEdges.some((e) => !usedEdgeIdsB.has(e.id));
-      const isUnique = allAStarResults.every(
-        (r) => Math.abs(r.totalDistanceMeters - aStarC.totalDistanceMeters) > 40
-      ) || (usesDifferentEdgesFromA && usesDifferentEdgesFromB);
-
-      if (isUnique) {
-        allAStarResults.push(aStarC);
-      }
-    }
-  }
-
-  // Fallback Pass: Ensure up to 3 distinct routes are discovered using soft penalties or ingested candidates
-  if (allAStarResults.length < 2) {
-    const penaltiesSoft = new Map<string, number>();
-    for (const edgeId of usedEdgeIdsA) penaltiesSoft.set(edgeId, 30);
-    const aStarSoft = runAStarRoadSearch(graph, {
-      startNodeId: startNode.id,
-      goalNodeId: goalNode.id,
-      vehicleType,
-      edgePenalties: penaltiesSoft,
-      activeHazards: hazards,
-    });
-    if (aStarSoft.success && aStarSoft.fullGeometry.length > 2) {
-      const usesDiff = aStarSoft.pathEdges.some((e) => !usedEdgeIdsA.has(e.id));
-      if (usesDiff || Math.abs(aStarSoft.totalDistanceMeters - aStarA.totalDistanceMeters) > 30) {
-        allAStarResults.push(aStarSoft);
-      }
-    }
-  }
-
-  if (allAStarResults.length < 3) {
-    const rawCandidates: any[] = [];
-    if (primaryData?.routes && Array.isArray(primaryData.routes)) {
-      rawCandidates.push(...primaryData.routes.slice(1));
-    }
-    for (const bRes of bypassResults) {
-      if (bRes?.routes && Array.isArray(bRes.routes)) {
-        rawCandidates.push(...bRes.routes);
-      }
-    }
-
-    for (const raw of rawCandidates) {
-      if (allAStarResults.length >= 3) break;
-      const rawCoords: [number, number][] = (raw.geometry?.coordinates || []).map(
-        (c: [number, number]) => [c[1], c[0]]
+    let hazardPen = 0;
+    let isBlocked = false;
+    for (const h of activeHazards) {
+      const rad = (h.affectedRadius || 180) + 40;
+      const hit = coords.some(
+        (pt) => getDistanceMeters(pt[0], pt[1], h.latitude, h.longitude) < rad
       );
-      if (rawCoords.length < 3) continue;
-
-      const rawDistMeters = Math.round(raw.distance || 1500);
-      const isDistinct = allAStarResults.every(
-        (existing) => Math.abs(existing.totalDistanceMeters - rawDistMeters) > 40
-      );
-      if (!isDistinct) continue;
-
-      let hazardPen = 0;
-      for (const h of activeHazards) {
-        const rad = h.affectedRadius || 180;
-        const hit = rawCoords.some(
-          (pt) => getDistanceMeters(pt[0], pt[1], h.latitude, h.longitude) < rad
-        );
-        if (hit) {
-          hazardPen += h.severity === 'BLOCKED' ? 9999 : 800;
+      if (hit) {
+        if (h.severity === 'BLOCKED' || h.severity === 'CRITICAL') {
+          hazardPen += 999999;
+          isBlocked = true;
+        } else {
+          hazardPen += 500;
         }
       }
-
-      const gCost = parseFloat((rawDistMeters / 100).toFixed(1));
-      const hCost = parseFloat((getDistanceMeters(rawCoords[0][0], rawCoords[0][1], goalCoord[0], goalCoord[1]) / 100).toFixed(1));
-      const rawDurSec = Math.round(raw.duration || 120);
-
-      allAStarResults.push({
-        success: true,
-        totalDistanceMeters: rawDistMeters,
-        totalDurationSeconds: rawDurSec,
-        accumulatedGCost: gCost,
-        heuristicHCost: hCost,
-        hazardPenaltyCost: hazardPen,
-        totalFCost: parseFloat((gCost + hCost + hazardPen).toFixed(1)),
-        evaluatedNodesCount: rawCoords.length,
-        pathNodes: [startNode, goalNode],
-        pathEdges: [{
-          id: `raw_edge_${allAStarResults.length}`,
-          fromNodeId: startNode.id,
-          toNodeId: goalNode.id,
-          roadName: raw.legs?.[0]?.summary || `Alternative Road ${allAStarResults.length + 1}`,
-          distanceMeters: rawDistMeters,
-          baseDurationSeconds: rawDurSec,
-          speedLimitKmh: 45,
-          geometry: rawCoords,
-          hazardPenalty: hazardPen,
-          isBlocked: hazardPen >= 5000,
-          turnType: 'straight',
-          instruction: `Continue via ${raw.legs?.[0]?.summary || 'Alternative Corridor'}`,
-        }],
-        fullGeometry: rawCoords,
-        stepLogs: [],
-      });
     }
-  }
 
-  // Convert AStarSearchResults into RouteOptions with full real road geometry
-  const hasActiveHazards = activeHazards.length > 0;
-  const colors = ['#AEF5F0', '#10b981', '#f59e0b'];
-  const names = hasActiveHazards
-    ? [
-        'Route A — Safe Optimal Detour',
-        'Route B — Safe Outer Bypass',
-        'Route C — Arterial Corridor',
-      ]
-    : [
-        'Route A — Fastest Highway',
-        'Route B — Outer Bypass',
-        'Route C — Arterial Corridor',
-      ];
-
-  const generatedRoutes: RouteOption[] = allAStarResults.map((result, idx) => {
-    const distKm = parseFloat((result.totalDistanceMeters / 1000).toFixed(1));
-    const baseMinutes = Math.max(1, Math.round(result.totalDurationSeconds / 60));
+    const distKm = parseFloat((distMeters / 1000).toFixed(1));
+    const baseMinutes = Math.max(1, Math.round(durSeconds / 60));
     const durMinutes = calculateVehicleDuration(distKm, vehicleType, baseMinutes);
 
-    // Extract unique real road names from traversed edges
-    const roadNames = Array.from(
-      new Set(result.pathEdges.map((e) => e.roadName).filter((n) => n && n !== 'Road' && n !== 'Connecting Road'))
-    ).slice(0, 3);
-    const viaRoads = roadNames.length > 0 ? roadNames : ['Main Road Network'];
+    const gCost = parseFloat((distMeters / 100).toFixed(1));
+    const hCost = parseFloat((getDistanceMeters(coords[0][0], coords[0][1], goalCoord[0], goalCoord[1]) / 100).toFixed(1));
+    const totalFCost = parseFloat((gCost + hCost + hazardPen).toFixed(1));
 
-    // Generate step-by-step turn maneuvers from edges
+    const cleanRoadName = roadSummary && roadSummary !== 'Road' && roadSummary !== 'Connecting Road' && !roadSummary.startsWith('rn_')
+      ? roadSummary
+      : 'Main Highway Network';
+    const viaRoads = [cleanRoadName];
+
+    const steps: RouteStep[] = stepDetails && stepDetails.length > 0
+      ? stepDetails
+      : [
+          {
+            instruction: `Head toward ${destination.name || 'Destination'} via ${cleanRoadName}`,
+            roadName: cleanRoadName,
+            distanceMeters: Math.round(distMeters * 0.9),
+            durationSeconds: Math.round(durSeconds * 0.9),
+            turnType: 'straight',
+          },
+          {
+            instruction: `Arrive at ${destination.name || 'Destination'}`,
+            roadName: destination.name || 'Destination',
+            distanceMeters: 50,
+            durationSeconds: 10,
+            turnType: 'arrive',
+          },
+        ];
+
+    const status = isBlocked ? 'HAZARD_BLOCKED' : hazardPen > 0 ? 'CAUTION' : 'ALTERNATIVE';
+
+    return {
+      id: `candidate_route_${idTag}`,
+      name: `Candidate ${idTag}`,
+      color: '#38bdf8',
+      distanceKm: distKm,
+      durationMinutes: durMinutes,
+      coordinates: coords,
+      viaRoads,
+      isRecommended: false,
+      maneuver: {
+        instruction: `Head toward ${destination.name || 'Destination'}`,
+        distanceMeters: Math.min(500, Math.round(distMeters * 0.1)),
+      },
+      steps,
+      aStarMetrics: {
+        gCost,
+        hCost,
+        hazardPenalty: hazardPen,
+        totalFCost,
+        rank: 2,
+        isOptimal: false,
+        status,
+        explanation: isBlocked
+          ? 'Route obstructed by active hazard. High penalty applied.'
+          : `Valid corridor via ${cleanRoadName}. f(n)=${totalFCost}`,
+        evaluatedNodesCount: coords.length,
+      },
+    };
+  };
+
+  // Convert A* Search Result to RouteOption
+  const convertAStarResult = (result: AStarSearchResult, idTag: string): RouteOption | null => {
+    if (!result.success || result.fullGeometry.length < 3) return null;
+    const roadNames = Array.from(
+      new Set(result.pathEdges.map((e) => e.roadName).filter((n) => n && n !== 'Road' && n !== 'Connecting Road' && !n.startsWith('rn_')))
+    ).slice(0, 3);
+    const summary = roadNames.length > 0 ? roadNames[0] : 'Main Highway Network';
+
     const steps: RouteStep[] = result.pathEdges.map((edge) => ({
       instruction: edge.instruction || `Continue on ${edge.roadName}`,
       roadName: edge.roadName,
@@ -688,7 +631,6 @@ export async function buildRoadGraphAndSearchRoutes(
       durationSeconds: edge.baseDurationSeconds,
       turnType: edge.turnType || 'straight',
     }));
-
     if (steps.length > 0 && steps[steps.length - 1].turnType !== 'arrive') {
       steps.push({
         instruction: `Arrive at ${destination.name || 'Destination'}`,
@@ -699,82 +641,251 @@ export async function buildRoadGraphAndSearchRoutes(
       });
     }
 
-    const isBlocked = result.pathEdges.some((e) => e.isBlocked);
-    const hasHazard = result.hazardPenaltyCost > 0;
-    const status = isBlocked ? 'HAZARD_BLOCKED' : hasHazard ? 'CAUTION' : idx === 0 ? 'OPTIMAL' : 'ALTERNATIVE';
+    return convertGeometryToRoute(
+      result.fullGeometry,
+      result.totalDistanceMeters,
+      result.totalDurationSeconds,
+      summary,
+      idTag,
+      steps
+    );
+  };
 
-    const routeOption: RouteOption = {
-      id: idx === 0 ? 'opt_route_a' : idx === 1 ? 'opt_route_b' : 'opt_route_c',
-      name: names[idx] || `Route ${String.fromCharCode(65 + idx)}`,
-      color: colors[idx] || '#38bdf8',
-      distanceKm: distKm,
-      durationMinutes: durMinutes,
-      // 100% genuine real road geometry from OpenStreetMap edges
-      coordinates: result.fullGeometry,
-      viaRoads,
-      isRecommended: idx === 0 && !isBlocked,
-      maneuver: {
-        instruction: `Head toward ${destination.name || 'Destination'}`,
-        distanceMeters: Math.round(result.pathEdges[0]?.distanceMeters || 300),
-      },
-      steps,
-      aStarMetrics: {
-        gCost: result.accumulatedGCost,
-        hCost: result.heuristicHCost,
-        hazardPenalty: result.hazardPenaltyCost,
-        totalFCost: result.totalFCost,
-        rank: idx + 1,
-        isOptimal: idx === 0,
-        status,
-        explanation: isBlocked
-          ? 'Route obstructed by active hazard. High penalty applied.'
-          : hasHazard
-          ? `Caution: Hazard nearby (+${result.hazardPenaltyCost} penalty).`
-          : `Optimal road network path via A*. f(n)=${result.totalFCost}`,
-        evaluatedNodesCount: result.evaluatedNodesCount,
-        costBreakdown: result.costBreakdown,
-        hazardsAvoided: result.hazardsAvoided,
-        blockedRoadsAvoided: result.blockedRoadsAvoided,
-        trafficSummary: result.trafficSummary,
-      },
-    };
+  // 1. Add primary A* result (optimal on open roads)
+  const routeA = convertAStarResult(aStarA, 'astar_a');
+  if (routeA) candidatePool.push(routeA);
 
-    return routeOption;
+  // 2. Add all primary OSRM discovered alternative routes
+  if (primaryData?.routes && Array.isArray(primaryData.routes)) {
+    primaryData.routes.forEach((r: any, idx: number) => {
+      const coords: [number, number][] = (r.geometry?.coordinates || []).map(
+        (c: [number, number]) => [c[1], c[0]]
+      );
+      const dist = Math.round(r.distance || 1500);
+      const dur = Math.round(r.duration || 120);
+      const name = r.legs?.[0]?.summary || `Highway Corridor ${idx + 1}`;
+      const cand = convertGeometryToRoute(coords, dist, dur, name, `osrm_pri_${idx}`);
+      if (cand) candidatePool.push(cand);
+    });
+  }
+
+  // 3. Add all lateral bypass & detour routes discovered via waypoints
+  for (let bIdx = 0; bIdx < bypassResults.length; bIdx++) {
+    const bRes = bypassResults[bIdx];
+    if (bRes?.routes && Array.isArray(bRes.routes)) {
+      bRes.routes.forEach((r: any, rIdx: number) => {
+        const coords: [number, number][] = (r.geometry?.coordinates || []).map(
+          (c: [number, number]) => [c[1], c[0]]
+        );
+        const dist = Math.round(r.distance || 1500);
+        const dur = Math.round(r.duration || 120);
+        const name = r.legs?.[0]?.summary || `Detour Corridor ${bIdx + 1}_${rIdx + 1}`;
+        const cand = convertGeometryToRoute(coords, dist, dur, name, `bypass_${bIdx}_${rIdx}`);
+        if (cand) candidatePool.push(cand);
+      });
+    }
+  }
+
+  // 4. Graph A* Search B: Hard penalty on intermediate edges of Route A
+  // Exclude terminal edges near start and goal so graph can still connect
+  const edgeListA = aStarA.pathEdges;
+  const intermediateEdgesA = edgeListA.length > 4 ? edgeListA.slice(1, -1) : edgeListA;
+  const penaltiesB = new Map<string, number>();
+  for (const edge of intermediateEdgesA) {
+    penaltiesB.set(edge.id, 999999); // Force A* to take alternative branch at junction
+  }
+
+  const aStarB = runAStarRoadSearch(graph, {
+    startNodeId: startNode.id,
+    goalNodeId: goalNode.id,
+    vehicleType,
+    edgePenalties: penaltiesB,
+    activeHazards: hazards,
   });
+  if (aStarB.success && aStarB.fullGeometry.length > 2) {
+    const candB = convertAStarResult(aStarB, 'astar_b');
+    if (candB) candidatePool.push(candB);
+  }
 
-  // Sort candidates so that safe unblocked routes are ranked first and given optimal status!
-  generatedRoutes.sort((a, b) => {
+  // 5. Graph A* Search C: Hard penalty on intermediate edges of Route A and Route B
+  if (aStarB.success) {
+    const edgeListB = aStarB.pathEdges;
+    const intermediateEdgesB = edgeListB.length > 4 ? edgeListB.slice(1, -1) : edgeListB;
+    const penaltiesC = new Map<string, number>();
+    for (const edge of intermediateEdgesA) penaltiesC.set(edge.id, 999999);
+    for (const edge of intermediateEdgesB) penaltiesC.set(edge.id, 999999);
+
+    const aStarC = runAStarRoadSearch(graph, {
+      startNodeId: startNode.id,
+      goalNodeId: goalNode.id,
+      vehicleType,
+      edgePenalties: penaltiesC,
+      activeHazards: hazards,
+    });
+    if (aStarC.success && aStarC.fullGeometry.length > 2) {
+      const candC = convertAStarResult(aStarC, 'astar_c');
+      if (candC) candidatePool.push(candC);
+    }
+  }
+
+  // Filter candidates: must have valid geometry and positive distance
+  const validCandidates = candidatePool.filter(
+    (c) => c.coordinates && c.coordinates.length >= 3 && c.distanceKm > 0
+  );
+
+  // Sort candidates so lowest travel cost and unblocked routes come first
+  validCandidates.sort((a, b) => {
     const aBlocked = a.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
     const bBlocked = b.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
     if (aBlocked !== bBlocked) return aBlocked - bBlocked;
-    return (a.aStarMetrics?.totalFCost || 0) - (b.aStarMetrics?.totalFCost || 0);
+    const costDiff = (a.aStarMetrics?.totalFCost || 0) - (b.aStarMetrics?.totalFCost || 0);
+    if (Math.abs(costDiff) > 0.01) return costDiff;
+    return a.durationMinutes - b.durationMinutes;
   });
 
-  generatedRoutes.forEach((r, idx) => {
-    if (r.aStarMetrics) {
-      r.aStarMetrics.rank = idx + 1;
-      r.aStarMetrics.isOptimal = idx === 0 && r.aStarMetrics.status !== 'HAZARD_BLOCKED';
-      r.isRecommended = idx === 0 && r.aStarMetrics.status !== 'HAZARD_BLOCKED';
+  // STRICT ZERO-OVERLAP SELECTION ALGORITHM:
+  // Threshold: Max 20% shared intermediate road corridor.
+  // Overlap is STRICTLY FORBIDDEN. Never fall back to an overlapping route.
+  const MAX_ALLOWED_OVERLAP = 0.20;
+  const selectedDiverseRoutes: RouteOption[] = [];
+
+  if (validCandidates.length > 0) {
+    // 1. First route: The #1 lowest-cost safe candidate
+    selectedDiverseRoutes.push(validCandidates[0]);
+  }
+
+  // 2. Second route: Must not overlap with Route 1 (shared road <= 20%)
+  if (validCandidates.length > 1) {
+    for (let i = 1; i < validCandidates.length; i++) {
+      const cand = validCandidates[i];
+      const overlapWithFirst = getSymmetricRouteOverlap(selectedDiverseRoutes[0].coordinates, cand.coordinates);
+
+      if (overlapWithFirst <= MAX_ALLOWED_OVERLAP) {
+        selectedDiverseRoutes.push(cand);
+        break; // Best in cost among valid non-overlapping alternatives
+      }
     }
+  }
+
+  // 3. Third route: Must not overlap with Route 1 OR Route 2 (shared road <= 20%)
+  if (selectedDiverseRoutes.length === 2 && validCandidates.length > 2) {
+    for (let i = 1; i < validCandidates.length; i++) {
+      const cand = validCandidates[i];
+      if (cand.id === selectedDiverseRoutes[1].id) continue;
+
+      const overlapWithFirst = getSymmetricRouteOverlap(selectedDiverseRoutes[0].coordinates, cand.coordinates);
+      const overlapWithSecond = getSymmetricRouteOverlap(selectedDiverseRoutes[1].coordinates, cand.coordinates);
+
+      if (overlapWithFirst <= MAX_ALLOWED_OVERLAP && overlapWithSecond <= MAX_ALLOWED_OVERLAP) {
+        selectedDiverseRoutes.push(cand);
+        break; // Best in cost among valid non-overlapping alternatives
+      }
+    }
+  }
+
+
+  // Categorize selected routes strictly according to user rules:
+  // - 1 route: Optimal Route
+  // - 2 routes: Optimal Route & Average Route
+  // - 3 routes (or >3 found): Optimal Route, Average Route & Worst Route
+  const totalCount = selectedDiverseRoutes.length;
+
+  const categorizedRoutes: RouteOption[] = selectedDiverseRoutes.map((route, idx) => {
+    let category: 'OPTIMAL' | 'AVERAGE' | 'WORST' = 'OPTIMAL';
+    let baseName = 'Optimal Route';
+    let color = '#10b981'; // Emerald
+    let isRecommended = false;
+
+    if (totalCount === 1) {
+      category = 'OPTIMAL';
+      baseName = 'Optimal Route';
+      color = '#10b981';
+      isRecommended = true;
+    } else if (totalCount === 2) {
+      if (idx === 0) {
+        category = 'OPTIMAL';
+        baseName = 'Optimal Route';
+        color = '#10b981';
+        isRecommended = true;
+      } else {
+        category = 'AVERAGE';
+        baseName = 'Average Route';
+        color = '#38bdf8'; // Cyan
+        isRecommended = false;
+      }
+    } else {
+      // 3 routes
+      if (idx === 0) {
+        category = 'OPTIMAL';
+        baseName = 'Optimal Route';
+        color = '#10b981';
+        isRecommended = true;
+      } else if (idx === 1) {
+        category = 'AVERAGE';
+        baseName = 'Average Route';
+        color = '#38bdf8'; // Cyan
+        isRecommended = false;
+      } else {
+        category = 'WORST';
+        baseName = 'Worst Route';
+        color = '#f59e0b'; // Amber
+        isRecommended = false;
+      }
+    }
+
+    const viaStr = route.viaRoads && route.viaRoads.length > 0 && route.viaRoads[0] !== 'Main Highway Network'
+      ? ` — via ${route.viaRoads[0]}`
+      : category === 'OPTIMAL'
+      ? ' — Fastest & Safest'
+      : category === 'AVERAGE'
+      ? ' — Moderate Alternative'
+      : ' — Slowest / Long Alternative';
+
+    const isBlocked = route.aStarMetrics?.status === 'HAZARD_BLOCKED';
+    const status = isBlocked ? 'HAZARD_BLOCKED' : category === 'OPTIMAL' ? 'OPTIMAL' : 'ALTERNATIVE';
+
+    const updatedRoute: RouteOption = {
+      ...route,
+      id: `opt_route_${category.toLowerCase()}_${idx}`,
+      name: `${baseName}${viaStr}`,
+      category,
+      color,
+      isRecommended: isRecommended && !isBlocked,
+      aStarMetrics: {
+        ...route.aStarMetrics!,
+        rank: idx + 1,
+        category,
+        isOptimal: category === 'OPTIMAL' && !isBlocked,
+        status,
+        explanation: isBlocked
+          ? 'Route obstructed by active hazard. High penalty applied.'
+          : category === 'OPTIMAL'
+          ? `Optimal clear corridor via A*. Lowest travel cost f(n)=${route.aStarMetrics?.totalFCost}.`
+          : category === 'AVERAGE'
+          ? `Average corridor via A*. Moderate travel cost f(n)=${route.aStarMetrics?.totalFCost}.`
+          : `Worst alternative corridor via A*. Highest travel cost f(n)=${route.aStarMetrics?.totalFCost}.`,
+      },
+    };
+
+    return updatedRoute;
   });
 
-  const maxThreeRoutes = generatedRoutes.slice(0, 3);
-  const optimalRoute = maxThreeRoutes[0];
-  const alternativeRoutes = maxThreeRoutes.slice(1);
+  const optimalRoute = categorizedRoutes[0];
+  const alternativeRoutes = categorizedRoutes.slice(1);
 
   const evaluationSummary = {
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    totalRoutesEvaluated: maxThreeRoutes.length,
+    totalRoutesEvaluated: categorizedRoutes.length,
     optimalRouteId: optimalRoute.id,
     optimalRouteName: optimalRoute.name,
     heuristicMethod: 'Admissible Haversine Geodesic Travel Cost',
     hazardsDetectedCount: hazards.filter((h) => h.status === 'ACTIVE').length,
-    decisionReason: `A* graph search selected ${optimalRoute.name} with lowest total cost f(n)=${optimalRoute.aStarMetrics?.totalFCost}. Traversed ${aStarA.pathEdges.length} real road edges with zero hazard obstructions.`,
-    decisionReasonHi: `A* ग्राफ सर्च ने न्यूनतम लागत f(n)=${optimalRoute.aStarMetrics?.totalFCost} के साथ ${optimalRoute.name} को चुना। वास्तविक सड़क नेटवर्क पर सबसे सुरक्षित मार्ग।`,
+    decisionReason: `A* graph search selected ${optimalRoute.name} with lowest total cost f(n)=${optimalRoute.aStarMetrics?.totalFCost}. Evaluated ${categorizedRoutes.length} non-overlapping distinct corridors with zero hazard obstructions.`,
+    decisionReasonHi: `A* ग्राफ सर्च ने न्यूनतम लागत f(n)=${optimalRoute.aStarMetrics?.totalFCost} के साथ ${optimalRoute.name} को चुना। बिना किसी ओवरलैप के ${categorizedRoutes.length} अलग-अलग गलियारों का मूल्यांकन किया गया।`,
   };
 
   const aStarEvaluation: AStarEvaluationResult = {
-    routes: maxThreeRoutes,
+    routes: categorizedRoutes,
     optimalRoute,
     alternativeRoutes,
     evaluationSummary,
@@ -782,7 +893,7 @@ export async function buildRoadGraphAndSearchRoutes(
   };
 
   return {
-    routes: maxThreeRoutes,
+    routes: categorizedRoutes,
     optimalRoute,
     alternativeRoutes,
     aStarEvaluation,

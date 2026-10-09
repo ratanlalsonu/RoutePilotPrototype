@@ -174,3 +174,85 @@ export function calculateBearing(
   const theta = Math.atan2(y, x);
   return ((theta * 180) / Math.PI + 360) % 360;
 }
+
+/**
+ * Calculates the overlap ratio between two route geometries (0.0 to 1.0).
+ * 0.0 means completely separate paths with zero shared road segments.
+ * 1.0 means identical paths along the exact same road.
+ *
+ * To avoid false overlap at terminal locations, the departure segment (first 6%)
+ * and arrival segment (last 6%) are excluded from the intermediate corridor comparison.
+ */
+export function calculateRoutesOverlapRatio(
+  coordsA: [number, number][],
+  coordsB: [number, number][],
+  bufferMeters: number = 320
+): number {
+  if (!coordsA || !coordsB || coordsA.length < 4 || coordsB.length < 4) {
+    return 0;
+  }
+
+  // Sample intermediate points along coordsB, skipping the first 6% and last 6%
+  const startIndexB = Math.max(1, Math.floor(coordsB.length * 0.06));
+  const endIndexB = Math.min(coordsB.length - 2, Math.floor(coordsB.length * 0.94));
+
+  if (startIndexB >= endIndexB) return 0;
+
+  // Take up to 45 representative sample points evenly spaced along coordsB
+  const intermediatePointsCount = endIndexB - startIndexB + 1;
+  const sampleStep = Math.max(1, Math.floor(intermediatePointsCount / 45));
+
+  let sharedPointsCount = 0;
+  let evaluatedPointsCount = 0;
+
+  const startIndexA = Math.max(1, Math.floor(coordsA.length * 0.06));
+  const endIndexA = Math.min(coordsA.length - 2, Math.floor(coordsA.length * 0.94));
+
+  for (let i = startIndexB; i <= endIndexB; i += sampleStep) {
+    evaluatedPointsCount++;
+    const [pLat, pLng] = coordsB[i];
+
+    // Check if this point is within bufferMeters of any intermediate segment in coordsA
+    let isShared = false;
+    for (let j = startIndexA; j < endIndexA; j++) {
+      const a = coordsA[j];
+      const b = coordsA[j + 1];
+
+      // Fast bounding box check before distanceToSegmentMeters
+      const minLat = Math.min(a[0], b[0]) - 0.004;
+      const maxLat = Math.max(a[0], b[0]) + 0.004;
+      const minLng = Math.min(a[1], b[1]) - 0.004;
+      const maxLng = Math.max(a[1], b[1]) + 0.004;
+
+      if (pLat < minLat || pLat > maxLat || pLng < minLng || pLng > maxLng) {
+        continue;
+      }
+
+      const dist = distanceToSegmentMeters(pLat, pLng, a[0], a[1], b[0], b[1]);
+      if (dist <= bufferMeters) {
+        isShared = true;
+        break;
+      }
+    }
+
+    if (isShared) {
+      sharedPointsCount++;
+    }
+  }
+
+  if (evaluatedPointsCount === 0) return 0;
+  return sharedPointsCount / evaluatedPointsCount;
+}
+
+/**
+ * Symmetric maximum overlap ratio between two routes (0.0 to 1.0)
+ */
+export function getSymmetricRouteOverlap(
+  coordsA: [number, number][],
+  coordsB: [number, number][],
+  bufferMeters: number = 320
+): number {
+  const overlapBInA = calculateRoutesOverlapRatio(coordsA, coordsB, bufferMeters);
+  const overlapAInB = calculateRoutesOverlapRatio(coordsB, coordsA, bufferMeters);
+  return Math.max(overlapBInA, overlapAInB);
+}

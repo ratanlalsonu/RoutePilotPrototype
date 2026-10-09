@@ -239,6 +239,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     try {
       (map as any).setOptions({
         colorScheme: mapStyle === 'dark' ? 'DARK' : 'LIGHT',
+        styles: mapStyle === 'dark' ? DARK_MAP_STYLES : null,
       });
     } catch {}
     if (typeof window !== 'undefined') {
@@ -423,9 +424,10 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   return (
     <div className={`relative w-full h-full bg-[#0D1117] overflow-hidden select-none ${mapStyle === 'dark' ? 'google-map-dark-mode' : ''}`}>
       <Map
-        key={`gmap-${mapStyle === 'dark' ? 'dark' : 'standard'}`}
+        key={`gmap-${mapStyle}`}
         mapId="DEMO_MAP_ID"
         colorScheme={mapStyle === 'dark' ? ColorScheme.DARK : ColorScheme.LIGHT}
+        styles={mapStyle === 'dark' ? DARK_MAP_STYLES : undefined}
         defaultCenter={cameraRef.current.center}
         defaultZoom={cameraRef.current.zoom}
         gestureHandling="greedy"
@@ -601,9 +603,19 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                                 🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}
                               </span>
                             )}
-                            {isOptimal && (
-                              <span className={`text-emerald-600 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0`}>
-                                ⭐ A* {activeLang === 'hi' ? 'सर्वोत्तम' : 'Best'}
+                            {!isBlocked && (route.category === 'OPTIMAL' || isOptimal) && (
+                              <span className={`text-emerald-500 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0`}>
+                                ⭐ {activeLang === 'hi' ? 'इष्टतम' : 'Optimal'}
+                              </span>
+                            )}
+                            {!isBlocked && route.category === 'AVERAGE' && (
+                              <span className={`text-sky-500 font-mono font-bold text-[9px] ${isLight ? 'bg-sky-50 border-sky-200' : 'bg-sky-950/80 border-sky-500/40 text-sky-400'} px-1 py-0.2 rounded border shrink-0`}>
+                                ⚡ {activeLang === 'hi' ? 'औसत' : 'Average'}
+                              </span>
+                            )}
+                            {!isBlocked && route.category === 'WORST' && (
+                              <span className={`text-amber-500 font-mono font-bold text-[9px] ${isLight ? 'bg-amber-50 border-amber-200' : 'bg-amber-950/80 border-amber-500/40 text-amber-400'} px-1 py-0.2 rounded border shrink-0`}>
+                                ⚠️ {activeLang === 'hi' ? 'धीमा' : 'Worst'}
                               </span>
                             )}
                             <span className="alt-route-metrics font-medium shrink-0" style={{ color: metricsColor }}>

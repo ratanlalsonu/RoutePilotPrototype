@@ -1082,6 +1082,18 @@ const HINDI_DICTIONARY: Record<string, string> = {
   'Google Maps Active': 'गूगल मैप्स सक्रिय',
   'Dedicated Key': 'समर्पित की',
   'Uses Maps Key': 'मैप्स की का उपयोग',
+
+  // Route Categories & Names
+  'Optimal Route': 'इष्टतम मार्ग',
+  'Average Route': 'औसत मार्ग',
+  'Worst Route': 'धीमा मार्ग',
+  'Optimal': 'इष्टतम',
+  'Average': 'औसत',
+  'Worst': 'धीमा / खराब',
+  'Fastest & Safest': 'सबसे तेज़ और सुरक्षित',
+  'Moderate Alternative': 'मध्यम विकल्प',
+  'Slowest / Long Alternative': 'धीमा / लंबा विकल्प',
+  'Optimal Routes Available': 'उपलब्ध इष्टतम मार्ग',
 };
 
 export function translateText(text: string | undefined | null, lang: SupportedLanguage = 'en'): string {
@@ -1098,5 +1110,29 @@ export function translateText(text: string | undefined | null, lang: SupportedLa
     return 'RoutePilot';
   }
 
-  return text;
+  // Smart partial replacement for route descriptions like "Optimal Route — via NH 30"
+  let translated = text;
+  if (translated.includes('Optimal Route')) {
+    translated = translated.replace('Optimal Route', 'इष्टतम मार्ग');
+  }
+  if (translated.includes('Average Route')) {
+    translated = translated.replace('Average Route', 'औसत मार्ग');
+  }
+  if (translated.includes('Worst Route')) {
+    translated = translated.replace('Worst Route', 'धीमा मार्ग');
+  }
+  if (translated.includes('via')) {
+    translated = translated.replace('via', 'के रास्ते');
+  }
+  if (translated.includes('Fastest & Safest')) {
+    translated = translated.replace('Fastest & Safest', 'सबसे तेज़ और सुरक्षित');
+  }
+  if (translated.includes('Moderate Alternative')) {
+    translated = translated.replace('Moderate Alternative', 'मध्यम विकल्प');
+  }
+  if (translated.includes('Slowest / Long Alternative')) {
+    translated = translated.replace('Slowest / Long Alternative', 'धीमा / लंबा विकल्प');
+  }
+
+  return translated;
 }

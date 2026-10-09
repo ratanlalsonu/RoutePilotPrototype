@@ -189,12 +189,68 @@ export function evaluateRoutesWithAStar(
   });
 
   // 3. Sort candidates by A* f(n) ascending (lowest total cost wins)
-  evaluatedRoutes.sort((a, b) => (a.aStarMetrics?.totalFCost || 0) - (b.aStarMetrics?.totalFCost || 0));
+  evaluatedRoutes.sort((a, b) => {
+    const aBlocked = a.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
+    const bBlocked = b.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
+    if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+    return (a.aStarMetrics?.totalFCost || 0) - (b.aStarMetrics?.totalFCost || 0);
+  });
 
-  // Assign ranks
+  // Assign ranks, names & categories strictly per user specifications:
+  // - 1 route: Optimal Route (#10b981)
+  // - 2 routes: Optimal Route (#10b981) & Average Route (#38bdf8)
+  // - 3 routes (or >3): Optimal Route (#10b981), Average Route (#38bdf8) & Worst Route (#f59e0b)
+  const totalCount = evaluatedRoutes.length;
   evaluatedRoutes.forEach((route, idx) => {
+    let cat: 'OPTIMAL' | 'AVERAGE' | 'WORST' = 'OPTIMAL';
+    let baseName = 'Optimal Route';
+    let color = '#10b981';
+
+    if (totalCount === 1) {
+      cat = 'OPTIMAL';
+      baseName = 'Optimal Route';
+      color = '#10b981';
+    } else if (totalCount === 2) {
+      if (idx === 0) {
+        cat = 'OPTIMAL';
+        baseName = 'Optimal Route';
+        color = '#10b981';
+      } else {
+        cat = 'AVERAGE';
+        baseName = 'Average Route';
+        color = '#38bdf8';
+      }
+    } else {
+      if (idx === 0) {
+        cat = 'OPTIMAL';
+        baseName = 'Optimal Route';
+        color = '#10b981';
+      } else if (idx === 1) {
+        cat = 'AVERAGE';
+        baseName = 'Average Route';
+        color = '#38bdf8';
+      } else {
+        cat = 'WORST';
+        baseName = 'Worst Route';
+        color = '#f59e0b';
+      }
+    }
+
+    const viaStr = route.viaRoads && route.viaRoads.length > 0 && route.viaRoads[0] !== 'Main Highway Network'
+      ? ` — via ${route.viaRoads[0]}`
+      : cat === 'OPTIMAL'
+      ? ' — Fastest & Safest'
+      : cat === 'AVERAGE'
+      ? ' — Moderate Alternative'
+      : ' — Slowest / Long Alternative';
+
+    route.category = cat;
+    route.color = color;
+    route.name = `${baseName}${viaStr}`;
+
     if (route.aStarMetrics) {
       route.aStarMetrics.rank = idx + 1;
+      route.aStarMetrics.category = cat;
       if (idx === 0) {
         route.aStarMetrics.isOptimal = true;
         if (route.aStarMetrics.status !== 'HAZARD_BLOCKED') {
@@ -202,6 +258,7 @@ export function evaluateRoutesWithAStar(
         }
         route.isRecommended = true;
       } else {
+        route.aStarMetrics.isOptimal = false;
         route.isRecommended = false;
       }
     }

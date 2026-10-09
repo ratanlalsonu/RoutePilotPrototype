@@ -378,6 +378,28 @@ html.light .hazard-desc-box,
   filter: brightness(0.75) invert(1) contrast(2) hue-rotate(195deg) saturate(0.3) !important;
 }
 
+/* Google Maps Dark Mode Styling - guarantees real dark mode in Google Maps */
+.google-map-dark-mode {
+  background-color: #0D1117 !important;
+}
+
+.google-map-dark-mode .gm-style > div:first-child {
+  filter: invert(90%) hue-rotate(180deg) contrast(1.15) brightness(0.85) !important;
+  background-color: #0D1117 !important;
+}
+
+/* Ensure markers, popups, and route badge pills retain natural pristine colors */
+.google-map-dark-mode .gm-style > div:not(:first-child),
+.google-map-dark-mode [data-g-marker],
+.google-map-dark-mode .gm-style-iw-c,
+.google-map-dark-mode .gm-style-iw-t,
+.google-map-dark-mode .alt-route-badge-pill,
+.google-map-dark-mode .driver-vehicle-marker,
+.google-map-dark-mode .hazard-marker-container,
+.google-map-dark-mode .gmnoprint {
+  filter: none !important;
+}
+
 /* OpenStreetMap Light / Standard Tile Filter - 100% natural, crisp full color matching user image */
 .osm-light-tiles {
   filter: none !important;
