@@ -9,6 +9,7 @@ import {
   Circle,
   useMap,
   MapMouseEvent,
+  ColorScheme,
 } from '@vis.gl/react-google-maps';
 import { Hazard, SensorNode, RouteOption, VehicleType, Journey } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
@@ -124,13 +125,53 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  // Camera tracking ref so theme changes keep the exact center and zoom
+  const cameraRef = useRef<{ center: { lat: number; lng: number }; zoom: number }>({
+    center: {
+      lat: journey.currentLocation?.lat || 25.4570,
+      lng: journey.currentLocation?.lng || 78.5750,
+    },
+    zoom: 14,
+  });
+
+  useEffect(() => {
+    if (!map) return;
+    const idleListener = map.addListener('idle', () => {
+      const c = map.getCenter();
+      const z = map.getZoom();
+      if (c) {
+        cameraRef.current.center = { lat: c.lat(), lng: c.lng() };
+      }
+      if (z !== undefined) {
+        cameraRef.current.zoom = z;
+      }
+    });
+    return () => {
+      if (typeof google !== 'undefined' && google.maps && google.maps.event) {
+        google.maps.event.removeListener(idleListener);
+      }
+    };
+  }, [map]);
+
   useEffect(() => {
     if (theme === 'satellite' || theme === 'dark' || theme === 'standard') {
+      if (map) {
+        const c = map.getCenter();
+        const z = map.getZoom();
+        if (c) cameraRef.current.center = { lat: c.lat(), lng: c.lng() };
+        if (z !== undefined) cameraRef.current.zoom = z;
+      }
       setMapStyle(theme);
     } else if (appTheme) {
+      if (map) {
+        const c = map.getCenter();
+        const z = map.getZoom();
+        if (c) cameraRef.current.center = { lat: c.lat(), lng: c.lng() };
+        if (z !== undefined) cameraRef.current.zoom = z;
+      }
       setMapStyle(appTheme === 'light' ? 'standard' : 'dark');
     }
-  }, [theme, appTheme]);
+  }, [theme, appTheme, map]);
 
   // isLight should ONLY be true if the application or explicit map style is light
   const isLight =
@@ -191,21 +232,15 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     };
   }, [map]);
 
-  useEffect(() => {
-    if (theme === 'satellite' || theme === 'dark' || theme === 'standard') {
-      setMapStyle(theme);
-    }
-  }, [theme]);
-
   // Sync Google Map type (Roadmap vs Hybrid Satellite) and dark vs light styling
   useEffect(() => {
     if (!map) return;
     map.setMapTypeId(mapStyle === 'satellite' ? 'hybrid' : 'roadmap');
-    if (mapStyle === 'dark') {
-      map.setOptions({ styles: DARK_MAP_STYLES });
-    } else {
-      map.setOptions({ styles: [] });
-    }
+    try {
+      (map as any).setOptions({
+        colorScheme: mapStyle === 'dark' ? 'DARK' : 'LIGHT',
+      });
+    } catch {}
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('routepilot_map_theme', mapStyle);
@@ -214,6 +249,14 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   }, [map, mapStyle]);
 
   const handleSelectMapStyle = (style: 'standard' | 'dark' | 'satellite') => {
+    if (map) {
+      const c = map.getCenter();
+      const z = map.getZoom();
+      if (c) cameraRef.current.center = { lat: c.lat(), lng: c.lng() };
+      if (z !== undefined) cameraRef.current.zoom = z;
+    } else if (vehiclePos) {
+      cameraRef.current.center = { lat: vehiclePos.lat, lng: vehiclePos.lng };
+    }
     setMapStyle(style);
     if (typeof window !== 'undefined') {
       try {
@@ -344,12 +387,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 
   const toggleMapStyle = () => {
     const nextStyle = mapStyle === 'satellite' ? 'standard' : 'satellite';
-    setMapStyle(nextStyle);
-    if (onChangeTheme) {
-      onChangeTheme(nextStyle);
-    } else if (onToggleTheme) {
-      onToggleTheme();
-    }
+    handleSelectMapStyle(nextStyle);
   };
 
   const handleZoomIn = () => {
@@ -383,15 +421,16 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   }, [journey.origin, vehiclePos]);
 
   return (
-    <div className="relative w-full h-full bg-[#0D1117] overflow-hidden select-none">
+    <div className={`relative w-full h-full bg-[#0D1117] overflow-hidden select-none ${mapStyle === 'dark' ? 'google-map-dark-mode' : ''}`}>
       <Map
+        key={`gmap-${mapStyle === 'dark' ? 'dark' : 'standard'}`}
         mapId="DEMO_MAP_ID"
-        defaultCenter={{ lat: 25.4570, lng: 78.5750 }}
-        defaultZoom={14}
+        colorScheme={mapStyle === 'dark' ? ColorScheme.DARK : ColorScheme.LIGHT}
+        defaultCenter={cameraRef.current.center}
+        defaultZoom={cameraRef.current.zoom}
         gestureHandling="greedy"
         disableDefaultUI={true}
         mapTypeId={mapStyle === 'satellite' ? 'hybrid' : 'roadmap'}
-        styles={mapStyle === 'dark' ? (DARK_MAP_STYLES as any) : undefined}
         onClick={handleMapClick}
         className="w-full h-full"
         style={{ width: '100%', height: '100%' }}
