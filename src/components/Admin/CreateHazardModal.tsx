@@ -23,65 +23,6 @@ interface CreateHazardModalProps {
   onNavigateToSensors?: () => void;
 }
 
-// Curated key road & bridge corridors in the test region for instant 1-click filling
-const QUICK_HOTSPOTS = [
-  {
-    label: '⚠ On Driver Route (Civil Lines Bridge)',
-    type: 'Bridge Damage' as HazardType,
-    severity: 'CRITICAL' as HazardSeverity,
-    lat: 25.4585,
-    lng: 78.5765,
-    locationName: 'Near Civil Lines Bridge',
-    roadName: 'Civil Lines Road',
-    radius: 220,
-    desc: 'Critical structural crack & pier displacement detected on bridge',
-  },
-  {
-    label: '⚠ 2nd Hazard Ahead (Gwalior Connector)',
-    type: 'Road Blockage' as HazardType,
-    severity: 'CRITICAL' as HazardSeverity,
-    lat: 25.4642,
-    lng: 78.5728,
-    locationName: 'North-West Gwalior Connector',
-    roadName: 'Gwalior Arterial Rd',
-    radius: 180,
-    desc: 'Overturned trailer blocking both lanes on diverted route',
-  },
-  {
-    label: 'Away from Route (Orchha Bypass)',
-    type: 'Road Construction' as HazardType,
-    severity: 'WARNING' as HazardSeverity,
-    lat: 25.4380,
-    lng: 78.5520,
-    locationName: 'South Ring Bypass (Far Away)',
-    roadName: 'Orchha Link Bypass',
-    radius: 150,
-    desc: 'Scheduled resurfacing away from driver active corridor',
-  },
-  {
-    label: 'Railway Station Overbridge',
-    type: 'High Water Level' as HazardType,
-    severity: 'WARNING' as HazardSeverity,
-    lat: 25.4484,
-    lng: 78.5562,
-    locationName: 'Jhansi Station Overbridge',
-    roadName: 'Station Link Road',
-    radius: 160,
-    desc: 'Flash water accumulation under bridge pier after heavy rain',
-  },
-  {
-    label: 'Shivpuri Highway Arterial',
-    type: 'Accident' as HazardType,
-    severity: 'BLOCKED' as HazardSeverity,
-    lat: 25.4290,
-    lng: 78.5380,
-    locationName: 'Shivpuri Highway Crossing',
-    roadName: 'Shivpuri Highway (NH-27)',
-    radius: 250,
-    desc: 'Multi-vehicle collision blocking arterial highway corridor',
-  },
-];
-
 export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   lat,
   lng,
@@ -200,17 +141,6 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
       }
     }
   }, [isOpen, lat, lng]);
-
-  const handleSelectHotspot = (spot: (typeof QUICK_HOTSPOTS)[0]) => {
-    setCurrentLat(spot.lat);
-    setCurrentLng(spot.lng);
-    setType(spot.type);
-    setSeverity(spot.severity);
-    setLocationName(spot.locationName);
-    setRoadName(spot.roadName);
-    setAffectedRadius(spot.radius);
-    setDescription(spot.desc);
-  };
 
   const handlePlaceSearch = (query: string) => {
     setSearchQuery(query);
@@ -477,26 +407,6 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
             </div>
           )}
 
-          {/* Quick Presets Section */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-300">Quick Test Hotspots & Corridors:</span>
-              <span className="text-[10px] text-cyan-400 font-mono">1-Click Auto-Fill</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_HOTSPOTS.map((spot, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSelectHotspot(spot)}
-                  className="px-2 py-1 rounded-lg bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] hover:border-[#AEF5F0]/50 text-slate-300 hover:text-white text-[10px] font-medium transition cursor-pointer flex items-center gap-1"
-                >
-                  <span>{spot.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Place Search Autocomplete */}
           <div className="relative">
             <label className="block text-[11px] font-semibold text-slate-300 mb-1">
@@ -671,18 +581,6 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
               <span>180m (Standard)</span>
               <span>600m (Corridor)</span>
             </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Observations / Incident Log</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Structural movement detected on bridge pier; roadway restricted to single lane."
-              rows={2}
-              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#AEF5F0] text-xs resize-none"
-            />
           </div>
 
           {/* Source */}

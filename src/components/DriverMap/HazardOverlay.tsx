@@ -1,6 +1,7 @@
 import React from 'react';
 import { STATE_NODE_MAP } from '../../services/simulationGraph';
 import { SimulationRoute } from '../../types/simulationMap';
+import { getHazardVisual } from '../../services/hazardVisuals';
 
 interface HazardOverlayProps {
   route: SimulationRoute | null;
@@ -16,6 +17,12 @@ export const HazardOverlay: React.FC<HazardOverlayProps> = ({
   if (!hasHazard || !route?.blockedSegment) return null;
 
   const { from, to, hazardType } = route.blockedSegment;
+  const visual = getHazardVisual(
+    hazardType === 'flood' ? 'High Water Level' :
+    hazardType === 'construction' ? 'Road Construction' :
+    hazardType === 'accident' ? 'Accident' :
+    hazardType === 'blockage' ? 'Road Blockage' : 'Bridge Damage'
+  );
   const p1 = STATE_NODE_MAP[from];
   const p2 = STATE_NODE_MAP[to];
 
@@ -42,18 +49,18 @@ export const HazardOverlay: React.FC<HazardOverlayProps> = ({
     >
       <div className="relative flex flex-col items-center group">
         {/* Pulsing hazard warning waves */}
-        <div className="w-10 h-10 rounded-full bg-red-600/40 animate-ping absolute" />
+        <div className={`w-10 h-10 rounded-full ${visual.pingClass} animate-ping absolute`} />
         <div className="w-14 h-14 rounded-full bg-red-500/20 animate-pulse absolute" />
 
-        {/* Hazard Badge with ⚠ Icon */}
-        <div className="relative px-2.5 py-1 rounded-md bg-red-600 text-white border border-red-300 shadow-2xl flex items-center gap-1.5 font-bold text-[11px] animate-bounce whitespace-nowrap">
-          <span className="text-amber-300 text-sm">⚠</span>
-          <span>{(hazardType || 'bridge').toUpperCase()} HAZARD</span>
+        {/* Hazard Badge with specific Icon */}
+        <div className={`relative px-2.5 py-1 rounded-md ${visual.bgClass} text-white border ${visual.badgeBorder} shadow-2xl flex items-center gap-1.5 font-bold text-[11px] animate-bounce whitespace-nowrap`}>
+          <span className="text-sm">{visual.emoji}</span>
+          <span>{visual.label.toUpperCase()}</span>
           {onClearHazard && (
             <button
               type="button"
               onClick={onClearHazard}
-              className="ml-1 hover:bg-red-700 rounded px-1 text-[10px] text-white/90"
+              className="ml-1 hover:bg-black/30 rounded px-1 text-[10px] text-white/90"
               title="Resolve Hazard"
             >
               ✕

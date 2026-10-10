@@ -5,6 +5,7 @@ import { realtimeSync } from '../../services/realtimeSync';
 import { hardwareSimEngine } from '../../services/hardwareSimulationEngine';
 import { getTranslation, translateText } from '../../services/i18n';
 import { getVehicleTopDownSvg, getVehicleDimensions } from '../../services/vehicleModels';
+import { getHazardVisual } from '../../services/hazardVisuals';
 
 // Defensive patch against internal Leaflet TypeError: Cannot read properties of undefined (reading '_leaflet_pos')
 if (typeof window !== 'undefined' && L && L.DomUtil) {
@@ -737,9 +738,10 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
     hazards.forEach((hazard) => {
       if (hazard.status !== 'ACTIVE') return;
+      const visual = getHazardVisual(hazard.type, hazard.severity);
       const isCritical = hazard.severity === 'CRITICAL' || hazard.severity === 'BLOCKED';
-      const color = isCritical ? '#ef4444' : '#f59e0b';
-      const borderColor = isCritical ? '#dc2626' : '#d97706';
+      const color = visual.accentColor;
+      const borderColor = isCritical ? '#dc2626' : visual.accentColor;
 
       // Circle - Interactive so clicking anywhere in the affected radius opens details
       const circle = L.circle([hazard.latitude, hazard.longitude], {
@@ -752,27 +754,26 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       }).addTo(hazardsLayer);
       (circle as any)._hazardId = hazard.hazardId;
 
-      // Warning Marker: 140x72 bounding box ensures warning circle & badge are fully within clickable boundaries
+      // Hazard Marker with distinct icon specific to hazard type (e.g. water waves for flood, broken bridge, barricade, etc.)
       const hazardIcon = L.divIcon({
         className: 'hazard-marker-container',
         html: `
           <div class="relative w-full h-full flex flex-col items-center justify-start cursor-pointer select-none" style="pointer-events: auto;">
-            <!-- Center Warning Icon (anchored at center x:70, y:18) -->
+            <!-- Center Hazard-Specific Icon (anchored at center x:70, y:18) -->
             <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
-              <div class="w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute pointer-events-none"></div>
-              <div class="w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95 pointer-events-auto">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                </svg>
+              <div class="w-10 h-10 rounded-full ${visual.pingClass} animate-ping absolute pointer-events-none"></div>
+              <div class="w-9 h-9 rounded-full ${visual.bgClass} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95 pointer-events-auto" style="box-shadow: 0 4px 14px ${visual.accentColor}90;">
+                ${visual.svgHtml}
               </div>
             </div>
-            <!-- Hazard Type Badge: High Contrast in both Light and Dark mode -->
-            <div class="px-2.5 py-0.5 mt-1 ${
+            <!-- Hazard Type Badge: High Contrast with distinct emoji indicator -->
+            <div class="px-2.5 py-0.5 mt-1 flex items-center gap-1 ${
               isLight
-                ? (isCritical ? 'bg-white border-2 border-red-500 text-red-700 shadow-md font-extrabold' : 'bg-white border-2 border-amber-500 text-amber-800 shadow-md font-extrabold')
-                : (isCritical ? 'bg-[#161B22]/95 border border-red-500/70 text-red-200 shadow-xl font-bold' : 'bg-[#161B22]/95 border border-amber-500/70 text-amber-200 shadow-xl font-bold')
+                ? `bg-white border-2 text-slate-900 shadow-md font-extrabold ${visual.badgeBorder}`
+                : `bg-[#161B22]/95 border ${visual.badgeBorder} ${visual.badgeText} shadow-xl font-bold`
             } text-[11px] rounded-md whitespace-nowrap z-10 pointer-events-auto">
-              ${translateText(hazard.type, activeLang)}
+              <span class="text-[12px] leading-none">${visual.emoji}</span>
+              <span>${translateText(hazard.type, activeLang)}</span>
             </div>
           </div>
         `,

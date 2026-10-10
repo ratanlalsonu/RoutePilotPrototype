@@ -13,6 +13,7 @@ import {
 import { Hazard, VehicleType, Journey } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
 import { VoiceService } from '../../services/voiceService';
+import { getHazardVisual } from '../../services/hazardVisuals';
 
 interface DirectGraphicMapProps {
   mode?: 'admin' | 'driver';
@@ -662,17 +663,18 @@ export const DirectGraphicMap: React.FC<DirectGraphicMapProps> = ({
                 const road = INDIA_ROAD_SEGMENTS.find((r) => r.id === roadId);
                 if (!road || road.waypoints.length === 0) return null;
                 const midPt = road.waypoints[Math.floor(road.waypoints.length / 2)];
+                const matchedHazard = hazards.find((h) => h.status === 'ACTIVE');
+                const visual = getHazardVisual(matchedHazard?.type || 'Road Blockage');
                 return (
                   <g key={`hazard-icon-${roadId}`} transform={`translate(${midPt[0]}, ${midPt[1]})`}>
-                    <circle r="16" fill="#ef4444" fillOpacity="0.9" stroke="#ffffff" strokeWidth="2" />
+                    <circle r="16" fill={visual.accentColor} fillOpacity="0.95" stroke="#ffffff" strokeWidth="2" />
                     <text
                       textAnchor="middle"
                       dy="5"
                       fill="#ffffff"
                       fontSize="14"
-                      fontWeight="bold"
                     >
-                      ⚠
+                      {visual.emoji}
                     </text>
                   </g>
                 );

@@ -16,6 +16,7 @@ import { realtimeSync } from '../../services/realtimeSync';
 import { hardwareSimEngine } from '../../services/hardwareSimulationEngine';
 import { getTranslation, translateText } from '../../services/i18n';
 import { getVehicleTopDownSvg, getVehicleDimensions } from '../../services/vehicleModels';
+import { getHazardVisual, HazardIconComponent } from '../../services/hazardVisuals';
 import { LeafletMapInner } from './LeafletMapInner';
 
 interface RoutePilotMapProps {
@@ -705,9 +706,10 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
         {/* Hazard Radius Circles and Markers */}
         {hazards.map((hazard) => {
           if (hazard.status !== 'ACTIVE') return null;
+          const visual = getHazardVisual(hazard.type, hazard.severity);
           const isCritical = hazard.severity === 'CRITICAL' || hazard.severity === 'BLOCKED';
-          const color = isCritical ? '#ef4444' : '#f59e0b';
-          const borderColor = isCritical ? '#dc2626' : '#d97706';
+          const color = visual.accentColor;
+          const borderColor = isCritical ? '#dc2626' : visual.accentColor;
 
           return (
             <React.Fragment key={hazard.hazardId}>
@@ -744,23 +746,23 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     }}
                   >
                     <div
-                      className={`w-10 h-10 rounded-full ${isCritical ? 'bg-red-500/40' : 'bg-amber-500/40'} animate-ping absolute pointer-events-none`}
+                      className={`w-10 h-10 rounded-full ${visual.pingClass} animate-ping absolute pointer-events-none`}
                     ></div>
                     <div
-                      className={`w-9 h-9 rounded-full ${isCritical ? 'bg-red-600' : 'bg-amber-500'} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95`}
+                      className={`w-9 h-9 rounded-full ${visual.bgClass} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95`}
+                      style={{ boxShadow: `0 4px 14px ${visual.accentColor}90` }}
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
+                      <HazardIconComponent type={hazard.type} severity={hazard.severity} className="w-5 h-5 text-white" />
                     </div>
                     <div
-                      className={`px-2.5 py-0.5 mt-1 bg-[#161B22]/95 border ${isCritical ? 'border-red-500/70 text-red-200' : 'border-amber-500/70 text-amber-200'} text-[11px] font-bold rounded-md shadow-xl whitespace-nowrap z-10`}
+                      className={`px-2.5 py-0.5 mt-1 flex items-center gap-1 ${
+                        isLight
+                          ? `bg-white border-2 text-slate-900 shadow-md font-extrabold ${visual.badgeBorder}`
+                          : `bg-[#161B22]/95 border ${visual.badgeBorder} ${visual.badgeText} text-[11px] font-bold rounded-md shadow-xl`
+                      } whitespace-nowrap z-10`}
                     >
-                      {translateText(hazard.type, activeLang)}
+                      <span className="text-[12px] leading-none">{visual.emoji}</span>
+                      <span>{translateText(hazard.type, activeLang)}</span>
                     </div>
                   </div>
                 </div>

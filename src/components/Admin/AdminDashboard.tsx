@@ -434,17 +434,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
                 <div className="flex items-center flex-wrap gap-2">
                   <button
-                    onClick={() => {
-                      if (!clickedCoords) setClickedCoords({ lat: 25.4585, lng: 78.5765 });
-                      setIsModalOpen(true);
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 cursor-pointer"
-                  >
-                    <span>+</span>
-                    <span>Create Hazard Form</span>
-                  </button>
-
-                  <button
                     onClick={() => setIsCreatingHazard(!isCreatingHazard)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 border cursor-pointer ${
                       isCreatingHazard

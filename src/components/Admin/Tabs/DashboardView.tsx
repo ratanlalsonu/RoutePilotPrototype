@@ -194,17 +194,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Demonstration & Hazard Creation Controls */}
             <div className="flex items-center flex-wrap gap-2">
-              {onOpenCreateHazardModal && (
-                <button
-                  type="button"
-                  onClick={onOpenCreateHazardModal}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 cursor-pointer"
-                >
-                  <span>+</span>
-                  <span>{lang === 'hi' ? 'खतरा दर्ज करें' : 'Create Hazard'}</span>
-                </button>
-              )}
-
               <button
                 type="button"
                 onClick={onOpenCreateHazard}
