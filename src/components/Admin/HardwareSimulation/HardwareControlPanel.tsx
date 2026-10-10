@@ -251,6 +251,27 @@ export const HardwareControlPanel: React.FC<HardwareControlPanelProps> = ({
                       className="w-full accent-yellow-500 cursor-pointer"
                     />
                   </div>
+                  <div>
+                    <div className="flex justify-between text-slate-300 text-[11px] mb-1">
+                      <span>Pier Displacement: {(sensorValues.hcsr04.displacementMm ?? 1.2).toFixed(1)} mm</span>
+                      <span className="text-slate-500">Limit: {thresholds.displacementMm} mm</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      step="0.5"
+                      disabled={!sensorValues.hcsr04.enabled}
+                      value={sensorValues.hcsr04.displacementMm ?? 1.2}
+                      onChange={(e) => {
+                        const disp = parseFloat(e.target.value);
+                        hardwareSimEngine.updateSensorValue('hcsr04', {
+                          displacementMm: disp,
+                        });
+                      }}
+                      className="w-full accent-rose-500 cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 {/* 5. Water Level Sensor Controls */}

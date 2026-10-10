@@ -5,6 +5,7 @@ import { CreateHazardModal } from './CreateHazardModal';
 import { SettingsModal } from '../Common/SettingsModal';
 import { AStarAlgorithmTab } from './Tabs/AStarAlgorithmTab';
 import { HazardType, HazardSeverity } from '../../types';
+import { hardwareSimEngine } from '../../services/hardwareSimulationEngine';
 import { DashboardView } from './Tabs/DashboardView';
 import { HazardsTab } from './Tabs/HazardsTab';
 import { SensorsTab } from './Tabs/SensorsTab';
@@ -46,6 +47,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   const blockedRoadsCount = roadStatuses.filter((r) => r.status === 'Blocked').length;
 
   const handleMapClickForHazard = (lat: number, lng: number) => {
+    const simState = hardwareSimEngine.getState();
+    if (simState.overallStatus === 'SAFE') {
+      showToast(
+        lang === 'hi'
+          ? '⚠️ सिमुलेशन में कोई खतरा नहीं है! मैप पर खतरा लगाने के लिए पहले "सेंसर नोड्स" में एनोमली ट्रिगर करें।'
+          : '⚠️ No hazard in simulation! Please trigger an anomaly in Sensor Nodes simulation before placing on map.'
+      );
+      return;
+    }
     setClickedCoords({ lat, lng });
     setIsModalOpen(true);
     setIsCreatingHazard(false);
@@ -86,18 +96,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       locationName = `Ahead on ${roadName}`;
     }
 
+    const simData = hardwareSimEngine.getSimulationHazardData();
+    const hazardType = simData.isHazard ? simData.type : 'Bridge Damage';
+    const hazardSeverity = simData.isHazard ? simData.severity : 'CRITICAL';
+    const hazardRadius = simData.isHazard ? simData.affectedRadius : 220;
+    const hazardDesc = simData.isHazard
+      ? `Active Sensor Node Telemetry: ${simData.description}`
+      : 'Critical structural crack & road damage detected on active route segment';
+    const hazardSource = simData.isHazard ? 'LIVE_HARDWARE' : 'ADMIN';
+
     realtimeSync.createHazard({
-      type: 'Bridge Damage',
-      severity: 'CRITICAL',
+      type: hazardType,
+      severity: hazardSeverity,
       latitude: lat,
       longitude: lng,
       locationName,
       roadName,
-      affectedRadius: 220,
-      description: 'Critical structural crack & road damage detected on active route segment',
-      source: 'ADMIN',
+      affectedRadius: hazardRadius,
+      description: hazardDesc,
+      source: hazardSource,
     });
-    showToast('Critical Hazard placed directly on Driver Active Road Route!');
+    showToast(
+      simData.isHazard
+        ? `Simulation Telemetry Hazard (${hazardType} - ${hazardSeverity}) placed on Driver Route!`
+        : 'Critical Hazard placed directly on Driver Active Road Route!'
+    );
   };
 
   const handleQuickHazardAwayFromRoute = () => {
@@ -569,6 +592,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         onPickOnMap={() => {
           setActiveTab('Live Map');
           setIsCreatingHazard(true);
+        }}
+        onNavigateToSensors={() => {
+          setIsModalOpen(false);
+          setActiveTab('Sensor Nodes');
         }}
       />
 

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { RoutePilotState, realtimeSync } from '../../../services/realtimeSync';
 import { RoutePilotMap } from '../../Map/RoutePilotMap';
 import { getTranslation } from '../../../services/i18n';
+import { hardwareSimEngine, HardwareSimState } from '../../../services/hardwareSimulationEngine';
 
 interface DashboardViewProps {
   state: RoutePilotState;
@@ -35,6 +36,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const activeHazardsCount = hazards.filter((h) => h.status === 'ACTIVE').length;
   const onlineSensorsCount = sensorNodes.filter((s) => s.status === 'Online').length;
   const blockedRoadsCount = roadStatuses.filter((r) => r.status === 'Blocked').length;
+
+  const [simState, setSimState] = useState<HardwareSimState>(() => hardwareSimEngine.getState());
+
+  useEffect(() => {
+    return hardwareSimEngine.subscribe((s) => setSimState({ ...s }));
+  }, []);
 
   return (
     <>
@@ -159,6 +166,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {lang === 'hi' ? 'लाइव मैप — वास्तविक समय निगरानी' : 'Live Map — Real Time Monitoring'}
               </span>
               <span className="text-[11px] text-slate-400 hidden md:inline">• OpenStreetMap Real Roads</span>
+
+              {/* Simulation Telemetry Sync Status Indicator */}
+              {simState.overallStatus !== 'SAFE' ? (
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('Sensor Nodes')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-200 text-[11px] font-bold cursor-pointer transition shadow-sm animate-pulse"
+                  title="Active anomaly in Sensor Node simulation! Creating a hazard will auto-fill from this simulation telemetry."
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+                  <span>Sim: {simState.overallStatus}</span>
+                  <span className="text-[10px] text-cyan-300 font-mono hidden sm:inline">⚡ Auto-Fill</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('Sensor Nodes')}
+                  className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-medium cursor-pointer transition"
+                  title="Simulation sensors nominal. Click to view Sensor Node simulation."
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span>Sim Node: Safe</span>
+                </button>
+              )}
             </div>
 
             {/* Demonstration & Hazard Creation Controls */}

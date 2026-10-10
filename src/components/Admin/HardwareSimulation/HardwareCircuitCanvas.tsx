@@ -849,13 +849,13 @@ export const HardwareCircuitCanvas: React.FC<HardwareCircuitCanvasProps> = ({
         {/* ============================================================== */}
         <g
           id="comp-gateway"
-          transform="translate(1320, 395)"
+          transform="translate(1320, 388)"
           onClick={() => onSelectComponent(selectedComponent === 'gateway' ? null : 'gateway')}
           className="cursor-pointer transition-transform hover:scale-[1.01]"
         >
           <rect
             width="245"
-            height="150"
+            height="144"
             rx="12"
             fill="#161B22"
             stroke={selectedComponent === 'gateway' ? '#AEF5F0' : '#2563eb'}
@@ -869,48 +869,102 @@ export const HardwareCircuitCanvas: React.FC<HardwareCircuitCanvasProps> = ({
           </text>
 
           {/* Receiver Module */}
-          <rect x="25" y="50" width="195" height="85" rx="6" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
+          <rect x="25" y="48" width="195" height="84" rx="6" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
           {/* Receiver Antenna */}
-          <rect x="35" y="60" width="10" height="40" rx="2" fill="#d97706" />
-          <path d="M 40 60 L 40 25" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
+          <rect x="35" y="56" width="10" height="40" rx="2" fill="#d97706" />
+          <path d="M 40 56 L 40 22" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
 
           {/* Gateway Microcontroller */}
-          <rect x="60" y="62" width="80" height="60" rx="4" fill="#0f172a" stroke="#1d4ed8" strokeWidth="1" />
-          <text x="100" y="85" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">
+          <rect x="60" y="58" width="80" height="60" rx="4" fill="#0f172a" stroke="#1d4ed8" strokeWidth="1" />
+          <text x="100" y="81" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">
             SX1278
           </text>
-          <text x="100" y="98" textAnchor="middle" fill="#93c5fd" fontSize="8">
+          <text x="100" y="94" textAnchor="middle" fill="#93c5fd" fontSize="8">
             LoRa Gateway
           </text>
 
           {/* Status LEDs & Metrics */}
-          <circle cx="160" cy="72" r="3.5" fill="#22c55e">
+          <circle cx="160" cy="68" r="3.5" fill="#22c55e">
             {isRunning && <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite" />}
           </circle>
-          <text x="170" y="75" fill="#22c55e" fontSize="8" fontWeight="bold">RX SYNC</text>
+          <text x="170" y="71" fill="#22c55e" fontSize="8" fontWeight="bold">RX SYNC</text>
 
-          <text x="155" y="94" fill="#cbd5e1" fontSize="8" fontFamily="monospace">
+          <text x="155" y="90" fill="#cbd5e1" fontSize="8" fontFamily="monospace">
             RSSI: -68 dBm
           </text>
-          <text x="155" y="106" fill="#cbd5e1" fontSize="8" fontFamily="monospace">
+          <text x="155" y="102" fill="#cbd5e1" fontSize="8" fontFamily="monospace">
             SNR: +9.4 dB
           </text>
-          <text x="155" y="118" fill="#38bdf8" fontSize="7.5" fontFamily="monospace">
+          <text x="155" y="114" fill="#38bdf8" fontSize="7.5" fontFamily="monospace">
             Packets: #{simState.packetsSent}
           </text>
         </g>
 
-        {/* Link Arrow from Gateway to Backend */}
-        <g id="gateway-to-backend-link">
-          <path d="M 1442 545 L 1442 580" fill="none" stroke="#38bdf8" strokeWidth="3" strokeDasharray="4 4">
+        {/* ============================================================== */}
+        {/* INTERNET / CLOUD NETWORK LINK (Gateway -> Internet -> Backend) */}
+        {/* ============================================================== */}
+        <g id="gateway-to-backend-internet-link">
+          {/* Top connection line: Gateway to Internet */}
+          <path d="M 1442.5 532 L 1442.5 548" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeDasharray="3 3">
             {isRunning && (
-              <animate attributeName="stroke-dashoffset" from="16" to="0" dur="0.8s" repeatCount="indefinite" />
+              <animate attributeName="stroke-dashoffset" from="12" to="0" dur="0.6s" repeatCount="indefinite" />
             )}
           </path>
-          <polygon points="1442,585 1438,576 1446,576" fill="#38bdf8" />
-          <text x="1455" y="565" fill="#38bdf8" fontSize="8" fontWeight="bold" fontFamily="monospace">
-            TCP/IP LAN
-          </text>
+
+          {/* Central Internet / Cloud Badge */}
+          <g transform="translate(1442.5, 562)">
+            {/* Outer Capsule Frame */}
+            <rect
+              x="-68"
+              y="-13"
+              width="136"
+              height="26"
+              rx="13"
+              fill="#0B0F17"
+              stroke="#0284c7"
+              strokeWidth="1.6"
+              filter="url(#wireGlow)"
+            />
+
+            {/* Internet Globe Symbol */}
+            <g transform="translate(-48, 0)">
+              {/* Globe Outer Sphere */}
+              <circle cx="0" cy="0" r="8.5" fill="#0369a1" fillOpacity="0.3" stroke="#38bdf8" strokeWidth="1.2" />
+              {/* Horizontal Equator Line */}
+              <line x1="-8.5" y1="0" x2="8.5" y2="0" stroke="#38bdf8" strokeWidth="0.9" />
+              {/* Vertical Meridian Ellipse */}
+              <ellipse cx="0" cy="0" rx="4.5" ry="8.5" fill="none" stroke="#38bdf8" strokeWidth="0.9" />
+              <line x1="0" y1="-8.5" x2="0" y2="8.5" stroke="#38bdf8" strokeWidth="0.8" />
+              {/* Live Signal Pulse Ring */}
+              {isRunning && (
+                <circle cx="0" cy="0" r="8.5" fill="none" stroke="#22c55e" strokeWidth="1.2" opacity="0.8">
+                  <animate attributeName="r" values="8.5;14;8.5" dur="1.8s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.8;0;0.8" dur="1.8s" repeatCount="indefinite" />
+                </circle>
+              )}
+            </g>
+
+            {/* Internet Typography Labels */}
+            <text x="-32" y="-1" fill="#38bdf8" fontSize="8.5" fontWeight="bold" fontFamily="sans-serif">
+              🌐 INTERNET
+            </text>
+            <text x="-32" y="8" fill="#94a3b8" fontSize="6.5" fontFamily="monospace">
+              CLOUD / TCP-IP
+            </text>
+
+            {/* Live Link Green Status Dot */}
+            <circle cx="53" cy="0" r="3" fill="#22c55e">
+              {isRunning && <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />}
+            </circle>
+          </g>
+
+          {/* Bottom connection line: Internet to Backend Server */}
+          <path d="M 1442.5 575 L 1442.5 585" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeDasharray="3 3">
+            {isRunning && (
+              <animate attributeName="stroke-dashoffset" from="12" to="0" dur="0.6s" repeatCount="indefinite" />
+            )}
+          </path>
+          <polygon points="1442.5,591 1438,583 1447,583" fill="#38bdf8" />
         </g>
 
         {/* ============================================================== */}
@@ -918,13 +972,13 @@ export const HardwareCircuitCanvas: React.FC<HardwareCircuitCanvasProps> = ({
         {/* ============================================================== */}
         <g
           id="comp-backend"
-          transform="translate(1320, 585)"
+          transform="translate(1320, 592)"
           onClick={() => onSelectComponent(selectedComponent === 'backend' ? null : 'backend')}
           className="cursor-pointer transition-transform hover:scale-[1.01]"
         >
           <rect
             width="245"
-            height="155"
+            height="150"
             rx="12"
             fill="#161B22"
             stroke={selectedComponent === 'backend' ? '#AEF5F0' : '#0284c7'}

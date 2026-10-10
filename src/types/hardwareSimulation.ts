@@ -74,6 +74,7 @@ export interface VirtualSensorValues {
     distanceCm: number;
     waterRiseCm: number;
     echoPulseUs: number;
+    displacementMm: number;
     enabled: boolean;
   };
   waterLevel: {
@@ -98,6 +99,7 @@ export interface HazardThresholds {
   waterLevelM: number;        // default: 0.30 m
   strainMicrostrain: number;  // default: 600 µε
   loadWeightKn: number;       // default: 85 kN
+  displacementMm: number;     // default: 20 mm
 }
 
 export interface TelemetryPacket {

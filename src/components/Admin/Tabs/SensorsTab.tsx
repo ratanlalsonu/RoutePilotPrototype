@@ -257,6 +257,12 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
                 >
                   Pier Tilt
                 </button>
+                <button
+                  onClick={() => hardwareSimEngine.applyPreset('DISPLACEMENT_ANOMALY')}
+                  className="px-2 py-0.5 rounded bg-rose-950/60 border border-rose-600/40 text-rose-300 hover:text-white transition cursor-pointer"
+                >
+                  Displacement Shift
+                </button>
               </div>
             )}
 
@@ -325,31 +331,6 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
                 }`}
               >
                 Pin Map
-              </button>
-              <button
-                onClick={toggleFullscreen}
-                title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Fullscreen Simulation Mode'}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
-                  isFullscreen
-                    ? 'bg-[#AEF5F0] text-slate-950 border-[#AEF5F0] shadow-md shadow-[#AEF5F0]/30'
-                    : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white hover:border-[#AEF5F0]/50'
-                }`}
-              >
-                {isFullscreen ? (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5-5m0 0v4m0-4h-4m-6 6l-5 5m0 0v-4m0 4h4m6-6l5 5m0 0v-4m0 4h-4" />
-                    </svg>
-                    <span>Exit Fullscreen</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
-                    <span>Fullscreen</span>
-                  </>
-                )}
               </button>
             </div>
           </div>

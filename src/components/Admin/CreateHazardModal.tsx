@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HazardType, HazardSeverity, HazardSource } from '../../types';
 import { reverseGeocode, searchPlaces } from '../../services/geocodingService';
+import { hardwareSimEngine, HardwareSimState } from '../../services/hardwareSimulationEngine';
 
 interface CreateHazardModalProps {
   lat: number;
@@ -19,6 +20,7 @@ interface CreateHazardModalProps {
     source: HazardSource;
   }) => void;
   onPickOnMap?: () => void;
+  onNavigateToSensors?: () => void;
 }
 
 // Curated key road & bridge corridors in the test region for instant 1-click filling
@@ -87,6 +89,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   onClose,
   onSubmit,
   onPickOnMap,
+  onNavigateToSensors,
 }) => {
   const [currentLat, setCurrentLat] = useState<number>(lat || 25.4585);
   const [currentLng, setCurrentLng] = useState<number>(lng || 78.5765);
@@ -98,6 +101,9 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   const [description, setDescription] = useState('');
   const [source, setSource] = useState<HazardSource>('ADMIN');
   const [isLoadingGeocode, setIsLoadingGeocode] = useState(false);
+  const [simState, setSimState] = useState<HardwareSimState>(hardwareSimEngine.getState());
+  const [autoFilledFromSim, setAutoFilledFromSim] = useState(false);
+  const [anomalyToast, setAnomalyToast] = useState<string | null>(null);
 
   // Quick place search inside modal
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,7 +111,64 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const searchDebounceRef = useRef<any>(null);
 
-  // Sync coords when opened or lat/lng prop updates
+  const fillFromSimulation = () => {
+    const hazardData = hardwareSimEngine.getSimulationHazardData();
+    if (hazardData.isHazard) {
+      setType(hazardData.type);
+      setSeverity(hazardData.severity);
+      setAffectedRadius(hazardData.affectedRadius);
+      setDescription(hazardData.description);
+      setSource('LIVE_HARDWARE');
+      setAutoFilledFromSim(true);
+    } else {
+      setAutoFilledFromSim(false);
+    }
+  };
+
+  const handleInjectAnomaly = (preset: 'FLOOD_ALERT' | 'VIBRATION_SPIKE' | 'PIER_TILT' | 'STRUCTURAL_STRAIN' | 'DISPLACEMENT_ANOMALY') => {
+    hardwareSimEngine.applyPreset(preset);
+    const updatedData = hardwareSimEngine.getSimulationHazardData();
+    setType(updatedData.type);
+    setSeverity(updatedData.severity);
+    setAffectedRadius(updatedData.affectedRadius);
+    setDescription(updatedData.description);
+    setSource('LIVE_HARDWARE');
+    setAutoFilledFromSim(true);
+    setAnomalyToast(`Injected ${updatedData.type} (${updatedData.severity}) into simulation & auto-filled!`);
+    setTimeout(() => setAnomalyToast(null), 3000);
+  };
+
+  const handleResetSimToSafe = () => {
+    hardwareSimEngine.applyPreset('SAFE');
+    setAutoFilledFromSim(false);
+    setType('Bridge Damage');
+    setSeverity('WARNING');
+    setSource('ADMIN');
+    setDescription('Manual inspection report. Sensor hardware reset to safe baseline.');
+    setAnomalyToast('Simulation reset to normal safe baseline.');
+    setTimeout(() => setAnomalyToast(null), 3000);
+  };
+
+  // Subscribe to hardware simulation engine updates
+  useEffect(() => {
+    const unsub = hardwareSimEngine.subscribe((newSim) => {
+      setSimState({ ...newSim });
+      if (newSim.overallStatus !== 'SAFE') {
+        const hazardData = hardwareSimEngine.getSimulationHazardData();
+        if (hazardData.isHazard) {
+          setType(hazardData.type);
+          setSeverity(hazardData.severity);
+          setAffectedRadius(hazardData.affectedRadius);
+          setDescription(hazardData.description);
+          setSource('LIVE_HARDWARE');
+          setAutoFilledFromSim(true);
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Sync coords and auto-fill from simulation when opened
   useEffect(() => {
     if (isOpen) {
       const targetLat = lat || 25.4585;
@@ -120,6 +183,21 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
           if (res?.roadName) setRoadName(res.roadName);
         })
         .finally(() => setIsLoadingGeocode(false));
+
+      // Auto-fill hazard details from active simulation telemetry if a hazard exists
+      const currentSim = hardwareSimEngine.getState();
+      setSimState(currentSim);
+      const hazardData = hardwareSimEngine.getSimulationHazardData();
+      if (hazardData.isHazard) {
+        setType(hazardData.type);
+        setSeverity(hazardData.severity);
+        setAffectedRadius(hazardData.affectedRadius);
+        setDescription(hazardData.description);
+        setSource('LIVE_HARDWARE');
+        setAutoFilledFromSim(true);
+      } else {
+        setAutoFilledFromSim(false);
+      }
     }
   }, [isOpen, lat, lng]);
 
@@ -217,6 +295,188 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-3.5 text-xs">
+          {/* Temporary Anomaly Toast Notification */}
+          {anomalyToast && (
+            <div className="p-2.5 rounded-xl bg-cyan-950/80 border border-cyan-500/50 text-cyan-200 text-[11px] font-semibold flex items-center justify-between animate-fade-in shadow-lg">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                <span>{anomalyToast}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAnomalyToast(null)}
+                className="text-cyan-400 hover:text-white text-xs px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* SENSOR NODE SIMULATION SYNC SECTION */}
+          {simState.overallStatus !== 'SAFE' || autoFilledFromSim ? (
+            /* Active Simulation Hazard Auto-Filled Card */
+            <div className="p-3 rounded-xl bg-gradient-to-r from-red-950/70 via-red-900/50 to-red-950/70 border border-red-500/60 shadow-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-ping"></span>
+                  <span className="font-bold text-xs text-red-200">
+                    ⚡ Auto-Filled from Sensor Node Simulation
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                    {simState.overallStatus} SEVERITY
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-500/30">
+                    LIVE_HARDWARE
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-200 font-medium">
+                {simState.activeTriggerReason || 'Threshold violation detected in ESP32 telemetry.'}
+              </div>
+
+              {/* Live Readings Snapshot */}
+              <div className="bg-[#0D1117]/90 rounded-lg p-2 border border-red-900/40 text-[10px] font-mono text-slate-300 flex flex-wrap gap-x-3 gap-y-1 items-center">
+                <span>Vib: <strong className="text-white">{simState.sensorValues.mpu6050.vibrationMmS.toFixed(2)} mm/s</strong></span>
+                <span>Water: <strong className="text-white">+{simState.sensorValues.hcsr04.waterRiseCm.toFixed(1)} cm</strong></span>
+                <span>Tilt: <strong className="text-white">{simState.sensorValues.tilt.angleDeg.toFixed(1)}°</strong></span>
+                <span>Strain: <strong className="text-white">{simState.sensorValues.hx711.strainMicrostrain} µε</strong></span>
+                <span className="ml-auto text-cyan-400">Packet #{simState.currentPacket?.packetNum || 100}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between pt-1 gap-2 text-[10px]">
+                <span className="text-slate-400">Hazard type, severity, radius & description auto-filled</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={fillFromSimulation}
+                    className="px-2 py-1 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-200 border border-red-500/40 font-semibold cursor-pointer transition flex items-center gap-1"
+                    title="Re-populate form with latest telemetry from Sensor Node simulation"
+                  >
+                    <span>🔄</span>
+                    <span>Re-Sync</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetSimToSafe}
+                    className="px-2 py-1 rounded-lg bg-[#21262D] hover:bg-[#30363D] text-slate-300 border border-[#30363D] font-medium cursor-pointer transition"
+                    title="Reset simulation back to normal safe readings"
+                  >
+                    Reset Sim Safe
+                  </button>
+                  {onNavigateToSensors && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onNavigateToSensors();
+                      }}
+                      className="px-2 py-1 rounded-lg bg-cyan-950/50 hover:bg-cyan-900/50 text-cyan-300 border border-cyan-500/30 font-medium cursor-pointer transition"
+                      title="Switch to Sensor Nodes tab"
+                    >
+                      View Node →
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Simulation SAFE State Card */
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[#122320]/80 via-[#102a24]/60 to-[#122320]/80 border border-emerald-500/40 shadow-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span className="font-bold text-xs text-emerald-300">
+                    🟢 Sensor Node Simulation: ALL NORMAL (No Active Hazard)
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  STATUS SAFE
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Virtual hardware sensors in the <strong className="text-white">Sensor Node simulation</strong> are currently within safe limits. To generate and auto-fill hazard information from the simulation, inject a simulated anomaly below or adjust sliders in the Sensor Nodes tab. You can also file a manual road inspection report.
+              </p>
+
+              {/* Current Nominal Telemetry */}
+              <div className="bg-[#0D1117]/90 rounded-lg p-2 border border-emerald-900/40 text-[10px] font-mono text-slate-300 flex flex-wrap gap-x-3 gap-y-1 items-center">
+                <span>Vib: <strong className="text-emerald-400">{simState.sensorValues.mpu6050.vibrationMmS.toFixed(2)} mm/s</strong> (OK &lt; 1.8)</span>
+                <span>Water: <strong className="text-emerald-400">+{simState.sensorValues.hcsr04.waterRiseCm.toFixed(1)} cm</strong> (OK &lt; 30)</span>
+                <span>Tilt: <strong className="text-emerald-400">{simState.sensorValues.tilt.angleDeg.toFixed(1)}°</strong> (OK &lt; 1.5°)</span>
+                <span>Strain: <strong className="text-emerald-400">{simState.sensorValues.hx711.strainMicrostrain} µε</strong> (OK &lt; 600)</span>
+              </div>
+
+              {/* Anomaly Injection Options */}
+              <div className="pt-1 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-slate-300">⚡ Inject Simulated Telemetry Anomaly (Instant Auto-Fill):</span>
+                  {onNavigateToSensors && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onNavigateToSensors();
+                      }}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold underline cursor-pointer"
+                    >
+                      Open Sensor Simulation Tab →
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleInjectAnomaly('FLOOD_ALERT')}
+                    className="p-1.5 rounded-lg bg-blue-950/50 hover:bg-blue-900/60 border border-blue-500/40 hover:border-blue-400 text-blue-200 text-[10px] font-semibold transition cursor-pointer flex flex-col items-center text-center gap-0.5"
+                    title="Simulate flash flood wave exceeding safety threshold"
+                  >
+                    <span>🌊 Flood Alert</span>
+                    <span className="text-[9px] text-blue-300 font-mono">+42cm Rise</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInjectAnomaly('VIBRATION_SPIKE')}
+                    className="p-1.5 rounded-lg bg-red-950/50 hover:bg-red-900/60 border border-red-500/40 hover:border-red-400 text-red-200 text-[10px] font-semibold transition cursor-pointer flex flex-col items-center text-center gap-0.5"
+                    title="Simulate high structural vibration on bridge pier"
+                  >
+                    <span>💥 Vibration</span>
+                    <span className="text-[9px] text-red-300 font-mono">2.85 mm/s</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInjectAnomaly('PIER_TILT')}
+                    className="p-1.5 rounded-lg bg-amber-950/50 hover:bg-amber-900/60 border border-amber-500/40 hover:border-amber-400 text-amber-200 text-[10px] font-semibold transition cursor-pointer flex flex-col items-center text-center gap-0.5"
+                    title="Simulate deck inclination shift"
+                  >
+                    <span>📐 Deck Tilt</span>
+                    <span className="text-[9px] text-amber-300 font-mono">2.4° Tilt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInjectAnomaly('STRUCTURAL_STRAIN')}
+                    className="p-1.5 rounded-lg bg-purple-950/50 hover:bg-purple-900/60 border border-purple-500/40 hover:border-purple-400 text-purple-200 text-[10px] font-semibold transition cursor-pointer flex flex-col items-center text-center gap-0.5"
+                    title="Simulate heavy load stress on bridge deck"
+                  >
+                    <span>⚖ Overload Strain</span>
+                    <span className="text-[9px] text-purple-300 font-mono">780 µε / 98.4 kN</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInjectAnomaly('DISPLACEMENT_ANOMALY')}
+                    className="p-1.5 rounded-lg bg-rose-950/50 hover:bg-rose-900/60 border border-rose-500/40 hover:border-rose-400 text-rose-200 text-[10px] font-semibold transition cursor-pointer flex flex-col items-center text-center gap-0.5"
+                    title="Simulate bridge pier & crack structural displacement"
+                  >
+                    <span>📏 Displacement</span>
+                    <span className="text-[9px] text-rose-300 font-mono">34.5 mm Shift</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Quick Presets Section */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">

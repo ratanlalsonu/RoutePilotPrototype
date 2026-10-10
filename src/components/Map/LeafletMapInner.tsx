@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import { Hazard, SensorNode, VehicleType, Journey } from '../../types';
 import { realtimeSync } from '../../services/realtimeSync';
+import { hardwareSimEngine } from '../../services/hardwareSimulationEngine';
 import { getTranslation, translateText } from '../../services/i18n';
 import { getVehicleTopDownSvg, getVehicleDimensions } from '../../services/vehicleModels';
 
@@ -101,6 +102,14 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   const activeLang = language || realtimeSync.getState().appSettings.language || 'en';
   const t = getTranslation(activeLang);
 
+  const [simState, setSimState] = useState(() => hardwareSimEngine.getState());
+  useEffect(() => {
+    const unsub = hardwareSimEngine.subscribe((state) => {
+      setSimState(state);
+    });
+    return unsub;
+  }, []);
+
   const [mapStyle, setMapStyle] = useState<'standard' | 'dark' | 'satellite'>(() => {
     if (theme === 'satellite' || theme === 'dark' || theme === 'standard') return theme;
     if (typeof window !== 'undefined') {
@@ -141,6 +150,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     theme !== 'dark';
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [isHazardBannerCollapsed, setIsHazardBannerCollapsed] = useState(false);
 
   // High-frequency vehicle location
   const [vehiclePos, setVehiclePos] = useState({
@@ -349,9 +359,16 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
     const container = map.getContainer();
     if (isCreatingHazard) {
-      container.classList.add('is-creating-hazard');
+      if (simState.overallStatus === 'SAFE') {
+        container.classList.add('is-creating-hazard-safe');
+        container.classList.remove('is-creating-hazard');
+      } else {
+        container.classList.add('is-creating-hazard');
+        container.classList.remove('is-creating-hazard-safe');
+      }
     } else {
       container.classList.remove('is-creating-hazard');
+      container.classList.remove('is-creating-hazard-safe');
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -363,9 +380,10 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
     return () => {
       container.classList.remove('is-creating-hazard');
+      container.classList.remove('is-creating-hazard-safe');
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isCreatingHazard, onCancelCreateHazard]);
+  }, [isCreatingHazard, onCancelCreateHazard, simState.overallStatus]);
 
   // Click & Context Menu handlers
   useEffect(() => {
@@ -375,8 +393,17 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     const handleMapClick = (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
 
-      if (isCreatingHazard && onMapClickForHazard) {
-        onMapClickForHazard(lat, lng);
+      if (isCreatingHazard) {
+        if (simState.overallStatus === 'SAFE') {
+          // Block hazard placement on map when simulation has no hazard
+          if (onMapClickForHazard) {
+            onMapClickForHazard(lat, lng);
+          }
+          return;
+        }
+        if (onMapClickForHazard) {
+          onMapClickForHazard(lat, lng);
+        }
       } else if (mode === 'driver' && !journey.isNavigating && onSelectDestinationFromMap) {
         onSelectDestinationFromMap(lat, lng);
       }
@@ -395,7 +422,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       map.off('click', handleMapClick);
       map.off('contextmenu', handleContextMenu);
     };
-  }, [isCreatingHazard, onMapClickForHazard, mode, journey.isNavigating, onSelectDestinationFromMap]);
+  }, [isCreatingHazard, onMapClickForHazard, mode, journey.isNavigating, onSelectDestinationFromMap, simState.overallStatus]);
 
   // Temporary hazard marker
   useEffect(() => {
@@ -1086,25 +1113,215 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       {/* Leaflet Map DOM Canvas */}
       <div ref={containerRef} className="w-full h-full" style={{ width: '100%', height: '100%' }} />
 
-      {/* Hazard creation banner when placing hazard */}
+      {/* Hazard creation banner when placing hazard - Compact & non-intrusive */}
       {isCreatingHazard && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-red-600/95 backdrop-blur-md text-white px-4 py-2 rounded-full border border-red-400 shadow-2xl flex items-center gap-3 animate-bounce pointer-events-auto">
-          <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
-          <span className="text-xs font-bold uppercase tracking-wider">
-            {t.clickMapPointText || 'Click ANYWHERE on Map to place hazard'}
-          </span>
-          {onCancelCreateHazard && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCancelCreateHazard();
-              }}
-              className="ml-1 px-2.5 py-0.5 rounded-full bg-black/40 hover:bg-black/60 text-white text-[11px] font-semibold border border-white/30 transition cursor-pointer"
-            >
-              ✕ Cancel
-            </button>
-          )}
+        <div className="absolute top-2 sm:top-2.5 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto w-[96vw] max-w-xl transition-all duration-200">
+          <div className={`backdrop-blur-md text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border shadow-xl flex flex-col gap-1.5 transition-all ${
+            simState.overallStatus === 'SAFE'
+              ? 'bg-[#161B22]/95 border-emerald-500/80 shadow-emerald-500/10'
+              : 'bg-[#161B22]/95 border-red-500/80 shadow-red-500/25 ring-1 ring-red-400/40'
+          }`}>
+            {/* Top Row: Compact Status Header, Collapse Toggle, & Cancel */}
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                {simState.overallStatus === 'SAFE' ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-sm shadow-emerald-400"></span>
+                    <span className="text-[11px] sm:text-xs font-bold text-emerald-300 truncate flex items-center gap-1">
+                      <span>🛡️</span>
+                      <span>{t.noSimHazardTitle}</span>
+                    </span>
+                    {!isHazardBannerCollapsed && (
+                      <span className="text-[10px] text-slate-300 hidden md:inline truncate ml-1 opacity-90">
+                        • {activeLang === 'hi' ? 'नीचे से एनोमली चुनें' : 'Select anomaly below'}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-red-400 animate-ping shrink-0 shadow-sm shadow-red-400"></span>
+                    <div className="flex items-center gap-1.5 min-w-0 truncate">
+                      <span className="text-[11px] sm:text-xs font-bold text-red-300 truncate flex items-center gap-1">
+                        <span>🚨</span>
+                        <span>
+                          {hardwareSimEngine.getSimulationHazardData().type}
+                        </span>
+                      </span>
+                      <span className="text-[10px] font-semibold text-amber-200 shrink-0">
+                        👉 {activeLang === 'hi' ? 'मैप पर क्लिक करें' : 'Click map to place'}
+                      </span>
+                      {!isHazardBannerCollapsed && simState.activeTriggerReason && (
+                        <span className="text-[9px] text-cyan-200/90 font-mono hidden lg:inline truncate">
+                          ({simState.activeTriggerReason.split('(')[0].trim()})
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Control buttons: Collapse/Expand + Cancel */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsHazardBannerCollapsed(!isHazardBannerCollapsed);
+                  }}
+                  className="px-1.5 py-0.5 rounded bg-[#21262D] hover:bg-[#30363D] text-slate-400 hover:text-white text-[10px] font-semibold border border-[#30363D] transition cursor-pointer"
+                  title={isHazardBannerCollapsed ? "Show anomaly buttons" : "Collapse banner"}
+                >
+                  {isHazardBannerCollapsed ? '▼' : '▲'}
+                </button>
+
+                {onCancelCreateHazard && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCancelCreateHazard();
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#21262D] hover:bg-[#30363D] text-slate-300 hover:text-white text-[10px] sm:text-[11px] font-semibold border border-[#30363D] transition cursor-pointer"
+                    title="Cancel map placement mode"
+                  >
+                    ✕ {activeLang === 'hi' ? 'रद्द' : 'Cancel'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Row: Quick Trigger Anomaly buttons (Hidden if collapsed) */}
+            {!isHazardBannerCollapsed && (
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap pt-1 border-t border-slate-700/60">
+                <span className="text-[9px] text-amber-300 font-bold uppercase tracking-wider shrink-0">
+                  {activeLang === 'hi' ? '⚡ एनोमली:' : '⚡ Anomaly:'}
+                </span>
+
+                {/* 1. Flood Alert */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    hardwareSimEngine.applyPreset('FLOOD_ALERT');
+                  }}
+                  className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-medium transition cursor-pointer flex items-center gap-1 border ${
+                    simState.activePreset === 'FLOOD_ALERT' || simState.sensorValues.hcsr04.waterRiseCm >= 30
+                      ? 'bg-cyan-600 text-white border-cyan-300 ring-1 ring-cyan-300 font-bold shadow-xs'
+                      : 'bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 border-cyan-500/40'
+                  }`}
+                  title="Water Level Spikes > 50cm (+42cm Water Rise)"
+                >
+                  <span>🌊</span>
+                  <span>{activeLang === 'hi' ? 'बाढ़' : 'Flood'}</span>
+                  {(simState.activePreset === 'FLOOD_ALERT' || simState.sensorValues.hcsr04.waterRiseCm >= 30) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />
+                  )}
+                </button>
+
+                {/* 2. Vibration Spike */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    hardwareSimEngine.applyPreset('VIBRATION_SPIKE');
+                  }}
+                  className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-medium transition cursor-pointer flex items-center gap-1 border ${
+                    simState.activePreset === 'VIBRATION_SPIKE' || simState.sensorValues.mpu6050.vibrationMmS >= 1.8
+                      ? 'bg-amber-600 text-white border-amber-300 ring-1 ring-amber-300 font-bold shadow-xs'
+                      : 'bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 border-amber-500/40'
+                  }`}
+                  title="Vibration Spikes > 2.85 mm/s"
+                >
+                  <span>📈</span>
+                  <span>{activeLang === 'hi' ? 'कंपन' : 'Vibration'}</span>
+                  {(simState.activePreset === 'VIBRATION_SPIKE' || simState.sensorValues.mpu6050.vibrationMmS >= 1.8) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />
+                  )}
+                </button>
+
+                {/* 3. Pier Tilt */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    hardwareSimEngine.applyPreset('PIER_TILT');
+                  }}
+                  className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-medium transition cursor-pointer flex items-center gap-1 border ${
+                    simState.activePreset === 'PIER_TILT' || simState.sensorValues.tilt.angleDeg >= 1.5
+                      ? 'bg-purple-600 text-white border-purple-300 ring-1 ring-purple-300 font-bold shadow-xs'
+                      : 'bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 border-purple-500/40'
+                  }`}
+                  title="Tilt Angle > 2.4°"
+                >
+                  <span>📐</span>
+                  <span>{activeLang === 'hi' ? 'टिल्ट' : 'Tilt'}</span>
+                  {(simState.activePreset === 'PIER_TILT' || simState.sensorValues.tilt.angleDeg >= 1.5) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />
+                  )}
+                </button>
+
+                {/* 4. Structural Strain */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    hardwareSimEngine.applyPreset('STRUCTURAL_STRAIN');
+                  }}
+                  className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-medium transition cursor-pointer flex items-center gap-1 border ${
+                    simState.activePreset === 'STRUCTURAL_STRAIN' || simState.sensorValues.hx711.strainMicrostrain >= 600
+                      ? 'bg-emerald-600 text-white border-emerald-300 ring-1 ring-emerald-300 font-bold shadow-xs'
+                      : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border-emerald-500/40'
+                  }`}
+                  title="HX711 Strain Overload (780 µε / 98.4 kN)"
+                >
+                  <span>⚖️</span>
+                  <span>{activeLang === 'hi' ? 'तनाव' : 'Strain'}</span>
+                  {(simState.activePreset === 'STRUCTURAL_STRAIN' || simState.sensorValues.hx711.strainMicrostrain >= 600) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />
+                  )}
+                </button>
+
+                {/* 5. Structural Displacement */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    hardwareSimEngine.applyPreset('DISPLACEMENT_ANOMALY');
+                  }}
+                  className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-medium transition cursor-pointer flex items-center gap-1 border ${
+                    simState.activePreset === 'DISPLACEMENT_ANOMALY' || (simState.sensorValues.hcsr04.displacementMm ?? 0) >= 20
+                      ? 'bg-rose-600 text-white border-rose-300 ring-1 ring-rose-300 font-bold shadow-xs'
+                      : 'bg-rose-950/60 hover:bg-rose-900/80 text-rose-200 border-rose-500/40'
+                  }`}
+                  title="Displacement Shift (34.5 mm)"
+                >
+                  <span>📏</span>
+                  <span>{activeLang === 'hi' ? 'विस्थापन' : 'Displacement'}</span>
+                  {(simState.activePreset === 'DISPLACEMENT_ANOMALY' || (simState.sensorValues.hcsr04.displacementMm ?? 0) >= 20) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />
+                  )}
+                </button>
+
+                {/* 6. Safe Reset */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    hardwareSimEngine.applyPreset('SAFE');
+                  }}
+                  className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-medium transition cursor-pointer flex items-center gap-1 border ${
+                    simState.overallStatus === 'SAFE'
+                      ? 'bg-[#21262D] text-slate-300 border-[#30363D]'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600'
+                  }`}
+                  title="Reset simulation to normal safe baseline"
+                >
+                  <span>↺</span>
+                  <span>{activeLang === 'hi' ? 'रीसेट' : 'Reset'}</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

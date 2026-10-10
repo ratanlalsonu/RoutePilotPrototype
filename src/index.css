@@ -427,6 +427,16 @@ html.light .hazard-desc-box,
   cursor: crosshair !important;
 }
 
+/* Hazard placement blocked when simulation is safe */
+.is-creating-hazard-safe,
+.is-creating-hazard-safe .leaflet-container,
+.is-creating-hazard-safe .leaflet-pane,
+.is-creating-hazard-safe .leaflet-tile-pane,
+.is-creating-hazard-safe svg,
+.is-creating-hazard-safe path {
+  cursor: not-allowed !important;
+}
+
 /* Animated dotted/dashed route line flowing toward destination */
 @keyframes route-flow {
   from {

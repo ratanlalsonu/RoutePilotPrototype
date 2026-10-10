@@ -88,6 +88,11 @@ export interface Translations {
   realRoadGeometryText: string;
   createHazardAnywhereBtn: string;
   clickMapPointText: string;
+  noSimHazardTitle: string;
+  noSimHazardSubtitle: string;
+  activeSimHazardTitle: string;
+  activeSimHazardSubtitle: string;
+  noHazardToastMsg: string;
   hazardOnRouteBtn: string;
   hazardAwayBtn: string;
   secondHazardAheadBtn: string;
@@ -422,7 +427,12 @@ export const translations: Record<SupportedLanguage, Translations> = {
     fullScreenMapTitle: 'Full-Screen Interactive Map & Road Routing',
     realRoadGeometryText: '• Real Road Geometry',
     createHazardAnywhereBtn: 'Create Hazard Anywhere',
-    clickMapPointText: 'Click ANYWHERE on Google Maps to place hazard',
+    clickMapPointText: 'Click ANYWHERE on Map to place hazard',
+    noSimHazardTitle: 'No Hazard in Simulation — All Sensors Safe',
+    noSimHazardSubtitle: 'Map placement disabled. No hazard detected in simulation. Trigger an anomaly first:',
+    activeSimHazardTitle: 'Active Simulation Hazard Detected',
+    activeSimHazardSubtitle: 'Click ANYWHERE on Map to place this hazard point (Auto-fills live telemetry)',
+    noHazardToastMsg: '⚠️ No hazard in simulation! Please trigger a sensor anomaly in simulation first before placing on map.',
     hazardOnRouteBtn: '⚠ Hazard on Driver Route',
     hazardAwayBtn: 'Hazard Away (No Alert)',
     secondHazardAheadBtn: '⚠ 2nd Hazard Ahead',
@@ -743,7 +753,12 @@ export const translations: Record<SupportedLanguage, Translations> = {
     fullScreenMapTitle: 'फुल-स्क्रीन इंटरैक्टिव मैप और मार्ग नेविगेशन',
     realRoadGeometryText: '• वास्तविक सड़क ज्यामिति',
     createHazardAnywhereBtn: 'मैप पर कहीं भी खतरा दर्ज करें',
-    clickMapPointText: 'खतरा रखने के लिए गूगल मैप्स पर कहीं भी क्लिक करें',
+    clickMapPointText: 'खतरा रखने के लिए मैप पर कहीं भी क्लिक करें',
+    noSimHazardTitle: 'सिमुलेशन में कोई खतरा नहीं है — सभी सेंसर सुरक्षित हैं',
+    noSimHazardSubtitle: 'मैप क्लिक अक्षम है। सिमुलेशन में कोई खतरा नहीं है। मैप पर खतरा लगाने के लिए पहले एनोमली ट्रिगर करें:',
+    activeSimHazardTitle: 'सिमुलेशन खतरा सक्रिय',
+    activeSimHazardSubtitle: 'खतरा स्थापित करने के लिए मैप पर कहीं भी क्लिक करें (सेंसर डेटा स्वतः भर जाएगा)',
+    noHazardToastMsg: '⚠️ सिमुलेशन में कोई खतरा नहीं है! मैप पर खतरा लगाने के लिए पहले सिमुलेशन में एनोमली ट्रिगर करें।',
     hazardOnRouteBtn: '⚠ ड्राइवर मार्ग पर खतरा',
     hazardAwayBtn: 'मार्ग से दूर खतरा (कोई अलर्ट नहीं)',
     secondHazardAheadBtn: '⚠ आगे दूसरा खतरा',

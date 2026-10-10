@@ -5,6 +5,7 @@ import {
   SimulationLogEntry,
   HardwareComponentId,
 } from '../types/hardwareSimulation';
+import { HazardType, HazardSeverity } from '../types';
 import { realtimeSync } from './realtimeSync';
 
 export interface HardwareSimState {
@@ -18,6 +19,7 @@ export interface HardwareSimState {
   activeHazardId: string | null;
   overallStatus: 'SAFE' | 'WARNING' | 'CRITICAL' | 'BLOCKED';
   activeTriggerReason: string | null;
+  activePreset?: 'SAFE' | 'VIBRATION_SPIKE' | 'FLOOD_ALERT' | 'STRUCTURAL_STRAIN' | 'PIER_TILT' | 'DISPLACEMENT_ANOMALY' | null;
   esp32CpuMhz: number;
   batteryVoltage: number;
   regulatorOutputV: number;
@@ -52,6 +54,7 @@ const DEFAULT_SENSOR_VALUES: VirtualSensorValues = {
     distanceCm: 185.0,
     waterRiseCm: 0.0,
     echoPulseUs: 1075,
+    displacementMm: 1.2,
     enabled: true,
   },
   waterLevel: {
@@ -76,6 +79,7 @@ const DEFAULT_THRESHOLDS: HazardThresholds = {
   waterLevelM: 0.30,
   strainMicrostrain: 600,
   loadWeightKn: 85,
+  displacementMm: 20.0,
 };
 
 type SimListener = (state: HardwareSimState) => void;
@@ -287,7 +291,8 @@ class HardwareSimulationEngine {
     this.notify();
   }
 
-  public applyPreset(preset: 'SAFE' | 'VIBRATION_SPIKE' | 'FLOOD_ALERT' | 'STRUCTURAL_STRAIN' | 'PIER_TILT') {
+  public applyPreset(preset: 'SAFE' | 'VIBRATION_SPIKE' | 'FLOOD_ALERT' | 'STRUCTURAL_STRAIN' | 'PIER_TILT' | 'DISPLACEMENT_ANOMALY') {
+    this.state.activePreset = preset;
     switch (preset) {
       case 'SAFE':
         this.state.sensorValues = JSON.parse(JSON.stringify(DEFAULT_SENSOR_VALUES));
@@ -316,6 +321,13 @@ class HardwareSimulationEngine {
         this.state.sensorValues.tilt.isTilted = true;
         this.state.sensorValues.mpu6050.pitchDeg = 2.4;
         this.addLog('WARNING', 'SCENARIO', 'Scenario Applied: SW-520D Pier Shift Tilt (2.4° > 1.5° limit).');
+        break;
+      case 'DISPLACEMENT_ANOMALY':
+        this.state.sensorValues.hcsr04.displacementMm = 34.5;
+        this.state.sensorValues.hcsr04.distanceCm = 150.5;
+        this.state.sensorValues.tilt.angleDeg = 1.8;
+        this.state.sensorValues.tilt.isTilted = true;
+        this.addLog('CRITICAL', 'SCENARIO', 'Scenario Applied: Pier Structural Displacement Anomaly (34.5 mm > 20 mm limit).');
         break;
     }
     this.evaluateHazardAndTelemetry();
@@ -389,6 +401,17 @@ class HardwareSimulationEngine {
       }
     }
 
+    // Check Displacement Sensor (HC-SR04 / Foundation Deflection)
+    const dispMm = s.hcsr04.displacementMm ?? 0;
+    if (s.hcsr04.enabled && dispMm >= th.displacementMm) {
+      if (highestSeverity === 'SAFE' || highestSeverity === 'WARNING') highestSeverity = 'CRITICAL';
+      if (!triggerReason) {
+        triggerReason = `Displacement Sensor ${dispMm.toFixed(1)} mm ≥ threshold ${th.displacementMm} mm`;
+        hazardType = 'Excessive Displacement';
+        hazardDesc = `Structural displacement sensor registered pier deflection of ${dispMm.toFixed(1)} mm (allowable limit ${th.displacementMm} mm). Foundation shift alert.`;
+      }
+    }
+
     this.state.overallStatus = highestSeverity;
     this.state.activeTriggerReason = triggerReason;
 
@@ -441,6 +464,116 @@ class HardwareSimulationEngine {
         this.state.activeHazardId = null;
       }
     }
+  }
+
+  public getSimulationHazardData(): {
+    isHazard: boolean;
+    status: 'SAFE' | 'WARNING' | 'CRITICAL' | 'BLOCKED';
+    type: HazardType;
+    severity: HazardSeverity;
+    affectedRadius: number;
+    triggerReason: string | null;
+    description: string;
+    source: 'LIVE_HARDWARE' | 'ADMIN';
+    activeTriggers: string[];
+    telemetrySummary: string;
+    packetId?: string;
+  } {
+    const s = this.state.sensorValues;
+    const th = this.state.thresholds;
+    const activeTriggers: string[] = [];
+    const triggeredTypes: HazardType[] = [];
+
+    // 1. Water Level / HC-SR04
+    const waterDepthM = s.hcsr04.enabled ? s.hcsr04.waterRiseCm / 100 : s.waterLevel.depthMm / 1000;
+    const waterRiseCm = s.hcsr04.enabled ? s.hcsr04.waterRiseCm : s.waterLevel.depthMm / 10;
+    if ((s.hcsr04.enabled || s.waterLevel.enabled) && waterDepthM >= th.waterLevelM) {
+      activeTriggers.push(`HC-SR04/Water Sensor: +${waterRiseCm.toFixed(1)} cm water rise (limit: ${(th.waterLevelM * 100).toFixed(0)} cm)`);
+      triggeredTypes.push('High Water Level');
+    }
+
+    // 2. MPU6050 Vibration
+    if (s.mpu6050.enabled && s.mpu6050.vibrationMmS >= th.vibrationMmS) {
+      activeTriggers.push(`MPU6050 Vibration: ${s.mpu6050.vibrationMmS.toFixed(2)} mm/s (limit: ${th.vibrationMmS} mm/s)`);
+      triggeredTypes.push('Structural Vibration');
+    }
+
+    // 3. HX711 Strain & Load
+    if (s.hx711.enabled && (s.hx711.strainMicrostrain >= th.strainMicrostrain || s.hx711.loadWeightKn >= th.loadWeightKn)) {
+      activeTriggers.push(`HX711 Strain: ${s.hx711.strainMicrostrain} µε / ${s.hx711.loadWeightKn.toFixed(1)} kN (limit: ${th.strainMicrostrain} µε)`);
+      triggeredTypes.push('Excessive Strain');
+    }
+
+    // 4. Tilt Sensor
+    if (s.tilt.enabled && (s.tilt.isTilted || s.tilt.angleDeg >= th.tiltAngleDeg)) {
+      activeTriggers.push(`SW-520D Tilt: ${s.tilt.angleDeg.toFixed(1)}° inclination (limit: ${th.tiltAngleDeg}°)`);
+      triggeredTypes.push('Excessive Tilt');
+    }
+
+    // 5. Displacement Sensor
+    const dispMm = s.hcsr04.displacementMm ?? 0;
+    if (s.hcsr04.enabled && dispMm >= th.displacementMm) {
+      activeTriggers.push(`Displacement Sensor: ${dispMm.toFixed(1)} mm structural shift (limit: ${th.displacementMm} mm)`);
+      triggeredTypes.push('Excessive Displacement');
+    }
+
+    const isHazard = activeTriggers.length > 0;
+    let severity: HazardSeverity = 'SAFE';
+    let type: HazardType = 'Bridge Damage';
+    let affectedRadius = 180;
+    let description = '';
+
+    if (isHazard) {
+      if (triggeredTypes.includes('High Water Level')) {
+        severity = 'BLOCKED';
+        affectedRadius = 260;
+      } else if (triggeredTypes.includes('Structural Vibration') || triggeredTypes.includes('Excessive Strain') || triggeredTypes.includes('Excessive Displacement')) {
+        severity = 'CRITICAL';
+        affectedRadius = 240;
+      } else {
+        severity = 'WARNING';
+        affectedRadius = 200;
+      }
+
+      if (triggeredTypes.length > 1) {
+        type = 'Bridge Damage';
+        description = `ESP32 IoT Multi-Sensor Telemetry Alert: Compound structural hazard detected on bridge span. Active violations: ${activeTriggers.join('; ')}. Sensor Node GPS: (${s.gps.lat.toFixed(4)}, ${s.gps.lng.toFixed(4)}). LoRa Packet #${this.packetCounter}.`;
+      } else {
+        type = triggeredTypes[0];
+        if (type === 'High Water Level') {
+          description = `ESP32 IoT Telemetry: Ultrasonic HC-SR04 & Water Level sensor detected flood rise of +${waterRiseCm.toFixed(1)} cm (clearance limit ${(th.waterLevelM * 100).toFixed(0)} cm). Submerged roadway; risk of hydroplaning and deck inundation.`;
+        } else if (type === 'Structural Vibration') {
+          description = `ESP32 IoT Telemetry: MPU-6050 accelerometer recorded structural vibration of ${s.mpu6050.vibrationMmS.toFixed(2)} mm/s (limit ${th.vibrationMmS} mm/s). Pier oscillation and harmonic resonance alert.`;
+        } else if (type === 'Excessive Strain') {
+          description = `ESP32 IoT Telemetry: HX-711 24-bit ADC load cell measured ${s.hx711.strainMicrostrain} µε (${s.hx711.loadWeightKn.toFixed(1)} kN). Bridge load rating capacity exceeded.`;
+        } else if (type === 'Excessive Tilt') {
+          description = `ESP32 IoT Telemetry: SW-520D inclination sensor detected pier tilt of ${s.tilt.angleDeg.toFixed(1)}° (allowable limit ${th.tiltAngleDeg}°). Foundation displacement warning.`;
+        } else if (type === 'Excessive Displacement') {
+          description = `ESP32 IoT Telemetry: Structural displacement sensor detected deck & pier shift of ${dispMm.toFixed(1)} mm (allowable limit ${th.displacementMm} mm). Foundation settlement risk.`;
+        }
+      }
+    } else {
+      severity = 'SAFE';
+      type = 'Bridge Damage';
+      affectedRadius = 180;
+      description = `Manual inspection report. ESP32 Sensor node hardware currently reports normal safe readings across all 6 sensor channels.`;
+    }
+
+    const telemetrySummary = `Vib: ${s.mpu6050.vibrationMmS.toFixed(2)} mm/s | Water: +${waterRiseCm.toFixed(1)} cm | Tilt: ${s.tilt.angleDeg.toFixed(1)}° | Strain: ${s.hx711.strainMicrostrain} µε | Disp: ${dispMm.toFixed(1)} mm`;
+
+    return {
+      isHazard,
+      status: this.state.overallStatus,
+      type,
+      severity: severity === 'SAFE' ? 'WARNING' : severity,
+      affectedRadius,
+      triggerReason: this.state.activeTriggerReason,
+      description,
+      source: isHazard ? 'LIVE_HARDWARE' : 'ADMIN',
+      activeTriggers,
+      telemetrySummary,
+      packetId: this.state.currentPacket?.id,
+    };
   }
 }
 
