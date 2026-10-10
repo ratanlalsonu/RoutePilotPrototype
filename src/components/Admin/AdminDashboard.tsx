@@ -372,7 +372,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 flex flex-col overflow-y-auto bg-[#0D1117] transition-all duration-300 ease-in-out min-w-0">
+        <main className={`flex-1 flex flex-col ${activeTab === 'Sensor Nodes' || activeTab === 'Live Map' ? 'overflow-hidden h-full' : 'overflow-y-auto'} bg-[#0D1117] transition-all duration-300 ease-in-out min-w-0`}>
           {activeTab === 'Dashboard' && (
             <div key="tab-dashboard" className="animate-tab-switch flex-1 flex flex-col">
               <DashboardView
@@ -511,11 +511,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           )}
 
           {activeTab === 'Sensor Nodes' && (
-            <div key="tab-sensors" className="animate-tab-switch flex-1 flex flex-col">
+            <div key="tab-sensors" className="animate-tab-switch flex-1 flex flex-col h-full min-h-0 overflow-hidden">
               <SensorsTab
                 sensors={sensorNodes}
                 sensorMode={state.appSettings.sensorMode}
                 esp32Endpoint={state.appSettings.esp32Endpoint}
+                onNavigateToMap={() => setActiveTab('Live Map')}
               />
             </div>
           )}
