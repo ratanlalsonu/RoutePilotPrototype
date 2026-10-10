@@ -26,6 +26,8 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
   const [simState, setSimState] = useState<HardwareSimState>(hardwareSimEngine.getState());
   const [activeDrawer, setActiveDrawer] = useState<'CONTROLS' | 'THRESHOLDS' | 'LOGS' | 'PINS' | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<HardwareComponentId | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Roster registration modal state
   const [isRegistering, setIsRegistering] = useState(false);
@@ -43,6 +45,50 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
     });
     return () => unsub();
   }, []);
+
+  const toggleFullscreen = async () => {
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      try {
+        if (containerRef.current && containerRef.current.requestFullscreen) {
+          await containerRef.current.requestFullscreen();
+        }
+      } catch {
+        // Fallback to in-window CSS fullscreen (fixed inset-0 z-[5000]) if browser API is restricted in iframe
+      }
+    } else {
+      setIsFullscreen(false);
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +131,12 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col min-h-0 overflow-hidden bg-[#0D1117] text-xs">
+    <div
+      ref={containerRef}
+      className={`w-full h-full flex flex-col min-h-0 overflow-hidden bg-[#0D1117] text-xs ${
+        isFullscreen ? 'fixed inset-0 z-[5000] w-screen h-screen bg-[#090D13]' : ''
+      }`}
+    >
       {/* ============================================================== */}
       {/* TOP COMPACT UNIFIED TOOLBAR & HUD (Fits within ~48px) */}
       {/* ============================================================== */}
@@ -275,6 +326,31 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
               >
                 Pin Map
               </button>
+              <button
+                onClick={toggleFullscreen}
+                title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Fullscreen Simulation Mode'}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                  isFullscreen
+                    ? 'bg-[#AEF5F0] text-slate-950 border-[#AEF5F0] shadow-md shadow-[#AEF5F0]/30'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white hover:border-[#AEF5F0]/50'
+                }`}
+              >
+                {isFullscreen ? (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5-5m0 0v4m0-4h-4m-6 6l-5 5m0 0v-4m0 4h4m6-6l5 5m0 0v-4m0 4h-4" />
+                    </svg>
+                    <span>Exit Fullscreen</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    <span>Fullscreen</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}
@@ -344,6 +420,29 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
 
           {/* Interactive Scalable Circuit Canvas (fills remaining height completely) */}
           <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden">
+            {/* Quick Fullscreen Floating Action in Canvas Corner */}
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand Simulation to Fullscreen'}
+              className="absolute top-3 right-3 z-30 px-3 py-1.5 rounded-xl bg-[#161B22]/90 hover:bg-[#21262D] border border-[#30363D] hover:border-[#AEF5F0] text-slate-300 hover:text-[#AEF5F0] shadow-xl backdrop-blur-md transition cursor-pointer flex items-center gap-1.5"
+            >
+              {isFullscreen ? (
+                <>
+                  <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5-5m0 0v4m0-4h-4m-6 6l-5 5m0 0v-4m0 4h4m6-6l5 5m0 0v-4m0 4h-4" />
+                  </svg>
+                  <span className="text-[11px] font-bold text-slate-200">Exit Fullscreen</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                  <span className="text-[11px] font-bold text-slate-200">Fullscreen</span>
+                </>
+              )}
+            </button>
+
             <HardwareCircuitCanvas
               simState={simState}
               onSelectComponent={(comp) => {
