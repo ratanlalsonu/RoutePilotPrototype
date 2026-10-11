@@ -21,6 +21,7 @@ interface CreateHazardModalProps {
   }) => void;
   onPickOnMap?: () => void;
   onNavigateToSensors?: () => void;
+  initialHazardType?: HazardType;
 }
 
 export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
@@ -31,6 +32,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   onSubmit,
   onPickOnMap,
   onNavigateToSensors,
+  initialHazardType,
 }) => {
   const [currentLat, setCurrentLat] = useState<number>(lat || 25.4585);
   const [currentLng, setCurrentLng] = useState<number>(lng || 78.5765);
@@ -125,22 +127,31 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
         })
         .finally(() => setIsLoadingGeocode(false));
 
-      // Auto-fill hazard details from active simulation telemetry if a hazard exists
-      const currentSim = hardwareSimEngine.getState();
-      setSimState(currentSim);
-      const hazardData = hardwareSimEngine.getSimulationHazardData();
-      if (hazardData.isHazard) {
-        setType(hazardData.type);
-        setSeverity(hazardData.severity);
-        setAffectedRadius(hazardData.affectedRadius);
-        setDescription(hazardData.description);
+      if (initialHazardType === 'Road Construction') {
+        setType('Road Construction');
+        setSeverity('WARNING');
+        setAffectedRadius(200);
+        setDescription('IoT Road Construction Beacon (ESP32 + SIM7600 + NEO-6M): Active road work zone and traffic diversion ahead.');
         setSource('LIVE_HARDWARE');
         setAutoFilledFromSim(true);
       } else {
-        setAutoFilledFromSim(false);
+        // Auto-fill hazard details from active simulation telemetry if a hazard exists
+        const currentSim = hardwareSimEngine.getState();
+        setSimState(currentSim);
+        const hazardData = hardwareSimEngine.getSimulationHazardData();
+        if (hazardData.isHazard) {
+          setType(hazardData.type);
+          setSeverity(hazardData.severity);
+          setAffectedRadius(hazardData.affectedRadius);
+          setDescription(hazardData.description);
+          setSource('LIVE_HARDWARE');
+          setAutoFilledFromSim(true);
+        } else {
+          setAutoFilledFromSim(false);
+        }
       }
     }
-  }, [isOpen, lat, lng]);
+  }, [isOpen, lat, lng, initialHazardType]);
 
   const handlePlaceSearch = (query: string) => {
     setSearchQuery(query);
@@ -242,8 +253,51 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
             </div>
           )}
 
-          {/* SENSOR NODE SIMULATION SYNC SECTION */}
-          {simState.overallStatus !== 'SAFE' || autoFilledFromSim ? (
+          {/* SENSOR NODE & IOT SIMULATION SYNC SECTION */}
+          {initialHazardType === 'Road Construction' ? (
+            <div className="rounded-xl overflow-hidden border-2 border-amber-500/80 shadow-2xl bg-gradient-to-br from-[#120e06] via-[#1a1307] to-[#0d0a04]">
+              {/* Caution Barricade Top Strip */}
+              <div
+                className="h-2.5 w-full"
+                style={{ background: 'repeating-linear-gradient(45deg, #000 0, #000 8px, #f59e0b 8px, #f59e0b 16px)' }}
+              />
+
+              <div className="p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {/* Mini Highway Diamond Sign */}
+                    <div className="w-7 h-7 bg-amber-400 border-2 border-black rounded transform rotate-45 flex items-center justify-center shadow shrink-0">
+                      <span className="transform -rotate-45 text-xs text-black font-black">🚧</span>
+                    </div>
+                    <div>
+                      <div className="font-black text-xs text-amber-300 flex items-center gap-1.5 uppercase tracking-wide">
+                        <span>सावधानी: सड़क निर्माण कार्य प्रगति पर है</span>
+                      </div>
+                      <div className="text-[10px] text-amber-400/90 font-bold">
+                        ROAD WORK AHEAD • IOT ALERT SYSTEM (ESP32 + SIM7600)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500 text-black border border-black shadow">
+                      WORK ZONE
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono text-amber-300 bg-amber-950/80 border border-amber-500/40">
+                      LIVE BEACON
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-amber-100/90 bg-amber-950/40 p-2 rounded-lg border border-amber-600/30 flex items-center justify-between">
+                  <span>🚨 हाईवे चेतावनी: कार्य क्षेत्र में गति धीमी करें और सुरक्षित दूरी बनाए रखें।</span>
+                  <span className="font-mono text-[10px] text-amber-300 shrink-0 ml-2">
+                    GPS: {currentLat.toFixed(4)}°N, {currentLng.toFixed(4)}°E
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : simState.overallStatus !== 'SAFE' || autoFilledFromSim ? (
             /* Active Simulation Hazard Auto-Filled Card */
             <div className="p-3 rounded-xl bg-gradient-to-r from-red-950/70 via-red-900/50 to-red-950/70 border border-red-500/60 shadow-lg space-y-2">
               <div className="flex items-center justify-between">

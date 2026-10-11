@@ -494,35 +494,35 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           </g>
 
           {/* Regulated Output Terminal Sockets */}
-          {/* 5V Terminal Socket (Red) */}
+          {/* 3.3V Terminal Socket (Yellow) - positioned higher towards GPS */}
           <g
-            transform="translate(350, 310)"
-            onMouseEnter={() => setHoveredPin({ comp: 'Regulator 5V Terminal', pin: '5V' })}
-            onMouseLeave={() => setHoveredPin(null)}
-          >
-            <circle cx="0" cy="0" r="10" fill="#ef4444" stroke="#ffffff" strokeWidth="2" filter="url(#powerGlow)" />
-            <circle cx="0" cy="0" r="4" fill="#ffffff" />
-            <text x="0" y="-16" textAnchor="middle" fill="#ef4444" fontSize="13" fontWeight="bold" fontFamily="monospace">
-              5V Reg (2A)
-            </text>
-          </g>
-
-          {/* 3.3V Terminal Socket (Yellow) */}
-          <g
-            transform="translate(390, 310)"
+            transform="translate(385, 280)"
             onMouseEnter={() => setHoveredPin({ comp: 'Regulator 3.3V Terminal', pin: '3.3V' })}
             onMouseLeave={() => setHoveredPin(null)}
           >
             <circle cx="0" cy="0" r="10" fill="#facc15" stroke="#ffffff" strokeWidth="2" filter="url(#powerGlow)" />
             <circle cx="0" cy="0" r="4" fill="#ffffff" />
-            <text x="0" y="-16" textAnchor="middle" fill="#facc15" fontSize="13" fontWeight="bold" fontFamily="monospace">
+            <text x="0" y="-16" textAnchor="middle" fill="#facc15" fontSize="12" fontWeight="bold" fontFamily="monospace">
               3.3V Reg
             </text>
           </g>
 
-          {/* Common Ground Socket (Dark) */}
+          {/* 5V Terminal Socket (Red) - positioned middle-right with clear vertical corridor */}
           <g
-            transform="translate(350, 430)"
+            transform="translate(350, 350)"
+            onMouseEnter={() => setHoveredPin({ comp: 'Regulator 5V Terminal', pin: '5V' })}
+            onMouseLeave={() => setHoveredPin(null)}
+          >
+            <circle cx="0" cy="0" r="10" fill="#ef4444" stroke="#ffffff" strokeWidth="2" filter="url(#powerGlow)" />
+            <circle cx="0" cy="0" r="4" fill="#ffffff" />
+            <text x="0" y="-16" textAnchor="middle" fill="#ef4444" fontSize="12" fontWeight="bold" fontFamily="monospace">
+              5V Reg (2A)
+            </text>
+          </g>
+
+          {/* Common Ground Socket (Dark Slate) - offset to x=390 so vertical GND & 5V traces never overlap */}
+          <g
+            transform="translate(390, 430)"
             onMouseEnter={() => setHoveredPin({ comp: 'Power Supply Ground', pin: 'GND' })}
             onMouseLeave={() => setHoveredPin(null)}
           >

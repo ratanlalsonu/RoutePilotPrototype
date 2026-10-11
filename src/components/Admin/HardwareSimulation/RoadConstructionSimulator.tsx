@@ -220,28 +220,14 @@ export const RoadConstructionSimulator: React.FC<RoadConstructionSimulatorProps>
   // Sync Construction Hazard to RoutePilot
   const syncHazardToRoutePilot = (status: 'ACTIVE' | 'COMPLETED') => {
     if (status === 'ACTIVE') {
-      // If we don't already have an active hazard or preset changed, add one
-      if (!hazardRef.current) {
-        const newHaz = realtimeSync.createHazard({
-          type: 'Road Construction',
-          severity: 'WARNING',
-          latitude: currentCoords.lat,
-          longitude: currentCoords.lng,
-          locationName: currentCoords.name,
-          roadName: currentCoords.road,
-          affectedRadius: currentCoords.radius,
-          description: `[SIMULATED IoT Alert Device]: ${currentCoords.workDesc}`,
-          source: 'LIVE_HARDWARE',
-        });
-        setActiveHazardId(newHaz.hazardId);
-        appendLog(
-          'BACKEND',
-          'SUCCESS',
-          `RoutePilot Map Synced: Active construction marker created at ${currentCoords.name} (${newHaz.hazardId}).`
-        );
-      }
+      // Do NOT auto-create hazard! Hazard count should only increase when user places hazard on map!
+      appendLog(
+        'BACKEND',
+        'INFO',
+        `RoutePilot Status: Work zone IoT beacon telemetry active (${currentCoords.name}). Ready for map hazard placement.`
+      );
     } else {
-      // COMPLETED: Resolve and clear hazard
+      // COMPLETED: Resolve and clear hazard if any was active
       if (hazardRef.current) {
         realtimeSync.resolveHazard(hazardRef.current);
         appendLog(

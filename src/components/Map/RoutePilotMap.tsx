@@ -41,6 +41,8 @@ interface RoutePilotMapProps {
   onToggleClearMode?: () => void;
   onSwitchEngine?: () => void;
   googleMapsApiKey?: string;
+  sensorSubMode?: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS';
+  roadConstructionStatus?: 'ACTIVE' | 'COMPLETED';
 }
 
 // High-fidelity Google Maps Night Mode styles matching the requested theme
@@ -149,6 +151,8 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
   isMapClearMode,
   onToggleClearMode,
   onSwitchEngine,
+  sensorSubMode = 'ROAD_CONSTRUCTION',
+  roadConstructionStatus = 'ACTIVE',
 }) => {
   const map = useMap();
   const activeLang = language || realtimeSync.getState().appSettings.language || 'en';
@@ -454,6 +458,22 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     const { lat, lng } = e.detail.latLng;
 
     if (isCreatingHazard) {
+      if (sensorSubMode === 'ROAD_CONSTRUCTION') {
+        if (roadConstructionStatus === 'COMPLETED') {
+          // Block placement on map when road construction is completed ("click na ho")
+          if (onMapClickForHazard) {
+            onMapClickForHazard(lat, lng);
+          }
+          return;
+        }
+        setTempMarkerPos({ lat, lng });
+        if (onMapClickForHazard) {
+          onMapClickForHazard(lat, lng);
+        }
+        return;
+      }
+
+      // Bridge sensors mode: exact original logic
       if (simState.overallStatus === 'SAFE') {
         // Block placement on map because simulation has no active hazard
         if (onMapClickForHazard) {
@@ -808,25 +828,62 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                       setSelectedHazard(hazard);
                     }}
                   >
-                    <div
-                      className={`w-10 h-10 rounded-full ${visual.pingClass} animate-ping absolute pointer-events-none`}
-                    ></div>
-                    <div
-                      className={`w-9 h-9 rounded-full ${visual.bgClass} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95`}
-                      style={{ boxShadow: `0 4px 14px ${visual.accentColor}90` }}
-                    >
-                      <HazardIconComponent type={hazard.type} severity={hazard.severity} className="w-5 h-5 text-white" />
-                    </div>
-                    <div
-                      className={`px-2.5 py-0.5 mt-1 flex items-center gap-1 ${
-                        isLight
-                          ? `bg-white border-2 text-slate-900 shadow-md font-extrabold ${visual.badgeBorder}`
-                          : `bg-[#161B22]/95 border ${visual.badgeBorder} ${visual.badgeText} text-[11px] font-bold rounded-md shadow-xl`
-                      } whitespace-nowrap z-10`}
-                    >
-                      <span className="text-[12px] leading-none">{visual.emoji}</span>
-                      <span>{translateText(hazard.type, activeLang)}</span>
-                    </div>
+                    {hazard.type === 'Road Construction' ? (
+                      <div className="relative flex flex-col items-center select-none cursor-pointer">
+                        {/* Amber strobe beacon */}
+                        <div className="relative flex items-center justify-center mb-1">
+                          <span className="w-3.5 h-3.5 rounded-full bg-amber-400 animate-ping absolute opacity-80 pointer-events-none"></span>
+                          <span className="w-3 h-3 rounded-full bg-amber-300 border-2 border-black shadow-[0_0_12px_#f59e0b] animate-pulse"></span>
+                        </div>
+
+                        {/* HIGHWAY DIAMOND SIGN (MEN AT WORK) */}
+                        <div
+                          className="relative w-11 h-11 bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 border-[2.5px] border-black rounded-lg shadow-2xl flex items-center justify-center transform rotate-45 transition-transform hover:scale-110 active:scale-95"
+                          style={{ boxShadow: '0 4px 16px rgba(245,158,11,0.85), 0 0 0 1.5px #ffffff' }}
+                        >
+                          <div className="w-9 h-9 border border-black/80 rounded flex items-center justify-center">
+                            <div className="transform -rotate-45 flex items-center justify-center text-black">
+                              <HazardIconComponent type="Road Construction" className="w-6 h-6 text-black" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Barricade Striped Warning Plate */}
+                        <div
+                          className="w-14 h-2 mt-1 rounded-[2px] border border-black shadow-sm overflow-hidden"
+                          style={{ background: 'repeating-linear-gradient(45deg, #09090b, #09090b 4px, #f59e0b 4px, #f59e0b 8px)' }}
+                        />
+
+                        {/* Signboard Badge */}
+                        <div className="px-2 py-0.5 mt-0.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 text-black border-2 border-black font-black text-[10px] rounded shadow-xl flex items-center gap-1 whitespace-nowrap tracking-tight uppercase">
+                          <span className="text-xs">🚧</span>
+                          <span>कार्य प्रगति पर है</span>
+                          <span className="text-[9px] bg-black text-amber-300 px-1 py-0.2 rounded font-extrabold tracking-wider">ROAD WORK</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          className={`w-10 h-10 rounded-full ${visual.pingClass} animate-ping absolute pointer-events-none`}
+                        ></div>
+                        <div
+                          className={`w-9 h-9 rounded-full ${visual.bgClass} border-2 border-white flex items-center justify-center shadow-2xl text-white z-10 transition-transform active:scale-95`}
+                          style={{ boxShadow: `0 4px 14px ${visual.accentColor}90` }}
+                        >
+                          <HazardIconComponent type={hazard.type} severity={hazard.severity} className="w-5 h-5 text-white" />
+                        </div>
+                        <div
+                          className={`px-2.5 py-0.5 mt-1 flex items-center gap-1 ${
+                            isLight
+                              ? `bg-white border-2 text-slate-900 shadow-md font-extrabold ${visual.badgeBorder}`
+                              : `bg-[#161B22]/95 border ${visual.badgeBorder} ${visual.badgeText} text-[11px] font-bold rounded-md shadow-xl`
+                          } whitespace-nowrap z-10`}
+                        >
+                          <span className="text-[12px] leading-none">${visual.emoji}</span>
+                          <span>{translateText(hazard.type, activeLang)}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </AdvancedMarker>

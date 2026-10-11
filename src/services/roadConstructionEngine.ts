@@ -403,6 +403,30 @@ class RoadConstructionEngine {
     this.notify();
   }
 
+  public setCoordinates(lat: number, lng: number, locationName?: string, roadName?: string) {
+    this.state.gps.latitude = lat;
+    this.state.gps.longitude = lng;
+    if (locationName) this.state.gps.locationName = locationName;
+    if (roadName) this.state.gps.roadName = roadName;
+    this.notify();
+  }
+
+  public getConstructionStatus(): 'ACTIVE' | 'COMPLETED' {
+    return this.state.cloud.isConstructionActive ? 'ACTIVE' : 'COMPLETED';
+  }
+
+  public setConstructionStatus(status: 'ACTIVE' | 'COMPLETED') {
+    if (status === 'ACTIVE') {
+      // Do NOT auto-create a hazard! Hazards are only created when placed on the map.
+      this.state.cloud.isConstructionActive = true;
+      this.addLog('ESP', 'Work zone IoT status set to ACTIVE (Ready for hazard placement on map).');
+      this.transmitHeartbeatPacket();
+      this.notify();
+    } else {
+      this.clearConstructionZone();
+    }
+  }
+
   /**
    * Toggle Battery Power Switch
    */

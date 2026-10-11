@@ -59,6 +59,8 @@ interface LeafletMapInnerProps {
   isMapClearMode?: boolean;
   onToggleClearMode?: () => void;
   onSwitchEngine?: () => void;
+  sensorSubMode?: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS';
+  roadConstructionStatus?: 'ACTIVE' | 'COMPLETED';
 }
 
 export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
@@ -82,6 +84,8 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   isMapClearMode,
   onToggleClearMode,
   onSwitchEngine,
+  sensorSubMode = 'ROAD_CONSTRUCTION',
+  roadConstructionStatus = 'ACTIVE',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -405,6 +409,21 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       const { lat, lng } = e.latlng;
 
       if (isCreatingHazard) {
+        if (sensorSubMode === 'ROAD_CONSTRUCTION') {
+          if (roadConstructionStatus === 'COMPLETED') {
+            // Block hazard placement on map when road construction is completed ("click na ho")
+            if (onMapClickForHazard) {
+              onMapClickForHazard(lat, lng);
+            }
+            return;
+          }
+          if (onMapClickForHazard) {
+            onMapClickForHazard(lat, lng);
+          }
+          return;
+        }
+
+        // Bridge sensors mode: exact original logic
         if (simState.overallStatus === 'SAFE') {
           // Block hazard placement on map when simulation has no hazard
           if (onMapClickForHazard) {
@@ -765,9 +784,54 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       (circle as any)._hazardId = hazard.hazardId;
 
       // Hazard Marker with distinct icon specific to hazard type (e.g. water waves for flood, broken bridge, barricade, etc.)
+      const isRoadConstruction = hazard.type === 'Road Construction';
       const hazardIcon = L.divIcon({
         className: 'hazard-marker-container',
-        html: `
+        html: isRoadConstruction
+          ? `
+          <div class="relative w-full h-full flex flex-col items-center justify-start cursor-pointer select-none" style="pointer-events: auto;">
+            <!-- Top Blinking Amber Caution Strobe Beacon -->
+            <div class="relative flex items-center justify-center mb-1">
+              <span class="w-3.5 h-3.5 rounded-full bg-amber-400 animate-ping absolute opacity-80 pointer-events-none"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-300 border-2 border-black shadow-[0_0_12px_#f59e0b] animate-pulse"></span>
+            </div>
+
+            <!-- AUTHENTIC HIGHWAY WARNING DIAMOND SIGN (MEN AT WORK / ROAD WORK AHEAD) -->
+            <div class="relative w-11 h-11 bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 border-[2.5px] border-black rounded-lg shadow-2xl flex items-center justify-center transform rotate-45 transition-transform hover:scale-110 active:scale-95" style="box-shadow: 0 4px 16px rgba(245,158,11,0.85), 0 0 0 1.5px #ffffff;">
+              <!-- Inner Black Margin Line -->
+              <div class="w-9 h-9 border border-black/80 rounded flex items-center justify-center">
+                <!-- Un-rotated worker graphic -->
+                <div class="transform -rotate-45 flex items-center justify-center text-black">
+                  <svg class="w-6 h-6 text-black" viewBox="0 0 24 24" fill="currentColor">
+                    <!-- Worker Head & Hardhat Helmet -->
+                    <circle cx="16" cy="5" r="2.2"/>
+                    <path d="M13.2 5h5.6c.4 0 .7-.3.6-.7-.3-.7-1.4-1.3-3.4-1.3s-3.1.6-3.4 1.3c-.1.4.2.7.6.7z"/>
+                    <!-- Bent Torso -->
+                    <path d="M14.8 7.5l-2.2 5.5 2.5 1.5 2.2-4.5z"/>
+                    <!-- Shovel Shaft & Spade -->
+                    <line x1="16" y1="12" x2="6.5" y2="19.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                    <path d="M6.5 19.5l-1.6 1.6 2.2 2 1.8-1.6-2.4-2z"/>
+                    <!-- Earth / Gravel Mound -->
+                    <path d="M3 21.5c1.8-2.5 5-2.2 7.5 0H3z"/>
+                    <!-- Worker Legs -->
+                    <path d="M12.3 13l-1.8 6.5M14.8 14.5l2.2 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Caution Barricade Striped Warning Plate -->
+            <div class="w-14 h-2 mt-1 rounded-[2px] border border-black shadow-sm overflow-hidden" style="background: repeating-linear-gradient(45deg, #09090b, #09090b 4px, #f59e0b 4px, #f59e0b 8px);"></div>
+
+            <!-- REALISTIC HIGHWAY SIGNBOARD: कार्य प्रगति पर है • ROAD WORK AHEAD -->
+            <div class="px-2 py-0.5 mt-0.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 text-black border-2 border-black font-black text-[10px] rounded shadow-xl flex items-center gap-1 whitespace-nowrap tracking-tight uppercase">
+              <span class="text-xs">🚧</span>
+              <span>कार्य प्रगति पर है</span>
+              <span class="text-[9px] bg-black text-amber-300 px-1 py-0.2 rounded font-extrabold tracking-wider">ROAD WORK</span>
+            </div>
+          </div>
+          `
+          : `
           <div class="relative w-full h-full flex flex-col items-center justify-start cursor-pointer select-none" style="pointer-events: auto;">
             <!-- Center Hazard-Specific Icon (anchored at center x:70, y:18) -->
             <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
@@ -787,8 +851,8 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
             </div>
           </div>
         `,
-        iconSize: [140, 72],
-        iconAnchor: [70, 18],
+        iconSize: isRoadConstruction ? [170, 88] : [140, 72],
+        iconAnchor: isRoadConstruction ? [85, 26] : [70, 18],
       });
 
       const marker = L.marker([hazard.latitude, hazard.longitude], {
@@ -1128,14 +1192,45 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       {isCreatingHazard && (
         <div className="absolute top-2 sm:top-2.5 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto w-[96vw] max-w-xl transition-all duration-200">
           <div className={`backdrop-blur-md text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border shadow-xl flex flex-col gap-1.5 transition-all ${
-            simState.overallStatus === 'SAFE'
+            sensorSubMode === 'ROAD_CONSTRUCTION'
+              ? roadConstructionStatus === 'ACTIVE'
+                ? 'bg-[#161B22]/95 border-orange-500/80 shadow-orange-500/25 ring-1 ring-orange-400/40'
+                : 'bg-[#161B22]/95 border-slate-600/80 shadow-slate-900/25'
+              : simState.overallStatus === 'SAFE'
               ? 'bg-[#161B22]/95 border-emerald-500/80 shadow-emerald-500/10'
               : 'bg-[#161B22]/95 border-red-500/80 shadow-red-500/25 ring-1 ring-red-400/40'
           }`}>
             {/* Top Row: Compact Status Header, Collapse Toggle, & Cancel */}
             <div className="flex items-center justify-between gap-2 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                {simState.overallStatus === 'SAFE' ? (
+                {sensorSubMode === 'ROAD_CONSTRUCTION' ? (
+                  roadConstructionStatus === 'ACTIVE' ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0 shadow-sm shadow-amber-400"></span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 bg-amber-400 border border-black rounded-[3px] transform rotate-45 flex items-center justify-center shrink-0 shadow">
+                          <span className="transform -rotate-45 text-[10px] text-black font-black leading-none">🚧</span>
+                        </span>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 leading-tight">
+                          <span className="text-[11px] sm:text-xs font-black text-amber-300 tracking-wide uppercase">
+                            {activeLang === 'hi' ? 'सावधानी: आगे सड़क निर्माण कार्य प्रगति पर है' : 'CAUTION: ROAD WORK AHEAD • कार्य प्रगति पर है'}
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-200 bg-black/60 px-2 py-0.5 rounded border border-amber-500/40 shrink-0">
+                            👉 {activeLang === 'hi' ? 'रोड पर कहीं भी क्लिक करके खतरा लगाएं' : 'Click on any road to place hazard'}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-300 truncate flex items-center gap-1">
+                        <span>🔒</span>
+                        <span>{activeLang === 'hi' ? 'कंस्ट्रक्शन पूरा है (क्लिक बंद)' : 'Construction Completed (Clicks Disabled)'}</span>
+                      </span>
+                    </>
+                  )
+                ) : simState.overallStatus === 'SAFE' ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-sm shadow-emerald-400"></span>
                     <span className="text-[11px] sm:text-xs font-bold text-emerald-300 truncate flex items-center gap-1">
@@ -1173,17 +1268,19 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
               {/* Control buttons: Collapse/Expand + Cancel */}
               <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsHazardBannerCollapsed(!isHazardBannerCollapsed);
-                  }}
-                  className="px-1.5 py-0.5 rounded bg-[#21262D] hover:bg-[#30363D] text-slate-400 hover:text-white text-[10px] font-semibold border border-[#30363D] transition cursor-pointer"
-                  title={isHazardBannerCollapsed ? "Show anomaly buttons" : "Collapse banner"}
-                >
-                  {isHazardBannerCollapsed ? '▼' : '▲'}
-                </button>
+                {sensorSubMode !== 'ROAD_CONSTRUCTION' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsHazardBannerCollapsed(!isHazardBannerCollapsed);
+                    }}
+                    className="px-1.5 py-0.5 rounded bg-[#21262D] hover:bg-[#30363D] text-slate-400 hover:text-white text-[10px] font-semibold border border-[#30363D] transition cursor-pointer"
+                    title={isHazardBannerCollapsed ? "Show anomaly buttons" : "Collapse banner"}
+                  >
+                    {isHazardBannerCollapsed ? '▼' : '▲'}
+                  </button>
+                )}
 
                 {onCancelCreateHazard && (
                   <button
@@ -1201,8 +1298,8 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
               </div>
             </div>
 
-            {/* Bottom Row: Quick Trigger Anomaly buttons (Hidden if collapsed) */}
-            {!isHazardBannerCollapsed && (
+            {/* Bottom Row: Quick Trigger Anomaly buttons (Hidden if collapsed or in Road Construction mode) */}
+            {!isHazardBannerCollapsed && sensorSubMode !== 'ROAD_CONSTRUCTION' && (
               <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap pt-1 border-t border-slate-700/60">
                 <span className="text-[9px] text-amber-300 font-bold uppercase tracking-wider shrink-0">
                   {activeLang === 'hi' ? '⚡ एनोमली:' : '⚡ Anomaly:'}

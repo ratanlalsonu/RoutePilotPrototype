@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Compass, Cpu, ExternalLink, MapPin, Pause, Play, Radio, RotateCcw, Sliders, Terminal } from 'lucide-react';
+import { Compass, Cpu, Pause, Play, Radio, RotateCcw, Sliders, Terminal } from 'lucide-react';
 import { SensorNode } from '../../../types';
 import { realtimeSync } from '../../../services/realtimeSync';
 import { hardwareSimEngine, HardwareSimState } from '../../../services/hardwareSimulationEngine';
@@ -15,6 +15,9 @@ interface SensorsTabProps {
   onNavigateToMap?: () => void;
   initialDevice?: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS';
   onDeviceChange?: (dev: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS') => void;
+  roadConstructionStatus?: 'ACTIVE' | 'COMPLETED';
+  onRoadConstructionStatusChange?: (status: 'ACTIVE' | 'COMPLETED') => void;
+  onPickOnMap?: () => void;
 }
 
 export const SensorsTab: React.FC<SensorsTabProps> = ({
@@ -24,6 +27,9 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
   onNavigateToMap,
   initialDevice,
   onDeviceChange,
+  roadConstructionStatus: propRoadConstructionStatus,
+  onRoadConstructionStatusChange,
+  onPickOnMap,
 }) => {
   // Sub-view: 'SIMULATION' (Interactive circuit) or 'ROSTER' (Registered IoT nodes table)
   const [subView, setSubView] = useState<'SIMULATION' | 'ROSTER'>('SIMULATION');
@@ -56,8 +62,16 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
   const [roadIsRunning, setRoadIsRunning] = useState(true);
   const [roadGpsEnabled, setRoadGpsEnabled] = useState(true);
   const [roadLteEnabled, setRoadLteEnabled] = useState(true);
-  const [roadConstructionStatus, setRoadConstructionStatus] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const [internalRoadStatus, setInternalRoadStatus] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const roadConstructionStatus = propRoadConstructionStatus !== undefined ? propRoadConstructionStatus : internalRoadStatus;
   const [roadResetTrigger, setRoadResetTrigger] = useState(0);
+
+  const handleSetConstructionStatus = (st: 'ACTIVE' | 'COMPLETED') => {
+    setInternalRoadStatus(st);
+    if (onRoadConstructionStatusChange) {
+      onRoadConstructionStatusChange(st);
+    }
+  };
 
   // Roster registration modal state
   const [isRegistering, setIsRegistering] = useState(false);
@@ -198,42 +212,6 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
             </button>
           </div>
 
-          {/* Hardware Model Switcher: Road Construction Alert Device vs Bridge Structural Node */}
-          {subView === 'SIMULATION' && (
-            <div className="flex items-center gap-1.5 bg-[#090D13] p-1 rounded-xl border border-[#30363D] shadow-md">
-              <span className="text-[10px] font-mono uppercase text-slate-400 pl-1 pr-0.5 hidden xl:inline">Simulation Node:</span>
-              <button
-                onClick={() => handleDeviceChange('ROAD_CONSTRUCTION')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  simDevice === 'ROAD_CONSTRUCTION'
-                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md shadow-orange-600/30 border border-orange-400/50'
-                    : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
-                }`}
-                title="Road Construction IoT Alert Device (ESP32 + NEO-6M GPS + SIM7600 4G/LTE)"
-              >
-                <span>🚧</span>
-                <span>Road Mode</span>
-                {simDevice === 'ROAD_CONSTRUCTION' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-ping" />
-                )}
-              </button>
-              <button
-                onClick={() => handleDeviceChange('BRIDGE_SENSORS')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  simDevice === 'BRIDGE_SENSORS'
-                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/30 border border-cyan-400/50'
-                    : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
-                }`}
-                title="Bridge Structural Multi-Sensor Monitoring (Vibration, Tilt, Strain, LoRa)"
-              >
-                <span>🌉</span>
-                <span>Bridge Mode</span>
-                {simDevice === 'BRIDGE_SENSORS' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
-                )}
-              </button>
-            </div>
-          )}
 
           {/* Mode Switch: Virtual Simulation vs External Hardware (Bridge Sensors only) */}
           {subView === 'SIMULATION' && simDevice === 'BRIDGE_SENSORS' && (
@@ -435,7 +413,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
             <div className="flex items-center gap-1 bg-[#0D1117] p-0.5 rounded-xl border border-[#30363D]">
               <span className="text-[11px] font-semibold text-slate-400 pl-1.5 pr-0.5 hidden sm:inline">Status:</span>
               <button
-                onClick={() => setRoadConstructionStatus('ACTIVE')}
+                onClick={() => handleSetConstructionStatus('ACTIVE')}
                 className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
                   roadConstructionStatus === 'ACTIVE'
                     ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-sm'
@@ -445,7 +423,7 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
                 <span>🚧 Active</span>
               </button>
               <button
-                onClick={() => setRoadConstructionStatus('COMPLETED')}
+                onClick={() => handleSetConstructionStatus('COMPLETED')}
                 className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
                   roadConstructionStatus === 'COMPLETED'
                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -525,17 +503,6 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
                 <Cpu className="w-3.5 h-3.5" />
                 <span>Pin Map</span>
               </button>
-              {onNavigateToMap && (
-                <button
-                  onClick={onNavigateToMap}
-                  className="px-2.5 py-1 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs shadow transition cursor-pointer flex items-center gap-1"
-                  title="View this simulated hazard warning on RoutePilot Live Map"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Map</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
-              )}
             </div>
           </div>
         )}

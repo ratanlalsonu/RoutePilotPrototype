@@ -15,6 +15,9 @@ interface DashboardViewProps {
   onQuickHazardOnRoute: () => void;
   onQuickHazardAwayFromRoute: () => void;
   onQuickSecondHazardAhead: () => void;
+  sensorSubMode?: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS';
+  onSensorSubModeChange?: (mode: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS') => void;
+  roadConstructionStatus?: 'ACTIVE' | 'COMPLETED';
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -28,6 +31,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onQuickHazardOnRoute,
   onQuickHazardAwayFromRoute,
   onQuickSecondHazardAhead,
+  sensorSubMode = 'ROAD_CONSTRUCTION',
+  onSensorSubModeChange,
+  roadConstructionStatus = 'ACTIVE',
 }) => {
   const { hazards, sensorNodes, journey, routeEvents, roadStatuses, systemHealth } = state;
   const lang = state.appSettings.language || 'en';
@@ -167,40 +173,68 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </span>
               <span className="text-[11px] text-slate-400 hidden md:inline">• OpenStreetMap Real Roads</span>
 
-              {/* Simulation Telemetry Sync Status Indicator */}
-              {simState.overallStatus !== 'SAFE' ? (
+              {/* Mode Selector: Left: Bridge Mode | Right: Construction Mode */}
+              <div className="flex items-center bg-[#0D1117] p-0.5 rounded-xl border border-[#30363D] shadow-inner">
+                {/* Left: Bridge Mode */}
                 <button
                   type="button"
-                  onClick={() => onNavigateTab('Sensor Nodes')}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-200 text-[11px] font-bold cursor-pointer transition shadow-sm animate-pulse"
-                  title="Active anomaly in Sensor Node simulation! Creating a hazard will auto-fill from this simulation telemetry."
+                  onClick={() => {
+                    if (onSensorSubModeChange) onSensorSubModeChange('BRIDGE_SENSORS');
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    sensorSubMode === 'BRIDGE_SENSORS'
+                      ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30 font-extrabold'
+                      : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                  }`}
+                  title={
+                    lang === 'hi'
+                      ? 'ब्रिज मोड चुनें: मैप पर ब्रिज का खतरा (Bridge Hazard) लगाने के लिए'
+                      : 'Bridge Mode: Select to place bridge structural and flood hazards on map'
+                  }
                 >
-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
-                  <span>Sim: {simState.overallStatus}</span>
-                  <span className="text-[10px] text-cyan-300 font-mono hidden sm:inline">⚡ Auto-Fill</span>
+                  <span>🌉</span>
+                  <span>{lang === 'hi' ? 'ब्रिज मोड' : 'Bridge Mode'}</span>
+                  {sensorSubMode === 'BRIDGE_SENSORS' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-pulse" />
+                  )}
+                  {simState.overallStatus !== 'SAFE' && sensorSubMode !== 'BRIDGE_SENSORS' && (
+                    <span
+                      className="w-2 h-2 rounded-full bg-red-400 animate-ping"
+                      title={`Sim: ${simState.overallStatus}`}
+                    />
+                  )}
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('Sensor Nodes')}
-                  className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-medium cursor-pointer transition"
-                  title="Simulation sensors nominal. Click to view Sensor Node simulation."
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>Sim Node: Safe</span>
-                </button>
-              )}
 
-              {/* Road Construction IoT Mode Link */}
-              <button
-                type="button"
-                onClick={() => onNavigateTab('Road Construction')}
-                className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-300 text-[10px] font-medium cursor-pointer transition"
-                title="Click to view 6-Stage Road Construction IoT Simulation (ESP32 + SIM7600 + NEO-6M)"
-              >
-                <span>🚧</span>
-                <span>{lang === 'hi' ? 'कंस्ट्रक्शन मोड' : 'Construction Mode'}</span>
-              </button>
+                {/* Right: Construction Mode */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSensorSubModeChange) onSensorSubModeChange('ROAD_CONSTRUCTION');
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    sensorSubMode === 'ROAD_CONSTRUCTION'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 shadow-md shadow-orange-500/30 font-extrabold'
+                      : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                  }`}
+                  title={
+                    lang === 'hi'
+                      ? 'कंस्ट्रक्शन मोड चुनें: मैप पर रोड कंस्ट्रक्शन का खतरा (Road Hazard) लगाने के लिए'
+                      : 'Construction Mode: Select to place road construction work zone hazards on map'
+                  }
+                >
+                  <span>🚧</span>
+                  <span>{lang === 'hi' ? 'कंस्ट्रक्शन मोड' : 'Construction Mode'}</span>
+                  {sensorSubMode === 'ROAD_CONSTRUCTION' && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        roadConstructionStatus === 'ACTIVE'
+                          ? 'bg-slate-950 animate-pulse'
+                          : 'bg-emerald-950'
+                      }`}
+                    />
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Demonstration & Hazard Creation Controls */}
@@ -208,6 +242,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenCreateHazard}
+                title={
+                  sensorSubMode === 'ROAD_CONSTRUCTION'
+                    ? (lang === 'hi' ? 'रोड कंस्ट्रक्शन खतरा लगाने के लिए मैप पर क्लिक करें' : 'Pick on Map: Place Road Construction Hazard')
+                    : (lang === 'hi' ? 'ब्रिज खतरा लगाने के लिए मैप पर क्लिक करें' : 'Pick on Map: Place Bridge Hazard')
+                }
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 border cursor-pointer ${
                   isCreatingHazard
                     ? 'bg-red-600 text-white border-red-500 animate-pulse'
@@ -220,7 +259,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <button
                 onClick={onQuickHazardOnRoute}
-                title="Creates Hazard on active route (triggers alert)"
+                title={
+                  sensorSubMode === 'ROAD_CONSTRUCTION'
+                    ? (lang === 'hi' ? 'ड्राइवर रूट पर रोड कंस्ट्रक्शन का खतरा बनाएं (अलर्ट ट्रिगर होगा)' : 'Creates Road Construction Hazard on active driver route (triggers alert)')
+                    : (lang === 'hi' ? 'ड्राइवर रूट पर ब्रिज का खतरा बनाएं (अलर्ट ट्रिगर होगा)' : 'Creates Bridge Structural Hazard on active route (triggers alert)')
+                }
                 className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
               >
                 <span>⚠ </span>
@@ -230,7 +273,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <button
                 onClick={onQuickHazardAwayFromRoute}
-                title="Creates hazard far away (proves rule 13: NO driver alert)"
+                title={
+                  sensorSubMode === 'ROAD_CONSTRUCTION'
+                    ? (lang === 'hi' ? 'दूर रोड कंस्ट्रक्शन खतरा बनाएं (कोई ड्राइवर अलर्ट नहीं)' : 'Creates Road Construction hazard away from route (no driver alert)')
+                    : (lang === 'hi' ? 'दूर ब्रिज खतरा बनाएं (कोई ड्राइवर अलर्ट नहीं)' : 'Creates Bridge hazard far away (no driver alert)')
+                }
                 className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-slate-500 text-slate-300 transition cursor-pointer"
               >
                 <span className="hidden sm:inline">Hazard Away (No Alert)</span>
@@ -239,7 +286,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <button
                 onClick={onQuickSecondHazardAhead}
-                title="Creates second hazard ahead on diverted route (tests repeated diversion!)"
+                title={
+                  sensorSubMode === 'ROAD_CONSTRUCTION'
+                    ? (lang === 'hi' ? 'डायवर्टेड रूट पर दूसरा रोड कंस्ट्रक्शन खतरा बनाएं (मल्टी-डायवर्जन टेस्ट)' : 'Creates 2nd Road Construction hazard ahead on diverted route (tests multi-diversion)')
+                    : (lang === 'hi' ? 'डायवर्टेड रूट पर दूसरा ब्रिज खतरा बनाएं (मल्टी-डायवर्जन टेस्ट)' : 'Creates 2nd Bridge hazard ahead on diverted route (tests multi-diversion)')
+                }
                 className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-amber-500 text-amber-300 transition cursor-pointer"
               >
                 <span>⚠ </span>
@@ -273,6 +324,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               appTheme={state.appSettings.appTheme}
               onToggleTheme={() => realtimeSync.toggleMapTheme()}
               onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
+              sensorSubMode={sensorSubMode}
+              roadConstructionStatus={roadConstructionStatus}
             />
           </div>
         </div>

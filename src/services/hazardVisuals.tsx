@@ -96,22 +96,29 @@ export function getHazardVisual(type: HazardType | string, severity?: HazardSeve
     case 'Road Construction':
       return {
         type,
-        label: 'Road Construction',
-        emoji: '🏗️',
-        accentColor: '#ea580c',
-        bgClass: 'bg-gradient-to-br from-orange-500 to-amber-600',
-        pingClass: 'bg-orange-500/50',
-        badgeBorder: 'border-orange-400/80',
-        badgeText: 'text-orange-200',
-        shortCode: 'WORK',
+        label: 'Road Construction • कार्य प्रगति पर है',
+        emoji: '🚧',
+        accentColor: '#f59e0b',
+        bgClass: 'bg-gradient-to-br from-amber-400 via-orange-500 to-amber-500',
+        pingClass: 'bg-amber-400/60',
+        badgeBorder: 'border-amber-400',
+        badgeText: 'text-amber-200',
+        shortCode: 'ROAD WORK',
         svgHtml: `
-          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <!-- Traffic Cone -->
-            <path d="M10 2.5h4l4.5 15.5H5.5L10 2.5z" fill="rgba(255,255,255,0.2)" stroke-width="2"/>
-            <!-- Reflective stripes -->
-            <path d="M8.2 13h7.6M9.4 8h5.2" stroke-width="2.4" stroke="#ffffff"/>
-            <!-- Pedestal base -->
-            <rect x="2.5" y="18" width="19" height="3.5" rx="1" fill="rgba(255,255,255,0.4)" stroke-width="2"/>
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+            <!-- Road Work Ahead / Men at Work (ISO 7010 / IRC Highway Symbol) -->
+            <!-- Worker Head & Hardhat Helmet -->
+            <circle cx="16" cy="5" r="2.2" fill="currentColor"/>
+            <path d="M13.2 5h5.6c.4 0 .7-.3.6-.7-.3-.7-1.4-1.3-3.4-1.3s-3.1.6-3.4 1.3c-.1.4.2.7.6.7z" fill="currentColor"/>
+            <!-- Bent Torso -->
+            <path d="M14.8 7.5l-2.2 5.5 2.5 1.5 2.2-4.5z" fill="currentColor"/>
+            <!-- Shovel Shaft & Blade -->
+            <line x1="16" y1="12" x2="6.5" y2="19.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M6.5 19.5l-1.6 1.6 2.2 2 1.8-1.6-2.4-2z" fill="currentColor"/>
+            <!-- Earth / Gravel Mound -->
+            <path d="M3 21.5c1.8-2.5 5-2.2 7.5 0H3z" fill="currentColor"/>
+            <!-- Worker Legs -->
+            <path d="M12.3 13l-1.8 6.5M14.8 14.5l2.2 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         `,
       };

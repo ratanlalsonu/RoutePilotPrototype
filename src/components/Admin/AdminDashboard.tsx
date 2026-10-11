@@ -6,6 +6,7 @@ import { SettingsModal } from '../Common/SettingsModal';
 import { AStarAlgorithmTab } from './Tabs/AStarAlgorithmTab';
 import { HazardType, HazardSeverity } from '../../types';
 import { hardwareSimEngine } from '../../services/hardwareSimulationEngine';
+import { roadConstructionEngine } from '../../services/roadConstructionEngine';
 import { DashboardView } from './Tabs/DashboardView';
 import { HazardsTab } from './Tabs/HazardsTab';
 import { SensorsTab } from './Tabs/SensorsTab';
@@ -32,6 +33,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
   const [sensorSubMode, setSensorSubMode] = useState<'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS'>('ROAD_CONSTRUCTION');
+  const [roadConstructionStatus, setRoadConstructionStatus] = useState<'ACTIVE' | 'COMPLETED'>(() => {
+    return roadConstructionEngine.getConstructionStatus();
+  });
   const [isSensorSubMenuOpen, setIsSensorSubMenuOpen] = useState(true);
 
   const lang = state.appSettings.language || 'en';
@@ -49,6 +53,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   const blockedRoadsCount = roadStatuses.filter((r) => r.status === 'Blocked').length;
 
   const handleMapClickForHazard = (lat: number, lng: number) => {
+    // 1. Road Construction Simulation mode
+    if (sensorSubMode === 'ROAD_CONSTRUCTION') {
+      if (roadConstructionStatus === 'COMPLETED') {
+        // User requested: "jab road construction completed ho to map par kahi bhi click kare to click na ho"
+        showToast(
+          lang === 'hi'
+            ? 'ℹ️ रोड कंस्ट्रक्शन कार्य पूरा (Completed) है! मैप पर खतरा लगाने के लिए सिमुलेशन में स्टेटस "Active" करें।'
+            : 'ℹ️ Road Construction is marked COMPLETED! Set status to "Active" in simulation to place hazard.'
+        );
+        return; // Block placement: click na ho!
+      }
+
+      // When Road Construction is ACTIVE:
+      // "jab road contruction active ho to map par kahi bhi clicl karke hazard laga paye"
+      setClickedCoords({ lat, lng });
+      // Update road construction engine GPS & telemetry coordinates to clicked point without prematurely creating a hazard
+      roadConstructionEngine.setCoordinates(
+        lat,
+        lng,
+        `Work Zone (${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E)`,
+        'Active Road Corridor'
+      );
+      setIsModalOpen(true);
+      setIsCreatingHazard(false);
+      return;
+    }
+
+    // 2. Bridge Sensors mode (Untouched, preserved 100%)
     const simState = hardwareSimEngine.getState();
     if (simState.overallStatus === 'SAFE') {
       showToast(
@@ -98,31 +130,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       locationName = `Ahead on ${roadName}`;
     }
 
-    const simData = hardwareSimEngine.getSimulationHazardData();
-    const hazardType = simData.isHazard ? simData.type : 'Bridge Damage';
-    const hazardSeverity = simData.isHazard ? simData.severity : 'CRITICAL';
-    const hazardRadius = simData.isHazard ? simData.affectedRadius : 220;
-    const hazardDesc = simData.isHazard
-      ? `Active Sensor Node Telemetry: ${simData.description}`
-      : 'Critical structural crack & road damage detected on active route segment';
-    const hazardSource = simData.isHazard ? 'LIVE_HARDWARE' : 'ADMIN';
+    if (sensorSubMode === 'ROAD_CONSTRUCTION') {
+      // 🚧 ROAD CONSTRUCTION MODE
+      roadConstructionEngine.setCoordinates(lat, lng, `Construction Zone: ${locationName}`, roadName);
 
-    realtimeSync.createHazard({
-      type: hazardType,
-      severity: hazardSeverity,
-      latitude: lat,
-      longitude: lng,
-      locationName,
-      roadName,
-      affectedRadius: hazardRadius,
-      description: hazardDesc,
-      source: hazardSource,
-    });
-    showToast(
-      simData.isHazard
-        ? `Simulation Telemetry Hazard (${hazardType} - ${hazardSeverity}) placed on Driver Route!`
-        : 'Critical Hazard placed directly on Driver Active Road Route!'
-    );
+      const created = realtimeSync.createHazard({
+        type: 'Road Construction',
+        severity: 'WARNING',
+        latitude: lat,
+        longitude: lng,
+        locationName: `Work Zone (${roadName})`,
+        roadName,
+        affectedRadius: 220,
+        description: '[IoT Road Construction Beacon (ESP32 + SIM7600)]: Active road reconstruction & lane barricade on driver active route.',
+        source: 'LIVE_HARDWARE',
+      });
+      showToast(
+        lang === 'hi'
+          ? `🚧 रोड कंस्ट्रक्शन का खतरा (${created.hazardId}) ड्राइवर रूट पर लगाया गया!`
+          : `🚧 Road Construction Hazard (${created.hazardId}) placed directly on Driver Route!`
+      );
+    } else {
+      // 🌉 BRIDGE MODE
+      const simData = hardwareSimEngine.getSimulationHazardData();
+      const hazardType = simData.isHazard ? simData.type : 'Bridge Damage';
+      const hazardSeverity = simData.isHazard ? simData.severity : 'CRITICAL';
+      const hazardRadius = simData.isHazard ? simData.affectedRadius : 220;
+      const hazardDesc = simData.isHazard
+        ? `Active Bridge Sensor Telemetry: ${simData.description}`
+        : 'Critical bridge structural defect & deck anomaly detected on active route segment';
+      const hazardSource = simData.isHazard ? 'LIVE_HARDWARE' : 'ADMIN';
+
+      const created = realtimeSync.createHazard({
+        type: hazardType,
+        severity: hazardSeverity,
+        latitude: lat,
+        longitude: lng,
+        locationName: `Bridge Span: ${locationName}`,
+        roadName,
+        affectedRadius: hazardRadius,
+        description: hazardDesc,
+        source: hazardSource,
+      });
+      showToast(
+        lang === 'hi'
+          ? `🌉 ब्रिज का खतरा (${hazardType}) ड्राइवर रूट पर लगाया गया!`
+          : `🌉 Bridge Structural Hazard (${hazardType}) placed directly on Driver Route!`
+      );
+    }
   };
 
   const handleQuickHazardAwayFromRoute = () => {
@@ -139,18 +194,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       locationName = 'Perimeter Area (Away from Route)';
     }
 
-    realtimeSync.createHazard({
-      type: 'Road Construction',
-      severity: 'WARNING',
-      latitude: lat,
-      longitude: lng,
-      locationName,
-      roadName,
-      affectedRadius: 150,
-      description: 'Scheduled resurfacing away from driver active corridor',
-      source: 'ADMIN',
-    });
-    showToast('Hazard placed away from driver corridor (no alert as expected).');
+    if (sensorSubMode === 'ROAD_CONSTRUCTION') {
+      // 🚧 ROAD CONSTRUCTION MODE
+      roadConstructionEngine.setCoordinates(lat, lng, `Remote Work Zone: ${locationName}`, roadName);
+
+      realtimeSync.createHazard({
+        type: 'Road Construction',
+        severity: 'WARNING',
+        latitude: lat,
+        longitude: lng,
+        locationName,
+        roadName,
+        affectedRadius: 150,
+        description: '[IoT Road Work Zone]: Scheduled pavement resurfacing away from driver active corridor (no alert expected)',
+        source: 'LIVE_HARDWARE',
+      });
+      showToast(
+        lang === 'hi'
+          ? '🚧 रोड कंस्ट्रक्शन का खतरा रूट से दूर लगाया गया (कोई अलर्ट नहीं, जैसा अपेक्षित था)।'
+          : '🚧 Road Construction hazard placed away from driver corridor (no alert as expected).'
+      );
+    } else {
+      // 🌉 BRIDGE MODE
+      realtimeSync.createHazard({
+        type: 'Bridge Damage',
+        severity: 'CRITICAL',
+        latitude: lat,
+        longitude: lng,
+        locationName: `Remote Bridge Overpass (${locationName})`,
+        roadName,
+        affectedRadius: 180,
+        description: 'Bridge structural pier defect on remote bypass away from driver route (no alert expected)',
+        source: 'LIVE_HARDWARE',
+      });
+      showToast(
+        lang === 'hi'
+          ? '🌉 ब्रिज का खतरा रूट से दूर लगाया गया (कोई अलर्ट नहीं, जैसा अपेक्षित था)।'
+          : '🌉 Bridge Structural hazard placed away from driver corridor (no alert as expected).'
+      );
+    }
   };
 
   const handleQuickSecondHazardAhead = () => {
@@ -172,18 +254,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
       locationName = `Farther ahead on ${roadName}`;
     }
 
-    realtimeSync.createHazard({
-      type: 'Road Blockage',
-      severity: 'CRITICAL',
-      latitude: lat,
-      longitude: lng,
-      locationName,
-      roadName,
-      affectedRadius: 180,
-      description: 'Overturned trailer blocking lanes on route segment ahead',
-      source: 'ADMIN',
-    });
-    showToast('Second Hazard placed ahead on route to test dynamic multi-diversion!');
+    if (sensorSubMode === 'ROAD_CONSTRUCTION') {
+      // 🚧 ROAD CONSTRUCTION MODE
+      roadConstructionEngine.setCoordinates(lat, lng, `2nd Work Zone: ${locationName}`, roadName);
+
+      realtimeSync.createHazard({
+        type: 'Road Construction',
+        severity: 'WARNING',
+        latitude: lat,
+        longitude: lng,
+        locationName: `2nd Road Work Zone (${roadName})`,
+        roadName,
+        affectedRadius: 200,
+        description: '[IoT Road Construction Beacon]: 2nd Work Zone ahead on diverted corridor testing dynamic multi-diversion!',
+        source: 'LIVE_HARDWARE',
+      });
+      showToast(
+        lang === 'hi'
+          ? '🚧 दूसरा रोड कंस्ट्रक्शन खतरा आगे डायवर्टेड रूट पर लगाया गया (मल्टी-डायवर्जन टेस्ट)!'
+          : '🚧 2nd Road Construction Hazard placed ahead on route to test dynamic multi-diversion!'
+      );
+    } else {
+      // 🌉 BRIDGE MODE
+      realtimeSync.createHazard({
+        type: 'Bridge Damage',
+        severity: 'CRITICAL',
+        latitude: lat,
+        longitude: lng,
+        locationName: `2nd Bridge Structure (${roadName})`,
+        roadName,
+        affectedRadius: 200,
+        description: '2nd Critical bridge pier vibration anomaly ahead on diverted route testing multi-diversion!',
+        source: 'LIVE_HARDWARE',
+      });
+      showToast(
+        lang === 'hi'
+          ? '🌉 दूसरा ब्रिज खतरा आगे डायवर्टेड रूट पर लगाया गया (मल्टी-डायवर्जन टेस्ट)!'
+          : '🌉 2nd Bridge Hazard placed ahead on route to test dynamic multi-diversion!'
+      );
+    }
   };
 
   return (
@@ -483,7 +592,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 state={state}
                 onNavigateTab={(tab) => {
                   if (tab === 'Settings') setIsSettingsOpen(true);
-                  else setActiveTab(tab);
+                  else if (tab === 'Road Construction') {
+                    setActiveTab('Sensor Nodes');
+                    setSensorSubMode('ROAD_CONSTRUCTION');
+                  } else setActiveTab(tab);
                 }}
                 onOpenCreateHazard={() => {
                   setActiveTab('Live Map');
@@ -499,6 +611,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 onQuickHazardOnRoute={handleQuickHazardOnRoute}
                 onQuickHazardAwayFromRoute={handleQuickHazardAwayFromRoute}
                 onQuickSecondHazardAhead={handleQuickSecondHazardAhead}
+                sensorSubMode={sensorSubMode}
+                onSensorSubModeChange={setSensorSubMode}
+                roadConstructionStatus={roadConstructionStatus}
               />
             </div>
           )}
@@ -514,8 +629,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 </div>
 
                 <div className="flex items-center flex-wrap gap-2">
+                  {/* Mode Selector: Left: Bridge Mode | Right: Construction Mode */}
+                  <div className="flex items-center bg-[#0D1117] p-0.5 rounded-xl border border-[#30363D]">
+                    <button
+                      type="button"
+                      onClick={() => setSensorSubMode('BRIDGE_SENSORS')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        sensorSubMode === 'BRIDGE_SENSORS'
+                          ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/25 font-extrabold'
+                          : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                      }`}
+                      title="Select Bridge Mode: Place Bridge Structural & Sensor Hazards"
+                    >
+                      <span>🌉</span>
+                      <span>Bridge Mode</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSensorSubMode('ROAD_CONSTRUCTION')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        sensorSubMode === 'ROAD_CONSTRUCTION'
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 shadow-md shadow-orange-500/25 font-extrabold'
+                          : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                      }`}
+                      title="Select Construction Mode: Place Road Construction Hazards"
+                    >
+                      <span>🚧</span>
+                      <span>Construction Mode</span>
+                    </button>
+                  </div>
+
                   <button
                     onClick={() => setIsCreatingHazard(!isCreatingHazard)}
+                    title={
+                      sensorSubMode === 'ROAD_CONSTRUCTION'
+                        ? (lang === 'hi' ? 'रोड कंस्ट्रक्शन खतरा लगाने के लिए मैप पर क्लिक करें' : 'Pick on Map: Place Road Construction Hazard')
+                        : (lang === 'hi' ? 'ब्रिज खतरा लगाने के लिए मैप पर क्लिक करें' : 'Pick on Map: Place Bridge Hazard')
+                    }
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 border cursor-pointer ${
                       isCreatingHazard
                         ? 'bg-red-600 text-white border-red-500 animate-pulse'
@@ -528,7 +678,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
                   <button
                     onClick={handleQuickHazardOnRoute}
-                    title="Creates Hazard on active route (triggers alert)"
+                    title={
+                      sensorSubMode === 'ROAD_CONSTRUCTION'
+                        ? (lang === 'hi' ? 'ड्राइवर रूट पर रोड कंस्ट्रक्शन का खतरा बनाएं (अलर्ट ट्रिगर होगा)' : 'Creates Road Construction Hazard on active route (triggers alert)')
+                        : (lang === 'hi' ? 'ड्राइवर रूट पर ब्रिज का खतरा बनाएं (अलर्ट ट्रिगर होगा)' : 'Creates Bridge Structural Hazard on active route (triggers alert)')
+                    }
                     className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-red-500 text-slate-200 hover:text-white transition cursor-pointer"
                   >
                     ⚠ Hazard on Driver Route
@@ -536,7 +690,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
                   <button
                     onClick={handleQuickHazardAwayFromRoute}
-                    title="Creates hazard far away (proves rule 13: NO driver alert)"
+                    title={
+                      sensorSubMode === 'ROAD_CONSTRUCTION'
+                        ? (lang === 'hi' ? 'दूर रोड कंस्ट्रक्शन खतरा बनाएं (कोई ड्राइवर अलर्ट नहीं)' : 'Creates Road Construction hazard away from route (no driver alert)')
+                        : (lang === 'hi' ? 'दूर ब्रिज खतरा बनाएं (कोई ड्राइवर अलर्ट नहीं)' : 'Creates Bridge hazard far away (no driver alert)')
+                    }
                     className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-slate-500 text-slate-300 transition cursor-pointer"
                   >
                     Hazard Away (No Alert)
@@ -544,7 +702,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
                   <button
                     onClick={handleQuickSecondHazardAhead}
-                    title="Creates second hazard ahead on diverted route (tests repeated diversion!)"
+                    title={
+                      sensorSubMode === 'ROAD_CONSTRUCTION'
+                        ? (lang === 'hi' ? 'डायवर्टेड रूट पर दूसरा रोड कंस्ट्रक्शन खतरा बनाएं (मल्टी-डायवर्जन टेस्ट)' : 'Creates 2nd Road Construction hazard ahead on diverted route (tests multi-diversion)')
+                        : (lang === 'hi' ? 'डायवर्टेड रूट पर दूसरा ब्रिज खतरा बनाएं (मल्टी-डायवर्जन टेस्ट)' : 'Creates 2nd Bridge hazard ahead on diverted route (tests multi-diversion)')
+                    }
                     className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[#21262D] border border-[#30363D] hover:border-amber-500 text-amber-300 transition cursor-pointer"
                   >
                     ⚠ 2nd Hazard Ahead
@@ -579,6 +741,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                   appTheme={state.appSettings.appTheme}
                   onToggleTheme={() => realtimeSync.toggleMapTheme()}
                   onChangeTheme={(t) => realtimeSync.setMapTheme(t)}
+                  sensorSubMode={sensorSubMode}
+                  roadConstructionStatus={roadConstructionStatus}
                 />
               </div>
             </div>
@@ -612,6 +776,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 onNavigateToMap={() => setActiveTab('Live Map')}
                 initialDevice={sensorSubMode}
                 onDeviceChange={setSensorSubMode}
+                roadConstructionStatus={roadConstructionStatus}
+                onRoadConstructionStatusChange={(st) => {
+                  setRoadConstructionStatus(st);
+                  roadConstructionEngine.setConstructionStatus(st);
+                }}
+                onPickOnMap={() => {
+                  setActiveTab('Live Map');
+                  setIsCreatingHazard(true);
+                }}
               />
             </div>
           )}
@@ -669,6 +842,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           setIsModalOpen(false);
           setActiveTab('Sensor Nodes');
         }}
+        initialHazardType={sensorSubMode === 'ROAD_CONSTRUCTION' ? 'Road Construction' : undefined}
       />
 
       {/* Settings & API Key Modal */}
