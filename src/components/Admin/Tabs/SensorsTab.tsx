@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Compass, ExternalLink, MapPin, Pause, Play, Radio, RotateCcw, Sliders, Terminal } from 'lucide-react';
 import { SensorNode } from '../../../types';
 import { realtimeSync } from '../../../services/realtimeSync';
 import { hardwareSimEngine, HardwareSimState } from '../../../services/hardwareSimulationEngine';
@@ -46,9 +47,17 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
   // Simulation engine state
   const [simState, setSimState] = useState<HardwareSimState>(hardwareSimEngine.getState());
   const [activeDrawer, setActiveDrawer] = useState<'CONTROLS' | 'THRESHOLDS' | 'LOGS' | 'PINS' | null>(null);
+  const [roadDrawer, setRoadDrawer] = useState<'LOGS' | 'STATUS' | 'PINS' | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<HardwareComponentId | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Road Construction simulation controls state (hosted in unified header)
+  const [roadIsRunning, setRoadIsRunning] = useState(true);
+  const [roadGpsEnabled, setRoadGpsEnabled] = useState(true);
+  const [roadLteEnabled, setRoadLteEnabled] = useState(true);
+  const [roadConstructionStatus, setRoadConstructionStatus] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const [roadResetTrigger, setRoadResetTrigger] = useState(0);
 
   // Roster registration modal state
   const [isRegistering, setIsRegistering] = useState(false);
@@ -394,6 +403,132 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
           </div>
         )}
 
+        {/* Center/Right: Simulation Controls (for Road Construction Node) — unified flex-wrap cluster just like Bridge Sensors */}
+        {subView === 'SIMULATION' && simDevice === 'ROAD_CONSTRUCTION' && (
+          <div className="flex items-center flex-wrap gap-2">
+            {/* Run / Stop / Reset Buttons */}
+            <div className="flex items-center gap-1 bg-[#21262D] p-0.5 rounded-xl border border-[#30363D]">
+              <button
+                onClick={() => setRoadIsRunning(!roadIsRunning)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm ${
+                  roadIsRunning
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                }`}
+                title={roadIsRunning ? 'Pause Simulation' : 'Start Simulation'}
+              >
+                {roadIsRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                <span>{roadIsRunning ? 'Pause' : 'Start'}</span>
+              </button>
+
+              <button
+                onClick={() => setRoadResetTrigger((prev) => prev + 1)}
+                className="px-2 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#30363D] transition cursor-pointer flex items-center gap-1"
+                title="Reset Simulation to Initial State"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            </div>
+
+            {/* Virtual Contractor Status: ACTIVE / COMPLETED Toggle */}
+            <div className="flex items-center gap-1 bg-[#0D1117] p-0.5 rounded-xl border border-[#30363D]">
+              <span className="text-[11px] font-semibold text-slate-400 pl-1.5 pr-0.5 hidden sm:inline">Status:</span>
+              <button
+                onClick={() => setRoadConstructionStatus('ACTIVE')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  roadConstructionStatus === 'ACTIVE'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                }`}
+              >
+                <span>🚧 Active</span>
+              </button>
+              <button
+                onClick={() => setRoadConstructionStatus('COMPLETED')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  roadConstructionStatus === 'COMPLETED'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                }`}
+              >
+                <span>✓ Completed</span>
+              </button>
+            </div>
+
+            {/* GPS & 4G/LTE Toggles */}
+            <button
+              onClick={() => setRoadGpsEnabled(!roadGpsEnabled)}
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                roadGpsEnabled
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                  : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>GPS {roadGpsEnabled ? 'ON' : 'OFF'}</span>
+            </button>
+            <button
+              onClick={() => setRoadLteEnabled(!roadLteEnabled)}
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                roadLteEnabled
+                  ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+                  : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>4G/LTE {roadLteEnabled ? 'ON' : 'OFF'}</span>
+            </button>
+
+            {/* Hardware Status Pill */}
+            <div className={`px-2 py-1 rounded-lg font-mono font-bold text-[10px] flex items-center gap-1.5 border ${
+              roadConstructionStatus === 'ACTIVE'
+                ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse'
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            }`}>
+              <span>●</span>
+              <span>{roadConstructionStatus === 'ACTIVE' ? 'ALERT ACTIVE' : 'WORK COMPLETE'}</span>
+            </div>
+
+            {/* Drawers / Controls Toggles */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setRoadDrawer(roadDrawer === 'LOGS' ? null : 'LOGS')}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                  roadDrawer === 'LOGS'
+                    ? 'bg-[#AEF5F0] text-slate-950 border-[#AEF5F0]'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white hover:border-[#AEF5F0]'
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>Logs</span>
+              </button>
+              <button
+                onClick={() => setRoadDrawer(roadDrawer === 'STATUS' ? null : 'STATUS')}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                  roadDrawer === 'STATUS'
+                    ? 'bg-[#AEF5F0] text-slate-950 border-[#AEF5F0]'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white hover:border-[#AEF5F0]'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Diagnostics</span>
+              </button>
+              {onNavigateToMap && (
+                <button
+                  onClick={onNavigateToMap}
+                  className="px-2.5 py-1 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs shadow transition cursor-pointer flex items-center gap-1"
+                  title="View this simulated hazard warning on RoutePilot Live Map"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Map</span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* If in Roster view, show Register Node button */}
         {subView === 'ROSTER' && (
           <div className="flex items-center gap-2">
@@ -441,7 +576,18 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
       {subView === 'SIMULATION' ? (
         simDevice === 'ROAD_CONSTRUCTION' ? (
           <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden">
-            <RoadConstructionSimulator onNavigateToMap={onNavigateToMap} />
+            <RoadConstructionSimulator
+              onNavigateToMap={onNavigateToMap}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              activeDrawer={roadDrawer}
+              onSetDrawer={setRoadDrawer}
+              isRunning={roadIsRunning}
+              gpsEnabled={roadGpsEnabled}
+              lteEnabled={roadLteEnabled}
+              constructionStatus={roadConstructionStatus}
+              resetTrigger={roadResetTrigger}
+            />
           </div>
         ) : (
           <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden flex flex-col">

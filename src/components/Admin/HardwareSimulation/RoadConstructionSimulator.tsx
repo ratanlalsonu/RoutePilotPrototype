@@ -1,22 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Play,
-  Pause,
-  RotateCcw,
   Radio,
-  Wifi,
-  Globe,
   Server,
-  Cpu,
-  Battery,
   Compass,
-  AlertTriangle,
-  CheckCircle2,
   Terminal,
   Sliders,
-  ExternalLink,
-  MapPin,
-  HardHat,
   Zap,
 } from 'lucide-react';
 import { realtimeSync } from '../../../services/realtimeSync';
@@ -25,6 +13,15 @@ import { RoadConstructionCircuitCanvas } from './RoadConstructionCircuitCanvas';
 
 interface RoadConstructionSimulatorProps {
   onNavigateToMap?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  activeDrawer?: 'LOGS' | 'STATUS' | 'PINS' | null;
+  onSetDrawer?: (drawer: 'LOGS' | 'STATUS' | 'PINS' | null) => void;
+  isRunning?: boolean;
+  gpsEnabled?: boolean;
+  lteEnabled?: boolean;
+  constructionStatus?: 'ACTIVE' | 'COMPLETED';
+  resetTrigger?: number;
 }
 
 interface EventLog {
@@ -37,13 +34,86 @@ interface EventLog {
 
 export const RoadConstructionSimulator: React.FC<RoadConstructionSimulatorProps> = ({
   onNavigateToMap,
+  isFullscreen: propIsFullscreen,
+  onToggleFullscreen,
+  activeDrawer: propActiveDrawer,
+  onSetDrawer,
+  isRunning: propIsRunning,
+  gpsEnabled: propGpsEnabled,
+  lteEnabled: propLteEnabled,
+  constructionStatus: propConstructionStatus,
+  resetTrigger,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [internalFullscreen, setInternalFullscreen] = useState(false);
+  const effectiveFullscreen = propIsFullscreen !== undefined ? propIsFullscreen : internalFullscreen;
+
+  const handleToggleFullscreen = async () => {
+    if (onToggleFullscreen) {
+      onToggleFullscreen();
+      return;
+    }
+
+    if (!internalFullscreen) {
+      setInternalFullscreen(true);
+      try {
+        if (containerRef.current && containerRef.current.requestFullscreen) {
+          await containerRef.current.requestFullscreen();
+        }
+      } catch {
+        // CSS fallback
+      }
+    } else {
+      setInternalFullscreen(false);
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (onToggleFullscreen) return;
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && internalFullscreen) {
+        setInternalFullscreen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && internalFullscreen) {
+        setInternalFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [internalFullscreen, onToggleFullscreen]);
+
   // Master Simulation State
-  const [isRunning, setIsRunning] = useState<boolean>(true);
-  const [gpsEnabled, setGpsEnabled] = useState<boolean>(true);
-  const [lteEnabled, setLteEnabled] = useState<boolean>(true);
-  const [constructionStatus, setConstructionStatus] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const [internalIsRunning, setInternalIsRunning] = useState<boolean>(true);
+  const [internalGpsEnabled, setInternalGpsEnabled] = useState<boolean>(true);
+  const [internalLteEnabled, setInternalLteEnabled] = useState<boolean>(true);
+  const [internalConstructionStatus, setInternalConstructionStatus] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
   const [activeHazardId, setActiveHazardId] = useState<string | null>(null);
+
+  const isRunning = propIsRunning !== undefined ? propIsRunning : internalIsRunning;
+  const gpsEnabled = propGpsEnabled !== undefined ? propGpsEnabled : internalGpsEnabled;
+  const lteEnabled = propLteEnabled !== undefined ? propLteEnabled : internalLteEnabled;
+  const constructionStatus = propConstructionStatus !== undefined ? propConstructionStatus : internalConstructionStatus;
+
+  const prevResetRef = useRef(resetTrigger);
+  useEffect(() => {
+    if (resetTrigger !== undefined && prevResetRef.current !== undefined && resetTrigger !== prevResetRef.current) {
+      handleReset();
+    }
+    prevResetRef.current = resetTrigger;
+  }, [resetTrigger]);
 
   // Active Corridor Location Preset
   const [locationPreset, setLocationPreset] = useState<'NH27' | 'ORCHHA' | 'CIVIL_LINES'>('NH27');
@@ -59,7 +129,15 @@ export const RoadConstructionSimulator: React.FC<RoadConstructionSimulatorProps>
   const [pulseTick, setPulseTick] = useState<number>(0);
 
   // Inspector & Drawers
-  const [activeDrawer, setActiveDrawer] = useState<'LOGS' | 'STATUS' | 'PINS' | null>(null);
+  const [internalDrawer, setInternalDrawer] = useState<'LOGS' | 'STATUS' | 'PINS' | null>(null);
+  const activeDrawer = propActiveDrawer !== undefined ? propActiveDrawer : internalDrawer;
+  const setActiveDrawer = (drawer: 'LOGS' | 'STATUS' | 'PINS' | null) => {
+    if (onSetDrawer) {
+      onSetDrawer(drawer);
+    } else {
+      setInternalDrawer(drawer);
+    }
+  };
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
 
   // Event Logs
@@ -275,10 +353,10 @@ export const RoadConstructionSimulator: React.FC<RoadConstructionSimulatorProps>
 
   // Reset Simulation Handler
   const handleReset = () => {
-    setIsRunning(true);
-    setGpsEnabled(true);
-    setLteEnabled(true);
-    setConstructionStatus('ACTIVE');
+    setInternalIsRunning(true);
+    setInternalGpsEnabled(true);
+    setInternalLteEnabled(true);
+    setInternalConstructionStatus('ACTIVE');
     setBatteryPct(92);
     setBatteryVoltage(3.84);
     setTransmissionStage('IDLE');
@@ -295,215 +373,38 @@ export const RoadConstructionSimulator: React.FC<RoadConstructionSimulatorProps>
   };
 
   return (
-    <div className="w-full h-full flex flex-col min-h-0 overflow-hidden bg-[#070A0F] text-xs">
+    <div
+      ref={containerRef}
+      className={`w-full h-full flex flex-col min-h-0 overflow-hidden bg-[#070A0F] text-xs ${
+        effectiveFullscreen && !onToggleFullscreen ? 'fixed inset-0 z-[5000] w-screen h-screen bg-[#090D13]' : ''
+      }`}
+    >
       {/* ============================================================== */}
-      {/* 1. TOP INTERACTIVE TOOLBAR (FITS WITHIN ~52px) */}
-      {/* ============================================================== */}
-      <header className="px-3 py-2 bg-[#161B22] border-b border-[#30363D] flex flex-wrap items-center justify-between gap-2 shrink-0 z-20">
-        {/* Left: Title & Master Controls */}
-        <div className="flex items-center flex-wrap gap-2">
-          {/* Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold text-xs">
-            <HardHat className="w-4 h-4 text-amber-400" />
-            <span>Road Construction Alert Device</span>
-            <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">• IoT Simulation</span>
-          </div>
-
-          {/* Master Run / Pause / Reset Buttons */}
-          <div className="flex items-center gap-1 bg-[#21262D] p-0.5 rounded-xl border border-[#30363D]">
-            <button
-              onClick={() => setIsRunning(!isRunning)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm ${
-                isRunning
-                  ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-              }`}
-              title={isRunning ? 'Pause Simulation' : 'Start Simulation'}
-            >
-              {isRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-              <span>{isRunning ? 'Pause' : 'Start Simulation'}</span>
-            </button>
-
-            <button
-              onClick={handleReset}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#30363D] transition cursor-pointer flex items-center gap-1"
-              title="Reset Simulation to Initial State"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset</span>
-            </button>
-          </div>
-
-          {/* Virtual Contractor Status: ACTIVE / COMPLETED Toggle */}
-          <div className="flex items-center gap-1.5 bg-[#0D1117] px-2 py-1 rounded-xl border border-[#30363D]">
-            <span className="text-[11px] font-semibold text-slate-300">Work Status:</span>
-            <button
-              onClick={() => setConstructionStatus('ACTIVE')}
-              className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
-                constructionStatus === 'ACTIVE'
-                  ? 'bg-orange-600 text-white shadow-sm animate-pulse'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <span>🚧 Active</span>
-            </button>
-            <button
-              onClick={() => setConstructionStatus('COMPLETED')}
-              className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
-                constructionStatus === 'COMPLETED'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <span>✓ Completed</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Right: Module Toggles & Drawers */}
-        <div className="flex items-center flex-wrap gap-2">
-          {/* GPS Toggle */}
-          <button
-            onClick={() => {
-              setGpsEnabled(!gpsEnabled);
-              appendLog(
-                'GPS',
-                gpsEnabled ? 'WARN' : 'INFO',
-                gpsEnabled ? 'GPS receiver disabled by user.' : 'GPS receiver enabled. Searching satellites...'
-              );
-            }}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
-              gpsEnabled
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>GPS {gpsEnabled ? 'ON' : 'OFF'}</span>
-          </button>
-
-          {/* 4G/LTE Toggle */}
-          <button
-            onClick={() => {
-              setLteEnabled(!lteEnabled);
-              appendLog(
-                'SIM7600',
-                lteEnabled ? 'WARN' : 'INFO',
-                lteEnabled ? '4G/LTE cellular modem powered down.' : '4G/LTE modem registered on network.'
-              );
-            }}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
-              lteEnabled
-                ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
-                : 'bg-[#21262D] border-[#30363D] text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Radio className="w-3.5 h-3.5" />
-            <span>4G/LTE {lteEnabled ? 'ON' : 'OFF'}</span>
-          </button>
-
-          {/* Location Preset Selector */}
-          <select
-            value={locationPreset}
-            onChange={(e) => setLocationPreset(e.target.value as any)}
-            className="bg-[#21262D] border border-[#30363D] text-slate-200 text-xs rounded-xl px-2.5 py-1 focus:outline-none focus:border-[#AEF5F0] cursor-pointer"
-            title="Simulated Construction Site Location"
-          >
-            <option value="NH27">NH-27 Highway Km 42</option>
-            <option value="ORCHHA">Orchha Bypass Road</option>
-            <option value="CIVIL_LINES">Civil Lines Connector</option>
-          </select>
-
-          {/* View on Map Button */}
-          {onNavigateToMap && (
-            <button
-              onClick={onNavigateToMap}
-              className="px-2.5 py-1 rounded-xl bg-[#AEF5F0] hover:bg-[#8eebe5] text-slate-950 font-bold text-xs shadow transition cursor-pointer flex items-center gap-1"
-              title="View this simulated hazard warning on RoutePilot Live Map"
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">View on Map</span>
-              <ExternalLink className="w-3 h-3" />
-            </button>
-          )}
-
-          {/* Drawer Toggles */}
-          <button
-            onClick={() => setActiveDrawer(activeDrawer === 'LOGS' ? null : 'LOGS')}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1 ${
-              activeDrawer === 'LOGS'
-                ? 'bg-[#AEF5F0] text-slate-950 border-[#AEF5F0]'
-                : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white'
-            }`}
-          >
-            <Terminal className="w-3.5 h-3.5" />
-            <span>Event Logs</span>
-          </button>
-
-          <button
-            onClick={() => setActiveDrawer(activeDrawer === 'STATUS' ? null : 'STATUS')}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1 ${
-              activeDrawer === 'STATUS'
-                ? 'bg-[#AEF5F0] text-slate-950 border-[#AEF5F0]'
-                : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Diagnostics</span>
-          </button>
-        </div>
-      </header>
-
-      {/* ============================================================== */}
-      {/* 2. SUB-BANNER: ROUTEPILOT MAP DIVERSION BROADCAST STATUS */}
-      {/* ============================================================== */}
-      <div className="px-3 py-1.5 bg-[#0D1117] border-b border-[#30363D] flex items-center justify-between gap-2 shrink-0 text-[11px]">
-        <div className="flex items-center gap-2">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              constructionStatus === 'ACTIVE'
-                ? 'bg-orange-500 animate-ping'
-                : 'bg-emerald-500'
-            }`}
-          />
-          <span className="font-bold text-slate-200">
-            {constructionStatus === 'ACTIVE'
-              ? 'ACTIVE CONSTRUCTION BROADCASTING'
-              : 'CONSTRUCTION RESOLVED / NORMAL TRAFFIC'}
-          </span>
-          <span className="text-slate-400 hidden md:inline">
-            Location: {currentCoords.name} ({currentCoords.lat.toFixed(4)}, {currentCoords.lng.toFixed(4)})
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 font-mono text-[10px]">
-          <span className="text-cyan-300">
-            Pipeline:{' '}
-            <strong className="text-white">
-              {transmissionStage === 'IDLE'
-                ? 'Standby'
-                : transmissionStage === 'GPS_READ'
-                ? '1. Reading GPS'
-                : transmissionStage === 'ESP32_PROCESS'
-                ? '2. ESP32 Packaging'
-                : transmissionStage === 'LTE_TRANSMIT'
-                ? '3. SIM7600 Transmit'
-                : transmissionStage === 'INTERNET_ROUTING'
-                ? '4. Cellular Uplink'
-                : '5. Cloud Ingested ✓'}
-            </strong>
-          </span>
-          <span className="text-slate-500">|</span>
-          <span className="text-amber-400">
-            Batt: {batteryVoltage.toFixed(2)}V ({batteryPct}%)
-          </span>
-        </div>
-      </div>
-
-      {/* ============================================================== */}
-      {/* 3. MAIN CANVAS AREA (FITS SCREEN WITHOUT SCROLLING) */}
+      {/* MAIN CANVAS AREA (FITS SCREEN WITHOUT SCROLLING) */}
       {/* ============================================================== */}
       <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden flex">
+        {/* Quick Fullscreen Floating Action in Canvas Corner (same as Bridge simulation) */}
+        <button
+          onClick={handleToggleFullscreen}
+          title={effectiveFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand Simulation to Fullscreen'}
+          className="absolute top-3 right-3 z-30 px-3 py-1.5 rounded-xl bg-[#161B22]/90 hover:bg-[#21262D] border border-[#30363D] hover:border-[#AEF5F0] text-slate-300 hover:text-[#AEF5F0] shadow-xl backdrop-blur-md transition cursor-pointer flex items-center gap-1.5"
+        >
+          {effectiveFullscreen ? (
+            <>
+              <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5-5m0 0v4m0-4h-4m-6 6l-5 5m0 0v-4m0 4h4m6-6l5 5m0 0v-4m0 4h-4" />
+              </svg>
+              <span className="text-[11px] font-bold text-slate-200">Exit Fullscreen</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              <span className="text-[11px] font-bold text-slate-200">Fullscreen</span>
+            </>
+          )}
+        </button>
         {/* Interactive Scalable SVG Circuit Blueprint */}
         <RoadConstructionCircuitCanvas
           isRunning={isRunning}

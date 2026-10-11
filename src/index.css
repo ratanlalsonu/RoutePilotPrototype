@@ -373,13 +373,34 @@ html.light .hazard-desc-box,
   will-change: opacity, transform;
 }
 
-/* OpenStreetMap Dark / Night Mode Tile Filter (matching Google Maps Night theme: #242f3e land & #17263c water) */
-.osm-dark-tiles,
+/* OpenStreetMap Dark / Night Mode Tile Filter (for fallback or standard tiles) */
+.osm-dark-tiles {
+  background-color: #0D1117 !important;
+}
+
 .osm-dark-tiles img.leaflet-tile,
-.osm-dark-tiles.leaflet-layer,
 img.leaflet-tile.osm-dark-tiles {
   filter: invert(90%) hue-rotate(180deg) contrast(1.15) brightness(0.85) !important;
-  background-color: #242f3e !important;
+}
+
+/* CARTO Dark Matter OpenStreetMap Tiles (native dark mode, crisp & crystal-clear) */
+.carto-dark-tiles,
+.carto-dark-tiles img.leaflet-tile {
+  filter: none !important;
+  background-color: #0D1117 !important;
+}
+
+/* Leaflet Container Theme Backgrounds */
+.leaflet-dark-theme,
+.leaflet-dark-theme .leaflet-tile-pane,
+.leaflet-dark-theme .leaflet-container {
+  background-color: #0D1117 !important;
+}
+
+.leaflet-light-theme,
+.leaflet-light-theme .leaflet-tile-pane,
+.leaflet-light-theme .leaflet-container {
+  background-color: #f8fafc !important;
 }
 
 /* Ensure Leaflet overlay pane, markers, popups, and controls retain pristine natural colors */

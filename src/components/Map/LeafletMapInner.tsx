@@ -86,6 +86,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const standardLayerRef = useRef<L.TileLayer | null>(null);
+  const darkLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
 
   // Layer groups for dynamic elements
@@ -206,14 +207,24 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     hazardsLayerRef.current = L.layerGroup().addTo(map);
     sensorsLayerRef.current = L.layerGroup().addTo(map);
 
-    // Create base tile layers (standard dark OSM + full-color Esri satellite)
+    // Create base tile layers:
+    // 1. Daylight OpenStreetMap (clean daytime roads)
     const standardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       subdomains: ['a', 'b', 'c'],
-      attribution: '&copy; OpenStreetMap contributors',
-      className: mapStyle === 'dark' ? 'osm-dark-tiles' : 'osm-light-tiles',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      className: 'osm-light-tiles',
     });
 
+    // 2. High-Fidelity OpenStreetMap Dark Matter (CARTO Dark Matter - genuine OSM dark vector tiles)
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20,
+      subdomains: ['a', 'b', 'c', 'd'],
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      className: 'carto-dark-tiles',
+    });
+
+    // 3. Full-Color Esri World Imagery Satellite
     const satelliteLayer = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       {
@@ -225,23 +236,16 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
     );
 
     standardLayerRef.current = standardLayer;
+    darkLayerRef.current = darkLayer;
     satelliteLayerRef.current = satelliteLayer;
 
     // Add active layer
     if (mapStyle === 'satellite') {
       satelliteLayer.addTo(map);
+    } else if (mapStyle === 'dark') {
+      darkLayer.addTo(map);
     } else {
       standardLayer.addTo(map);
-      const container = standardLayer.getContainer();
-      if (container) {
-        if (mapStyle === 'dark') {
-          container.classList.add('osm-dark-tiles');
-          container.classList.remove('osm-light-tiles');
-        } else {
-          container.classList.add('osm-light-tiles');
-          container.classList.remove('osm-dark-tiles');
-        }
-      }
     }
 
     // Invalidate size on load & container resize
@@ -263,6 +267,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         mapRef.current = null;
       }
       standardLayerRef.current = null;
+      darkLayerRef.current = null;
       satelliteLayerRef.current = null;
     };
   }, []);
@@ -270,34 +275,29 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   // Smooth base layer switching between Standard (Light), Dark, and Satellite
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !standardLayerRef.current || !satelliteLayerRef.current) return;
+    if (!map || !standardLayerRef.current || !darkLayerRef.current || !satelliteLayerRef.current) return;
 
+    // Remove inactive layers
+    if (map.hasLayer(standardLayerRef.current)) {
+      map.removeLayer(standardLayerRef.current);
+    }
+    if (map.hasLayer(darkLayerRef.current)) {
+      map.removeLayer(darkLayerRef.current);
+    }
+    if (map.hasLayer(satelliteLayerRef.current)) {
+      map.removeLayer(satelliteLayerRef.current);
+    }
+
+    // Add active layer
     if (mapStyle === 'satellite') {
-      if (map.hasLayer(standardLayerRef.current)) {
-        map.removeLayer(standardLayerRef.current);
-      }
-      if (!map.hasLayer(satelliteLayerRef.current)) {
-        satelliteLayerRef.current.addTo(map);
-        satelliteLayerRef.current.bringToBack();
-      }
+      satelliteLayerRef.current.addTo(map);
+      satelliteLayerRef.current.bringToBack();
+    } else if (mapStyle === 'dark') {
+      darkLayerRef.current.addTo(map);
+      darkLayerRef.current.bringToBack();
     } else {
-      if (map.hasLayer(satelliteLayerRef.current)) {
-        map.removeLayer(satelliteLayerRef.current);
-      }
-      if (!map.hasLayer(standardLayerRef.current)) {
-        standardLayerRef.current.addTo(map);
-        standardLayerRef.current.bringToBack();
-      }
-      const container = standardLayerRef.current.getContainer();
-      if (container) {
-        if (mapStyle === 'dark') {
-          container.classList.add('osm-dark-tiles');
-          container.classList.remove('osm-light-tiles');
-        } else {
-          container.classList.add('osm-light-tiles');
-          container.classList.remove('osm-dark-tiles');
-        }
-      }
+      standardLayerRef.current.addTo(map);
+      standardLayerRef.current.bringToBack();
     }
 
     setTimeout(() => {

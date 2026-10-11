@@ -44,16 +44,6 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center bg-[#070A0F] overflow-hidden select-none">
-      {/* Simulation Watermark & Electrical Accuracy Badge */}
-      <div className="absolute top-2 left-3 z-10 pointer-events-none flex items-center gap-2">
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
-          SIMULATED — NOT LIVE
-        </span>
-        <span className="text-[10px] font-mono text-slate-500 hidden md:inline">
-          ESP32 + NEO-6M GPS + SIM7600 4G/LTE (DC-DC Regulated Supply)
-        </span>
-      </div>
-
       {/* Scalable SVG Canvas fitting laptop (1366x768) and desktop (1920x1080) without scrolling */}
       <svg
         viewBox="0 0 1600 750"
@@ -111,6 +101,31 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             <stop offset="50%" stopColor="#334155" />
             <stop offset="100%" stopColor="#1e293b" />
           </linearGradient>
+
+          {/* Directed Data Arrow Markers for Cellular and Cloud links */}
+          <marker
+            id="lteArrow"
+            viewBox="0 0 10 10"
+            refX="6"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8" />
+          </marker>
+
+          <marker
+            id="cloudArrow"
+            viewBox="0 0 10 10"
+            refX="6"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#c084fc" />
+          </marker>
         </defs>
 
         {/* 1. Background Grid */}
@@ -140,6 +155,13 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
                 (w.sourceComponent.includes('SIM7600') && lteEnabled) ||
                 (w.sourceComponent.includes('Internet') && lteEnabled));
 
+            // Battery to converter wires are strictly static - no animated flow
+            const isBatteryWire = w.id === 'w-batt-pos' || w.id === 'w-batt-neg';
+            // Network & cloud uplink wires use animated arrowheads only
+            const isCellularToInternet = w.id === 'w-sim-internet';
+            const isInternetToCloud = w.id === 'w-internet-cloud';
+            const isArrowWire = isCellularToInternet || isInternetToCloud;
+
             return (
               <g
                 key={w.id}
@@ -156,24 +178,49 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
                   <path
                     d={w.path}
                     fill="none"
-                    stroke={w.color}
+                    stroke={w.color === '#000000' ? '#64748b' : w.color}
                     strokeWidth="8"
                     strokeOpacity="0.5"
                     filter="url(#wireGlow)"
                   />
                 )}
 
-                {/* Base wire physical trace */}
-                <path
-                  d={w.path}
-                  fill="none"
-                  stroke={w.color === '#1e293b' ? '#334155' : w.color}
-                  strokeWidth={isHighlighted ? 4 : 2.6}
-                  strokeLinecap="round"
-                />
+                {/* Base wire physical trace (static wire) - ONLY for real wired connections */}
+                {!isArrowWire && (
+                  <path
+                    d={w.path}
+                    fill="none"
+                    stroke={w.color === '#1e293b' ? '#334155' : w.color === '#000000' ? '#111827' : w.color}
+                    strokeWidth={isHighlighted ? 4 : isBatteryWire ? 3.4 : 2.6}
+                    strokeLinecap="round"
+                  />
+                )}
 
-                {/* Live signal packet pulse dots moving along wire just like Bridge simulation */}
-                {isWireActive && (
+                {/* Battery negative wire outline for crisp visibility against dark background */}
+                {w.id === 'w-batt-neg' && (
+                  <path
+                    d={w.path}
+                    fill="none"
+                    stroke="#475569"
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                  />
+                )}
+
+                {/* Wireless Over-The-Air line-of-sight path (Ethereal dashed trace, NO physical copper wire) */}
+                {isArrowWire && (
+                  <path
+                    d={w.path}
+                    fill="none"
+                    stroke={isCellularToInternet ? '#38bdf8' : '#c084fc'}
+                    strokeWidth={isHighlighted ? 2.5 : 1.5}
+                    strokeDasharray="3 6"
+                    strokeOpacity={isHighlighted ? 0.9 : 0.25}
+                  />
+                )}
+
+                {/* 1. Standard signal pulse animation for ESP32/GPS/Power rails (EXCLUDING battery wires and wireless arrow links) */}
+                {isWireActive && !isBatteryWire && !isArrowWire && (
                   <path
                     d={w.path}
                     fill="none"
@@ -187,18 +234,147 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
                       attributeName="stroke-dashoffset"
                       from="120"
                       to="0"
-                      dur={
-                        w.signalType === 'UART'
-                          ? '1.2s'
-                          : w.signalType === 'CELLULAR_RF'
-                          ? '0.8s'
-                          : w.signalType === 'CLOUD_API'
-                          ? '1.4s'
-                          : '2.2s'
-                      }
+                      dur={w.signalType === 'UART' ? '1.2s' : '2.2s'}
                       repeatCount="indefinite"
                     />
                   </path>
+                )}
+
+                {/* 2. WIRELESS 4G/LTE (SIM7600) -> Internet: Pure Over-The-Air Radio Waves & Flying Directional Arrows */}
+                {isCellularToInternet && (
+                  <g>
+                    {/* Expanding RF Radio Wave Arcs emitting from Antenna into the air */}
+                    <g opacity={isLteActive ? 0.95 : 0.35}>
+                      <path d="M 1118 350 A 20 20 0 0 1 1118 380" fill="none" stroke="#38bdf8" strokeWidth="2.4" strokeLinecap="round">
+                        {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0s" />}
+                      </path>
+                      <path d="M 1134 340 A 34 34 0 0 1 1134 392" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round">
+                        {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0.3s" />}
+                      </path>
+                      <path d="M 1152 332 A 48 48 0 0 1 1152 404" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round">
+                        {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0.6s" />}
+                      </path>
+                      <path d="M 1170 325 A 62 62 0 0 1 1170 415" fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round">
+                        {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0.9s" />}
+                      </path>
+                    </g>
+
+                    {/* Wireless RF Badge floating in the air gap */}
+                    <g transform="translate(1146, 318)" className="pointer-events-none">
+                      <rect x="-44" y="-10" width="88" height="20" rx="10" fill="#082f49" stroke="#0284c7" strokeWidth="1.2" opacity="0.92" />
+                      <circle cx="-30" cy="0" r="3" fill={isLteActive ? '#38bdf8' : '#64748b'} className={isLteActive ? 'animate-ping' : ''} />
+                      <circle cx="-30" cy="0" r="2.5" fill={isLteActive ? '#38bdf8' : '#64748b'} />
+                      <text x="5" y="3.5" textAnchor="middle" fill="#7dd3fc" fontSize="8" fontWeight="bold" fontFamily="monospace">
+                        WIRELESS 4G
+                      </text>
+                    </g>
+
+                    {/* Animated moving wireless arrows flying through air (no physical wire) */}
+                    {isLteActive && (
+                      <g>
+                        {/* Wireless Packet Arrow 1 */}
+                        <path
+                          d="M -8 -5 L 0 0 L -8 5"
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <animateMotion
+                            path={w.path}
+                            dur="1.2s"
+                            repeatCount="indefinite"
+                            rotate="auto"
+                          />
+                        </path>
+                        {/* Wireless Packet Arrow 2 (staggered) */}
+                        <path
+                          d="M -8 -5 L 0 0 L -8 5"
+                          fill="none"
+                          stroke="#bae6fd"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <animateMotion
+                            path={w.path}
+                            dur="1.2s"
+                            begin="0.6s"
+                            repeatCount="indefinite"
+                            rotate="auto"
+                          />
+                        </path>
+                      </g>
+                    )}
+                  </g>
+                )}
+
+                {/* 3. WIRELESS CLOUD (Internet -> Backend Cloud): Over-The-Air Ingestion Waves & Flying Directional Arrows */}
+                {isInternetToCloud && (
+                  <g>
+                    {/* Radiating Wireless Cloud Signal Arcs bridging Internet and Server */}
+                    <g opacity={isInternetActive ? 0.95 : 0.35}>
+                      <path d="M 1368 382 A 16 16 0 0 1 1368 408" fill="none" stroke="#c084fc" strokeWidth="2.4" strokeLinecap="round">
+                        {isInternetActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite" begin="0s" />}
+                      </path>
+                      <path d="M 1380 374 A 26 26 0 0 1 1380 416" fill="none" stroke="#c084fc" strokeWidth="2.2" strokeLinecap="round">
+                        {isInternetActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite" begin="0.35s" />}
+                      </path>
+                      <path d="M 1394 366 A 38 38 0 0 1 1394 424" fill="none" stroke="#c084fc" strokeWidth="1.8" strokeLinecap="round">
+                        {isInternetActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite" begin="0.7s" />}
+                      </path>
+                    </g>
+
+                    {/* Wireless Cloud OTA Badge floating in the air gap */}
+                    <g transform="translate(1382, 318)" className="pointer-events-none">
+                      <rect x="-38" y="-10" width="76" height="20" rx="10" fill="#3b0764" stroke="#7e22ce" strokeWidth="1.2" opacity="0.92" />
+                      <circle cx="-25" cy="0" r="3" fill={isInternetActive ? '#c084fc' : '#64748b'} className={isInternetActive ? 'animate-ping' : ''} />
+                      <circle cx="-25" cy="0" r="2.5" fill={isInternetActive ? '#c084fc' : '#64748b'} />
+                      <text x="5" y="3.5" textAnchor="middle" fill="#e9d5ff" fontSize="8" fontWeight="bold" fontFamily="monospace">
+                        OTA SYNC
+                      </text>
+                    </g>
+
+                    {/* Animated moving wireless arrows flying through air (no physical wire) */}
+                    {isInternetActive && (
+                      <g>
+                        {/* Wireless Packet Arrow 1 */}
+                        <path
+                          d="M -8 -5 L 0 0 L -8 5"
+                          fill="none"
+                          stroke="#c084fc"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <animateMotion
+                            path={w.path}
+                            dur="1.1s"
+                            repeatCount="indefinite"
+                            rotate="auto"
+                          />
+                        </path>
+                        {/* Wireless Packet Arrow 2 (staggered) */}
+                        <path
+                          d="M -8 -5 L 0 0 L -8 5"
+                          fill="none"
+                          stroke="#f3e8ff"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <animateMotion
+                            path={w.path}
+                            dur="1.1s"
+                            begin="0.55s"
+                            repeatCount="indefinite"
+                            rotate="auto"
+                          />
+                        </path>
+                      </g>
+                    )}
+                  </g>
                 )}
               </g>
             );
@@ -265,6 +441,33 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             </text>
           </g>
 
+          {/* Internal Battery Leads to DC-DC Converter (Static Red & Black, No Flow Animation) */}
+          {/* BAT+ (83, 280) -> IN+ (178, 334) : Pure Static Red Wire */}
+          <path
+            d="M 83 280 C 83 235, 178 235, 178 334"
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth="3.4"
+            strokeLinecap="round"
+          />
+
+          {/* BAT- (83, 440) -> IN- (178, 406) : Pure Static Black Ground Wire */}
+          <path
+            d="M 83 440 C 83 475, 178 475, 178 406"
+            fill="none"
+            stroke="#111827"
+            strokeWidth="3.4"
+            strokeLinecap="round"
+          />
+          {/* Subtle outline for visibility against dark card */}
+          <path
+            d="M 83 440 C 83 475, 178 475, 178 406"
+            fill="none"
+            stroke="#475569"
+            strokeWidth="1"
+            strokeLinecap="round"
+          />
+
           {/* DC-DC Step-Up Boost & Step-Down Buck Converter PCB */}
           <g transform="translate(170, 310)">
             <rect x="0" y="0" width="160" height="120" rx="8" fill="url(#regulatorPcb)" stroke="#38bdf8" strokeWidth="1.5" />
@@ -318,7 +521,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           >
             <circle cx="0" cy="0" r="5" fill="#facc15" stroke="#713f12" strokeWidth="1" />
             <circle cx="0" cy="0" r="2.5" fill="#090D13" />
-            <text x="0" y="16" textAnchor="middle" fill="#60a5fa" fontSize="9" fontWeight="bold" fontFamily="monospace">BAT-</text>
+            <text x="0" y="16" textAnchor="middle" fill="#94a3b8" fontSize="9" fontWeight="bold" fontFamily="monospace">BAT-</text>
           </g>
 
           {/* IN+ Terminal on Regulator */}
@@ -340,7 +543,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           >
             <circle cx="0" cy="0" r="5" fill="#facc15" stroke="#713f12" strokeWidth="1" />
             <circle cx="0" cy="0" r="2.5" fill="#090D13" />
-            <text x="14" y="3" fill="#60a5fa" fontSize="8" fontWeight="bold" fontFamily="monospace">IN-</text>
+            <text x="14" y="3" fill="#94a3b8" fontSize="8" fontWeight="bold" fontFamily="monospace">IN-</text>
           </g>
 
           {/* Regulated Output Terminal Sockets */}
@@ -688,10 +891,24 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
 
             {/* Gold SMA Connector on Right */}
             <rect x="210" y="45" width="16" height="24" rx="2" fill="#eab308" stroke="#854d0e" strokeWidth="1" />
-            {/* Rubber Ducky Antenna */}
+            {/* Rubber Ducky Antenna with RF Radiation Waves */}
             <g transform="translate(226, -50)">
               <rect x="4" y="0" width="14" height="120" rx="7" fill="#1e293b" stroke="#475569" strokeWidth="1.5" />
               <rect x="2" y="90" width="18" height="20" rx="3" fill="#334155" />
+              {/* Concentric RF Waves radiating from antenna tip into air */}
+              {isLteActive && (
+                <g transform="translate(11, 8)">
+                  <circle cx="0" cy="0" r="3.5" fill="#38bdf8" />
+                  <circle cx="0" cy="0" r="8" fill="none" stroke="#38bdf8" strokeWidth="1.5" opacity="0.8">
+                    <animate attributeName="r" values="3.5;16" dur="1.2s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.9;0" dur="1.2s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx="0" cy="0" r="8" fill="none" stroke="#38bdf8" strokeWidth="1.5" opacity="0.8">
+                    <animate attributeName="r" values="3.5;24" dur="1.2s" begin="0.4s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.9;0" dur="1.2s" begin="0.4s" repeatCount="indefinite" />
+                  </circle>
+                </g>
+              )}
             </g>
 
             {/* Live Signal Telemetry Pill */}
@@ -808,9 +1025,9 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
         >
           {/* Card Background */}
           <rect
-            x="1390"
+            x="1405"
             y="260"
-            width="185"
+            width="180"
             height="270"
             rx="16"
             fill="#0F172A"
@@ -819,15 +1036,15 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           />
 
           {/* Header */}
-          <text x="1482" y="295" textAnchor="middle" fill="#c084fc" fontSize="15" fontWeight="bold" fontFamily="monospace">
+          <text x="1495" y="295" textAnchor="middle" fill="#c084fc" fontSize="15" fontWeight="bold" fontFamily="monospace">
             6. Backend Cloud
           </text>
-          <text x="1482" y="315" textAnchor="middle" fill="#e9d5ff" fontSize="11" fontFamily="sans-serif">
+          <text x="1495" y="315" textAnchor="middle" fill="#e9d5ff" fontSize="11" fontFamily="sans-serif">
             (RoutePilot Server)
           </text>
 
           {/* Server Rack Visualization */}
-          <g transform="translate(1412, 335)">
+          <g transform="translate(1425, 335)">
             <rect x="0" y="0" width="140" height="135" rx="6" fill="#1e1b4b" stroke="#7e22ce" strokeWidth="1.5" />
             {/* 3 Rack Units */}
             {[0, 42, 84].map((ry, idx) => (
@@ -844,10 +1061,10 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             ))}
           </g>
 
-          <text x="1482" y="500" textAnchor="middle" fill="#c084fc" fontSize="10" fontWeight="bold" fontFamily="monospace">
+          <text x="1495" y="500" textAnchor="middle" fill="#c084fc" fontSize="10" fontWeight="bold" fontFamily="monospace">
             /api/v1/road-hazards
           </text>
-          <text x="1482" y="516" textAnchor="middle" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">
+          <text x="1495" y="516" textAnchor="middle" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">
             HTTP 200 OK • Ingested
           </text>
         </g>
@@ -862,9 +1079,15 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           {hoveredWire ? (
             <div className="flex items-center gap-2 font-mono text-[11px] animate-fadeIn">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: hoveredWire.color }} />
-              <span className="font-bold text-white">WIRE:</span>
+              <span className={`font-bold ${hoveredWire.signalType.includes('WIRELESS') ? 'text-sky-400' : 'text-white'}`}>
+                {hoveredWire.signalType.includes('WIRELESS') ? 'WIRELESS LINK:' : 'WIRE:'}
+              </span>
               <span className="text-slate-300">{hoveredWire.description}</span>
-              <span className="px-1.5 py-0.2 rounded bg-[#21262D] text-[#AEF5F0] border border-[#30363D]">
+              <span className={`px-1.5 py-0.2 rounded border ${
+                hoveredWire.signalType.includes('WIRELESS')
+                  ? 'bg-sky-950/60 text-sky-300 border-sky-800'
+                  : 'bg-[#21262D] text-[#AEF5F0] border-[#30363D]'
+              }`}>
                 {hoveredWire.voltage}
               </span>
               <span className="text-slate-400">({hoveredWire.signalType})</span>
@@ -875,31 +1098,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
               <span className="font-bold text-white">TERMINAL:</span>
               <span className="text-amber-300 font-bold">{hoveredPin.comp} → {hoveredPin.pin}</span>
             </div>
-          ) : (
-            /* Live Data Flow Pipeline Indicator: GPS → ESP32 → 4G/LTE → Internet → Server */
-            <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
-              <span className="font-bold text-slate-300 hidden sm:inline">DATA PIPELINE:</span>
-              <span className={isGpsActive ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
-                GPS (NEO-6M)
-              </span>
-              <span>→</span>
-              <span className={isEsp32Active ? 'text-amber-400 font-bold' : 'text-slate-500'}>
-                ESP32 DevKit
-              </span>
-              <span>→</span>
-              <span className={isLteActive ? 'text-cyan-400 font-bold' : 'text-slate-500'}>
-                4G/LTE (SIM7600)
-              </span>
-              <span>→</span>
-              <span className={isInternetActive ? 'text-blue-400 font-bold' : 'text-slate-500'}>
-                Internet
-              </span>
-              <span>→</span>
-              <span className={isCloudActive ? 'text-purple-400 font-bold' : 'text-slate-500'}>
-                RoutePilot Server
-              </span>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* Stage Pulse Badge */}

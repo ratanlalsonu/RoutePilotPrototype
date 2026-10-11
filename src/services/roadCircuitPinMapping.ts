@@ -6,7 +6,16 @@ export interface RoadWireConnection {
   targetComponent: string;
   targetPin: string;
   targetCoords: { x: number; y: number };
-  signalType: 'POWER_5V' | 'POWER_3V3' | 'POWER_3V7' | 'GND' | 'UART' | 'CELLULAR_RF' | 'CLOUD_API';
+  signalType:
+    | 'POWER_5V'
+    | 'POWER_3V3'
+    | 'POWER_3V7'
+    | 'GND'
+    | 'UART'
+    | 'CELLULAR_RF'
+    | 'CLOUD_API'
+    | 'WIRELESS_RF'
+    | 'WIRELESS_CLOUD';
   voltage: string;
   color: string;
   path: string;
@@ -27,7 +36,8 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     signalType: 'POWER_3V7',
     voltage: '3.7V - 4.2V',
     color: '#ef4444', // Red
-    path: 'M 83 280 C 83 250, 140 250, 140 334 L 178 334',
+    // Smooth continuous Bezier curve from battery BAT+ nipple to regulator IN+ terminal
+    path: 'M 83 280 C 83 235, 178 235, 178 334',
     status: 'CONNECTED',
     description: '18650 Li-ion positive terminal connected to DC-DC converter input',
   },
@@ -42,10 +52,11 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     targetCoords: { x: 178, y: 406 },
     signalType: 'GND',
     voltage: '0V',
-    color: '#3b82f6', // Blue ground return
-    path: 'M 83 440 C 83 460, 140 460, 140 406 L 178 406',
+    color: '#000000', // Black ground wire
+    // Smooth continuous Bezier curve from battery BAT- to regulator IN- terminal
+    path: 'M 83 440 C 83 475, 178 475, 178 406',
     status: 'CONNECTED',
-    description: '18650 Li-ion negative return connected to DC-DC ground input',
+    description: '18650 Li-ion negative static ground wire connected to DC-DC ground input',
   },
   // 3. Regulator 5V -> ESP32 VIN
   {
@@ -59,7 +70,8 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     signalType: 'POWER_5V',
     voltage: '5.0V Regulated',
     color: '#ef4444',
-    path: 'M 350 310 C 350 710, 470 710, 470 661 L 514 661',
+    // Pure smooth Bezier curve from 5V terminal to ESP32 VIN
+    path: 'M 350 310 C 350 710, 430 661, 514 661',
     status: 'CONNECTED',
     description: 'Regulated 5.0V rail feeding ESP32 internal 3.3V LDO regulator via VIN terminal',
   },
@@ -171,7 +183,7 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     signalType: 'UART',
     voltage: '3.3V Logic',
     color: '#38bdf8', // Cyan Blue
-    path: 'M 640 220 C 640 340, 680 340, 680 581 L 756 581',
+    path: 'M 640 220 C 640 380, 680 581, 756 581',
     status: 'CONNECTED',
     description: 'UART Data: Streams NMEA $GPGGA & $GPRMC sentences @ 9600 baud from GPS into ESP32 RX2 (GPIO16)',
   },
@@ -187,7 +199,7 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     signalType: 'UART',
     voltage: '3.3V Logic',
     color: '#facc15', // Amber Yellow
-    path: 'M 685 220 C 685 320, 715 320, 715 561 L 756 561',
+    path: 'M 685 220 C 685 360, 710 561, 756 561',
     status: 'CONNECTED',
     description: 'UART Command: Transmits UBX configuration & refresh commands from ESP32 TX2 (GPIO17) to GPS',
   },
@@ -203,7 +215,7 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     signalType: 'UART',
     voltage: '3.3V Logic',
     color: '#38bdf8',
-    path: 'M 1010 483 C 1010 610, 810 610, 810 501 L 756 501',
+    path: 'M 1010 483 C 1010 610, 810 501, 756 501',
     status: 'CONNECTED',
     description: 'UART Responses: SIM7600 AT Command execution responses and HTTP return codes into ESP32 GPIO21',
   },
@@ -219,11 +231,11 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     signalType: 'UART',
     voltage: '3.3V Logic',
     color: '#facc15',
-    path: 'M 1055 483 C 1055 640, 840 640, 840 441 L 756 441',
+    path: 'M 1055 483 C 1055 640, 840 441, 756 441',
     status: 'CONNECTED',
     description: 'UART Commands: Transmits AT+HTTPDATA & AT+HTTPACTION packets from ESP32 GPIO22 to modem',
   },
-  // 14. SIM7600 Antenna -> Internet Link
+  // 14. SIM7600 Antenna -> Internet Wireless Link (No Physical Wire)
   {
     id: 'w-sim-internet',
     sourceComponent: 'SIM7600 Whip Antenna',
@@ -232,14 +244,14 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     targetComponent: 'Cellular Base Station',
     targetPin: '4G_LTE',
     targetCoords: { x: 1190, y: 395 },
-    signalType: 'CELLULAR_RF',
-    voltage: 'RF Carrier',
+    signalType: 'WIRELESS_RF',
+    voltage: 'Over-The-Air RF',
     color: '#38bdf8',
     path: 'M 1102 365 C 1140 365, 1150 395, 1190 395',
     status: 'CONNECTED',
-    description: 'Wireless Cellular 4G/LTE Uplink (Band 3 / Band 40) transmitting IP packets to tower',
+    description: 'Wireless Cellular 4G/LTE Uplink (Over-The-Air RF Waves): Radio signals transmit telemetry packets to base station without physical wire',
   },
-  // 15. Internet -> Backend Cloud Gateway
+  // 15. Internet -> Backend Cloud Wireless Gateway (No Physical Wire)
   {
     id: 'w-internet-cloud',
     sourceComponent: 'Internet Gateway',
@@ -247,12 +259,12 @@ export const ROAD_WIRE_CONNECTIONS: RoadWireConnection[] = [
     sourceCoords: { x: 1360, y: 395 },
     targetComponent: 'RoutePilot Cloud Server',
     targetPin: 'API_ENDPOINT',
-    targetCoords: { x: 1390, y: 395 },
-    signalType: 'CLOUD_API',
-    voltage: 'TLS/HTTPS',
+    targetCoords: { x: 1405, y: 395 },
+    signalType: 'WIRELESS_CLOUD',
+    voltage: 'Over-The-Air TLS',
     color: '#c084fc',
-    path: 'M 1360 395 L 1390 395',
+    path: 'M 1360 395 C 1378 395, 1388 395, 1405 395',
     status: 'CONNECTED',
-    description: 'Secure HTTPS POST ingestion pipeline to RoutePilot road hazards database',
+    description: 'Wireless Cloud Gateway Sync (Over-The-Air HTTPS API): Data packets sync wirelessly into RoutePilot backend without physical cable',
   },
 ];
