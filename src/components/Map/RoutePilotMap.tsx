@@ -509,7 +509,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
     <div className={`relative w-full h-full bg-[#0D1117] overflow-hidden select-none ${mapStyle === 'dark' ? 'google-map-dark-mode' : ''}`}>
       <Map
         key={`gmap-${mapStyle}`}
-        mapId={mapStyle === 'dark' ? undefined : "DEMO_MAP_ID"}
+        mapId="DEMO_MAP_ID"
         colorScheme={mapStyle === 'dark' ? ColorScheme.DARK : ColorScheme.LIGHT}
         styles={mapStyle === 'dark' ? DARK_MAP_STYLES : undefined}
         defaultCenter={cameraRef.current.center}
@@ -1502,7 +1502,7 @@ const GoogleMapContainer: React.FC<GoogleMapContainerProps> = ({
   return (
     <APIProvider
       apiKey={apiKey}
-      libraries={['places', 'geometry', 'routes']}
+      libraries={['places', 'geometry', 'marker']}
       onError={(err) => {
         console.warn('[RoutePilot] Google Maps initialization error, falling back to OSM:', err);
         setLoadFailed(true);

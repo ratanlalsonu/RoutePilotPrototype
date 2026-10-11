@@ -37,7 +37,6 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
   const isEsp32Active = isRunning && (transmissionStage === 'ESP32_PROCESS' || transmissionStage === 'LTE_TRANSMIT');
   const isLteActive = isRunning && lteEnabled && (transmissionStage === 'LTE_TRANSMIT' || transmissionStage === 'INTERNET_ROUTING');
   const isInternetActive = isRunning && lteEnabled && (transmissionStage === 'INTERNET_ROUTING' || transmissionStage === 'CLOUD_ACK');
-  const isCloudActive = isRunning && lteEnabled && transmissionStage === 'CLOUD_ACK';
 
   // Active work status color
   const statusColor = constructionStatus === 'ACTIVE' ? '#f97316' : '#10b981';
@@ -51,7 +50,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          {/* Subtle PCB dot grid pattern matching Bridge canvas */}
+          {/* Subtle PCB dot grid pattern */}
           <pattern id="rcGrid" width="22" height="22" patternUnits="userSpaceOnUse">
             <circle cx="2" cy="2" r="1.1" fill="#1e293b" fillOpacity="0.55" />
           </pattern>
@@ -133,8 +132,73 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
         <rect width="1600" height="750" fill="url(#rcGrid)" />
 
         {/* ============================================================== */}
-        {/* 2. WIRES LAYER (DRAWN UNDERNEATH ALL HARDWARE COMPONENTS) */}
-        {/* Wires come from behind the hardware and terminate directly at pins */}
+        {/* 2. CARD BACKGROUND FRAMES (Rendered before wires so wires pass */}
+        {/* cleanly across card boundaries and inside cards) */}
+        {/* ============================================================== */}
+        <g id="card-backgrounds">
+          {/* Card 1 Frame: Power Supply System (x: 24, y: 210, w: 400, h: 340) */}
+          <rect
+            x="24"
+            y="210"
+            width="400"
+            height="340"
+            rx="16"
+            fill="#0F172A"
+            stroke={selectedComponent === 'POWER_SUPPLY' || hoveredComponent === 'POWER_SUPPLY' ? '#f87171' : '#b91c1c'}
+            strokeWidth={selectedComponent === 'POWER_SUPPLY' ? '2.5' : '2'}
+          />
+
+          {/* Card 2 Frame: GPS Module (NEO-6M) (x: 480, y: 20, w: 280, h: 270) */}
+          <rect
+            x="480"
+            y="20"
+            width="280"
+            height="270"
+            rx="16"
+            fill="#0F172A"
+            stroke={selectedComponent === 'GPS' || hoveredComponent === 'GPS' ? '#4ade80' : '#22c55e'}
+            strokeWidth={selectedComponent === 'GPS' ? '2.5' : '2'}
+          />
+
+          {/* Card 3 Frame: ESP32 DevKit V1 (x: 500, y: 350, w: 270, h: 370) */}
+          <rect
+            x="500"
+            y="350"
+            width="270"
+            height="370"
+            rx="12"
+            fill="#090D13"
+            stroke={selectedComponent === 'ESP32' || hoveredComponent === 'ESP32' ? '#38bdf8' : '#334155'}
+            strokeWidth={selectedComponent === 'ESP32' ? '2.5' : '2'}
+          />
+
+          {/* Card 4 Frame: 4G/LTE Module SIM7600 (x: 840, y: 260, w: 310, h: 270) */}
+          <rect
+            x="840"
+            y="260"
+            width="310"
+            height="270"
+            rx="16"
+            fill="#0F172A"
+            stroke={selectedComponent === 'SIM7600' || hoveredComponent === 'SIM7600' ? '#38bdf8' : '#0284c7'}
+            strokeWidth={selectedComponent === 'SIM7600' ? '2.5' : '2'}
+          />
+
+          {/* Card 5 Frame: Backend Server (x: 1340, y: 260, w: 240, h: 270) */}
+          <rect
+            x="1340"
+            y="260"
+            width="240"
+            height="270"
+            rx="14"
+            fill="#0F172A"
+            stroke={selectedComponent === 'CLOUD' || selectedComponent === 'BACKEND' || hoveredComponent === 'CLOUD' ? '#AEF5F0' : '#0284c7'}
+            strokeWidth="1.8"
+          />
+        </g>
+
+        {/* ============================================================== */}
+        {/* 3. WIRES LAYER (DRAWN FROM SINGLE SOURCE OF TRUTH) */}
         {/* ============================================================== */}
         <g id="wires-layer">
           {ROAD_WIRE_CONNECTIONS.map((w) => {
@@ -147,20 +211,17 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             // Signal active checks
             const isWireActive =
               isRunning &&
-              (w.signalType === 'POWER_5V' ||
-                w.signalType === 'POWER_3V3' ||
-                w.signalType === 'POWER_3V7' ||
+              (w.signalType.startsWith('POWER') ||
                 w.signalType === 'GND' ||
-                (w.sourceComponent.includes('GPS') && gpsEnabled) ||
-                (w.sourceComponent.includes('SIM7600') && lteEnabled) ||
-                (w.sourceComponent.includes('Internet') && lteEnabled));
+                (w.sourceComponent.includes('GPS') && isGpsActive) ||
+                (w.sourceComponent.includes('ESP32') && isEsp32Active) ||
+                (w.sourceComponent.includes('SIM7600') && isLteActive) ||
+                (w.sourceComponent.includes('Internet') && isInternetActive));
 
-            // Battery to converter wires are strictly static - no animated flow
             const isBatteryWire = w.id === 'w-batt-pos' || w.id === 'w-batt-neg';
-            // Network & cloud uplink wires use animated arrowheads only
             const isCellularToInternet = w.id === 'w-sim-internet';
             const isInternetToCloud = w.id === 'w-internet-cloud';
-            const isArrowWire = isCellularToInternet || isInternetToCloud;
+            const isLogicalLink = isCellularToInternet || isInternetToCloud;
 
             return (
               <g
@@ -178,170 +239,140 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
                   <path
                     d={w.path}
                     fill="none"
-                    stroke={w.color === '#000000' ? '#64748b' : w.color}
+                    stroke={w.color === '#1e293b' ? '#64748b' : w.color}
                     strokeWidth="8"
                     strokeOpacity="0.5"
                     filter="url(#wireGlow)"
                   />
                 )}
 
-                {/* Base wire physical trace (static wire) - ONLY for real wired connections */}
-                {!isArrowWire && (
-                  <path
-                    d={w.path}
-                    fill="none"
-                    stroke={w.color === '#1e293b' ? '#334155' : w.color === '#000000' ? '#111827' : w.color}
-                    strokeWidth={isHighlighted ? 4 : isBatteryWire ? 3.4 : 2.6}
-                    strokeLinecap="round"
-                  />
-                )}
-
-                {/* Battery negative wire outline for crisp visibility against dark background */}
-                {w.id === 'w-batt-neg' && (
+                {/* Physical Copper Wire: High-contrast outline for dark ground wires */}
+                {w.signalType === 'GND' && (
                   <path
                     d={w.path}
                     fill="none"
                     stroke="#475569"
-                    strokeWidth="1"
+                    strokeWidth={isHighlighted ? 4.5 : 3.6}
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 )}
 
-                {/* Wireless Over-The-Air line-of-sight path (Ethereal dashed trace, NO physical copper wire) */}
-                {isArrowWire && (
+                {/* Base wire physical trace - for real physical wired connections */}
+                {!isLogicalLink && (
+                  <path
+                    d={w.path}
+                    fill="none"
+                    stroke={w.color === '#1e293b' ? '#0f172a' : w.color}
+                    strokeWidth={isHighlighted ? 3.6 : isBatteryWire ? 3.2 : 2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+
+                {/* Logical Over-The-Air line-of-sight path (Ethereal dashed trace, NO physical copper wire) */}
+                {isLogicalLink && (
                   <path
                     d={w.path}
                     fill="none"
                     stroke={isCellularToInternet ? '#38bdf8' : '#c084fc'}
-                    strokeWidth={isHighlighted ? 2.5 : 1.5}
-                    strokeDasharray="3 6"
-                    strokeOpacity={isHighlighted ? 0.9 : 0.25}
+                    strokeWidth={isHighlighted ? 2.5 : 1.8}
+                    strokeDasharray="4 6"
+                    strokeOpacity={isHighlighted ? 0.95 : 0.4}
                   />
                 )}
 
-                {/* 1. Standard signal pulse animation for ESP32/GPS/Power rails (EXCLUDING battery wires and wireless arrow links) */}
-                {isWireActive && !isBatteryWire && !isArrowWire && (
+                {/* Standard signal pulse animation for active physical wires (excluding static battery wires and logical links) */}
+                {isWireActive && !isBatteryWire && !isLogicalLink && (
                   <path
                     d={w.path}
                     fill="none"
-                    stroke={w.color === '#1e293b' ? '#64748b' : '#ffffff'}
-                    strokeWidth={isHighlighted ? 3.2 : 2.2}
+                    stroke={w.signalType === 'GND' ? '#94a3b8' : '#ffffff'}
+                    strokeWidth={isHighlighted ? 2.8 : 2}
                     strokeDasharray="6 24"
                     strokeDashoffset="0"
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
                     <animate
                       attributeName="stroke-dashoffset"
-                      from="120"
+                      from={w.direction === 'DEST_TO_SRC' ? '-120' : '120'}
                       to="0"
-                      dur={w.signalType === 'UART' ? '1.2s' : '2.2s'}
+                      dur={w.signalType.startsWith('UART') ? '1.1s' : '2.0s'}
                       repeatCount="indefinite"
                     />
                   </path>
                 )}
 
-                {/* 2. WIRELESS 4G/LTE (SIM7600) -> Internet: Pure Over-The-Air Radio Waves & Flying Directional Arrows */}
+                {/* SIM7600 -> Internet: Over-the-air RF waves & flying directional packets */}
                 {isCellularToInternet && (
                   <g>
-                    {/* Expanding RF Radio Wave Arcs emitting from Antenna into the air */}
+                    {/* Concentric RF Radio Wave Arcs emitting from Antenna tip */}
                     <g opacity={isLteActive ? 0.95 : 0.35}>
-                      <path d="M 1118 350 A 20 20 0 0 1 1118 380" fill="none" stroke="#38bdf8" strokeWidth="2.4" strokeLinecap="round">
+                      <path d="M 1115 335 A 16 16 0 0 1 1115 365" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round">
                         {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0s" />}
                       </path>
-                      <path d="M 1134 340 A 34 34 0 0 1 1134 392" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round">
+                      <path d="M 1128 328 A 28 28 0 0 1 1128 375" fill="none" stroke="#38bdf8" strokeWidth="2.0" strokeLinecap="round">
                         {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0.3s" />}
                       </path>
-                      <path d="M 1152 332 A 48 48 0 0 1 1152 404" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round">
+                      <path d="M 1142 322 A 42 42 0 0 1 1142 385" fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round">
                         {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0.6s" />}
                       </path>
-                      <path d="M 1170 325 A 62 62 0 0 1 1170 415" fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round">
-                        {isLteActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite" begin="0.9s" />}
-                      </path>
                     </g>
 
-                    {/* Wireless RF Badge floating in the air gap */}
-                    <g transform="translate(1146, 318)" className="pointer-events-none">
-                      <rect x="-44" y="-10" width="88" height="20" rx="10" fill="#082f49" stroke="#0284c7" strokeWidth="1.2" opacity="0.92" />
-                      <circle cx="-30" cy="0" r="3" fill={isLteActive ? '#38bdf8' : '#64748b'} className={isLteActive ? 'animate-ping' : ''} />
-                      <circle cx="-30" cy="0" r="2.5" fill={isLteActive ? '#38bdf8' : '#64748b'} />
-                      <text x="5" y="3.5" textAnchor="middle" fill="#7dd3fc" fontSize="8" fontWeight="bold" fontFamily="monospace">
-                        WIRELESS 4G
-                      </text>
-                    </g>
-
-                    {/* Animated moving wireless arrows flying through air (no physical wire) */}
+                    {/* Animated moving wireless packet arrows flying along the path */}
                     {isLteActive && (
                       <g>
-                        {/* Wireless Packet Arrow 1 */}
                         <path
-                          d="M -8 -5 L 0 0 L -8 5"
+                          d="M -6 -4 L 0 0 L -6 4"
                           fill="none"
                           stroke="#38bdf8"
-                          strokeWidth="2.6"
+                          strokeWidth="2.4"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
-                          <animateMotion
-                            path={w.path}
-                            dur="1.2s"
-                            repeatCount="indefinite"
-                            rotate="auto"
-                          />
+                          <animateMotion path={w.path} dur="1.0s" repeatCount="indefinite" rotate="auto" />
                         </path>
-                        {/* Wireless Packet Arrow 2 (staggered) */}
                         <path
-                          d="M -8 -5 L 0 0 L -8 5"
+                          d="M -6 -4 L 0 0 L -6 4"
                           fill="none"
                           stroke="#bae6fd"
-                          strokeWidth="2.6"
+                          strokeWidth="2.4"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
-                          <animateMotion
-                            path={w.path}
-                            dur="1.2s"
-                            begin="0.6s"
-                            repeatCount="indefinite"
-                            rotate="auto"
-                          />
+                          <animateMotion path={w.path} dur="1.0s" begin="0.5s" repeatCount="indefinite" rotate="auto" />
                         </path>
                       </g>
                     )}
                   </g>
                 )}
 
-                {/* 3. WIRELESS CLOUD (Internet -> Backend Cloud): Handled in vertical gateway-to-backend link */}
+                {/* Internet -> Backend Cloud: Directed REST packet stream */}
                 {isInternetToCloud && isInternetActive && (
                   <g>
-                    {/* Directional packet indicator moving along path */}
                     <path
                       d="M -6 -4 L 0 0 L -6 4"
                       fill="none"
-                      stroke="#38bdf8"
+                      stroke="#c084fc"
                       strokeWidth="2.4"
                       strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                      <animateMotion
-                        path={w.path}
-                        dur="0.8s"
-                        repeatCount="indefinite"
-                        rotate="auto"
-                      />
+                      <animateMotion path={w.path} dur="0.8s" repeatCount="indefinite" rotate="auto" />
                     </path>
                   </g>
                 )}
-
               </g>
             );
           })}
         </g>
 
         {/* ============================================================== */}
-        {/* 3. HARDWARE MODULES (RENDERED ON TOP OF WIRES) */}
-        {/* Solid opaque PCBs conceal wires passing behind them */}
+        {/* 4. HARDWARE MODULES DETAILS & LABELS LAYER */}
         {/* ============================================================== */}
 
-        {/* --- 1. POWER SUPPLY SYSTEM (Left Card) --- */}
+        {/* --- 1. POWER SUPPLY SYSTEM (Left Card: x=24, y=210) --- */}
         <g
           id="power-supply-card"
           className="cursor-pointer transition-transform duration-200"
@@ -349,24 +380,12 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           onMouseEnter={() => setHoveredComponent('POWER_SUPPLY')}
           onMouseLeave={() => setHoveredComponent(null)}
         >
-          {/* Solid Card Background & Border */}
-          <rect
-            x="24"
-            y="210"
-            width="400"
-            height="340"
-            rx="16"
-            fill="#0F172A"
-            stroke={selectedComponent === 'POWER_SUPPLY' || hoveredComponent === 'POWER_SUPPLY' ? '#f87171' : '#b91c1c'}
-            strokeWidth={selectedComponent === 'POWER_SUPPLY' ? '2.5' : '2'}
-          />
-
           {/* Card Header */}
           <text x="40" y="240" fill="#ef4444" fontSize="16" fontWeight="bold" fontFamily="monospace">
             1. Power Supply System
           </text>
           <text x="40" y="260" fill="#fca5a5" fontSize="11" fontFamily="sans-serif">
-            (18650 Li-ion + Regulated Converter Only)
+            (18650 Li-ion + Regulated Boost/Buck-Boost Converter)
           </text>
 
           {/* 18650 Li-ion Battery Cylinder */}
@@ -386,7 +405,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
               2600mAh
             </text>
             <text x="35" y="120" textAnchor="middle" fill="#cbd5e1" fontSize="9" fontFamily="sans-serif">
-              Li-ion
+              Li-ion Cell
             </text>
             {/* Battery Charge Bar */}
             <rect x="15" y="132" width="40" height="6" rx="3" fill="#1e293b" />
@@ -395,33 +414,6 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
               {batteryPct}%
             </text>
           </g>
-
-          {/* Internal Battery Leads to DC-DC Converter (Static Red & Black, No Flow Animation) */}
-          {/* BAT+ (83, 280) -> IN+ (178, 334) : Pure Static Red Wire */}
-          <path
-            d="M 83 280 C 83 235, 178 235, 178 334"
-            fill="none"
-            stroke="#ef4444"
-            strokeWidth="3.4"
-            strokeLinecap="round"
-          />
-
-          {/* BAT- (83, 440) -> IN- (178, 406) : Pure Static Black Ground Wire */}
-          <path
-            d="M 83 440 C 83 475, 178 475, 178 406"
-            fill="none"
-            stroke="#111827"
-            strokeWidth="3.4"
-            strokeLinecap="round"
-          />
-          {/* Subtle outline for visibility against dark card */}
-          <path
-            d="M 83 440 C 83 475, 178 475, 178 406"
-            fill="none"
-            stroke="#475569"
-            strokeWidth="1"
-            strokeLinecap="round"
-          />
 
           {/* DC-DC Step-Up Boost & Step-Down Buck Converter PCB */}
           <g transform="translate(170, 310)">
@@ -452,7 +444,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
 
             {/* Subtitle */}
             <text x="80" y="138" textAnchor="middle" fill="#94a3b8" fontSize="10" fontFamily="sans-serif">
-              DC-DC Regulated Converter
+              Boost / Buck-Boost Converter
             </text>
           </g>
 
@@ -482,7 +474,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           {/* IN+ Terminal on Regulator */}
           <g
             transform="translate(178, 334)"
-            onMouseEnter={() => setHoveredPin({ comp: 'Boost/Buck Regulator', pin: 'IN+' })}
+            onMouseEnter={() => setHoveredPin({ comp: 'DC-DC Converter', pin: 'IN+' })}
             onMouseLeave={() => setHoveredPin(null)}
           >
             <circle cx="0" cy="0" r="5" fill="#facc15" stroke="#713f12" strokeWidth="1" />
@@ -493,7 +485,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           {/* IN- Terminal on Regulator */}
           <g
             transform="translate(178, 406)"
-            onMouseEnter={() => setHoveredPin({ comp: 'Boost/Buck Regulator', pin: 'IN-' })}
+            onMouseEnter={() => setHoveredPin({ comp: 'DC-DC Converter', pin: 'IN-' })}
             onMouseLeave={() => setHoveredPin(null)}
           >
             <circle cx="0" cy="0" r="5" fill="#facc15" stroke="#713f12" strokeWidth="1" />
@@ -511,7 +503,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             <circle cx="0" cy="0" r="10" fill="#ef4444" stroke="#ffffff" strokeWidth="2" filter="url(#powerGlow)" />
             <circle cx="0" cy="0" r="4" fill="#ffffff" />
             <text x="0" y="-16" textAnchor="middle" fill="#ef4444" fontSize="13" fontWeight="bold" fontFamily="monospace">
-              5V Reg
+              5V Reg (2A)
             </text>
           </g>
 
@@ -550,21 +542,9 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           onMouseEnter={() => setHoveredComponent('GPS')}
           onMouseLeave={() => setHoveredComponent(null)}
         >
-          {/* Solid Card Background */}
-          <rect
-            x="480"
-            y="20"
-            width="280"
-            height="270"
-            rx="16"
-            fill="#0F172A"
-            stroke={selectedComponent === 'GPS' || hoveredComponent === 'GPS' ? '#4ade80' : '#22c55e'}
-            strokeWidth={selectedComponent === 'GPS' ? '2.5' : '2'}
-          />
-
           {/* Header */}
           <text x="620" y="50" textAnchor="middle" fill="#22c55e" fontSize="16" fontWeight="bold" fontFamily="monospace">
-            GPS Module
+            2. GPS Module
           </text>
           <text x="620" y="68" textAnchor="middle" fill="#86efac" fontSize="11" fontFamily="sans-serif">
             (NEO-6M Satellite Receiver)
@@ -606,10 +586,10 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
 
           {/* Terminal Pin Pads on GPS Module (VCC: 555, GND: 595, TX: 640, RX: 685; y = 220) */}
           {[
-            { pin: 'VCC', x: 555, col: '#ef4444' },
+            { pin: 'VCC', x: 555, col: '#facc15' },
             { pin: 'GND', x: 595, col: '#94a3b8' },
             { pin: 'TX',  x: 640, col: '#38bdf8' },
-            { pin: 'RX',  x: 685, col: '#facc15' },
+            { pin: 'RX',  x: 685, col: '#34d399' },
           ].map((p) => (
             <g
               key={`gps-pin-${p.pin}`}
@@ -626,7 +606,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           ))}
         </g>
 
-        {/* --- 3. CENTRE: ESP32 DevKit V1 --- */}
+        {/* --- 3. CENTRE: ESP32 DevKit V1 (x=500, y=350) --- */}
         <g
           id="esp32-centre"
           className="cursor-pointer transition-transform duration-200"
@@ -634,19 +614,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           onMouseEnter={() => setHoveredComponent('ESP32')}
           onMouseLeave={() => setHoveredComponent(null)}
         >
-          {/* Main PCB Board Frame */}
-          <rect
-            x="500"
-            y="350"
-            width="270"
-            height="370"
-            rx="12"
-            fill="#090D13"
-            stroke={selectedComponent === 'ESP32' || hoveredComponent === 'ESP32' ? '#38bdf8' : '#334155'}
-            strokeWidth={selectedComponent === 'ESP32' ? '2.5' : '2'}
-          />
-
-          {/* 4 Corner Screws */}
+          {/* Corner Screws */}
           <circle cx="512" cy="362" r="5" fill="#1e293b" stroke="#64748b" strokeWidth="1.5" />
           <circle cx="758" cy="362" r="5" fill="#1e293b" stroke="#64748b" strokeWidth="1.5" />
           <circle cx="512" cy="708" r="5" fill="#1e293b" stroke="#64748b" strokeWidth="1.5" />
@@ -654,7 +622,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
 
           {/* Top Title on PCB */}
           <text x="635" y="375" textAnchor="middle" fill="#ffffff" fontSize="14" fontWeight="bold" fontFamily="monospace">
-            ESP32 DevKit V1
+            3. ESP32 DevKit V1
           </text>
 
           {/* ESP-WROOM-32 Metal RF Shield */}
@@ -720,20 +688,20 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           {/* LEFT PIN HEADER (x = 514, y = 395 + idx * 20 + 6) */}
           <g>
             {[
-              { pin: '3V3', color: '#facc15' },
-              { pin: 'EN',  color: '#94a3b8' },
-              { pin: 'VP',  color: '#94a3b8' },
-              { pin: 'VN',  color: '#94a3b8' },
-              { pin: '34',  color: '#94a3b8' },
-              { pin: '35',  color: '#94a3b8' },
-              { pin: '32',  color: '#94a3b8' },
-              { pin: '33',  color: '#94a3b8' },
-              { pin: '25',  color: '#94a3b8' },
-              { pin: '26',  color: '#94a3b8' },
-              { pin: '27',  color: '#94a3b8' },
-              { pin: '12',  color: '#94a3b8' },
-              { pin: 'GND', color: '#94a3b8' },
-              { pin: 'VIN', color: '#ef4444' },
+              { pin: '3V3', label: '3V3', color: '#facc15' },
+              { pin: 'EN',  label: 'EN', color: '#94a3b8' },
+              { pin: 'VP',  label: 'VP', color: '#94a3b8' },
+              { pin: 'VN',  label: 'VN', color: '#94a3b8' },
+              { pin: '34',  label: '34', color: '#94a3b8' },
+              { pin: '35',  label: '35', color: '#94a3b8' },
+              { pin: '32',  label: '32', color: '#94a3b8' },
+              { pin: '33',  label: '33', color: '#94a3b8' },
+              { pin: '25',  label: '25', color: '#94a3b8' },
+              { pin: '26',  label: '26', color: '#94a3b8' },
+              { pin: '27',  label: '27', color: '#94a3b8' },
+              { pin: '12',  label: '12', color: '#94a3b8' },
+              { pin: 'GND', label: 'GND', color: '#94a3b8' },
+              { pin: 'VIN', label: 'VIN (5V)', color: '#ef4444' },
             ].map((p, idx) => {
               const py = 395 + idx * 20 + 6;
               return (
@@ -746,7 +714,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
                   <circle cx="0" cy="0" r="4.5" fill="#facc15" stroke="#713f12" strokeWidth="1" />
                   <circle cx="0" cy="0" r="2.2" fill="#090D13" />
                   <text x="14" y="3" fill={p.color} fontSize="9" fontWeight="bold" fontFamily="monospace">
-                    {p.pin}
+                    {p.label}
                   </text>
                 </g>
               );
@@ -756,20 +724,20 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           {/* RIGHT PIN HEADER (x = 756, y = 395 + idx * 20 + 6) */}
           <g>
             {[
-              { pin: 'GND', color: '#94a3b8' },
-              { pin: '23',  color: '#94a3b8' },
-              { pin: '22',  color: '#facc15' }, // SIM7600 RX
-              { pin: 'TX0', color: '#facc15' },
-              { pin: 'RX0', color: '#38bdf8' },
-              { pin: '21',  color: '#38bdf8' }, // SIM7600 TX
-              { pin: '19',  color: '#94a3b8' },
-              { pin: '18',  color: '#94a3b8' },
-              { pin: '17',  color: '#facc15' }, // GPS RX
-              { pin: '16',  color: '#38bdf8' }, // GPS TX
-              { pin: '4',   color: '#94a3b8' },
-              { pin: '2',   color: '#94a3b8' },
-              { pin: '15',  color: '#94a3b8' },
-              { pin: 'GND', color: '#94a3b8' },
+              { pin: 'GND', label: 'GND', color: '#94a3b8' },
+              { pin: '23',  label: '23', color: '#94a3b8' },
+              { pin: '22',  label: '22 (TX)', color: '#34d399' }, // SIM7600 RX
+              { pin: 'TX0', label: 'TX0', color: '#64748b' },
+              { pin: 'RX0', label: 'RX0', color: '#64748b' },
+              { pin: '21',  label: '21 (RX)', color: '#38bdf8' }, // SIM7600 TX
+              { pin: '19',  label: '19', color: '#94a3b8' },
+              { pin: '18',  label: '18', color: '#94a3b8' },
+              { pin: '17',  label: '17 (TX2)', color: '#34d399' }, // GPS RX
+              { pin: '16',  label: '16 (RX2)', color: '#38bdf8' }, // GPS TX
+              { pin: '4',   label: '4', color: '#94a3b8' },
+              { pin: '2',   label: '2', color: '#94a3b8' },
+              { pin: '15',  label: '15', color: '#94a3b8' },
+              { pin: 'GND', label: 'GND', color: '#94a3b8' },
             ].map((p, idx) => {
               const py = 395 + idx * 20 + 6;
               return (
@@ -782,7 +750,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
                   <circle cx="0" cy="0" r="4.5" fill="#facc15" stroke="#713f12" strokeWidth="1" />
                   <circle cx="0" cy="0" r="2.2" fill="#090D13" />
                   <text x="-12" y="3" textAnchor="end" fill={p.color} fontSize="9" fontWeight="bold" fontFamily="monospace">
-                    {p.pin}
+                    {p.label}
                   </text>
                 </g>
               );
@@ -790,7 +758,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           </g>
         </g>
 
-        {/* --- 4. 4G/LTE MODULE (SIM7600) (Right Card) --- */}
+        {/* --- 4. 4G/LTE MODULE (SIM7600) (Right Card: x=840, y=260) --- */}
         <g
           id="sim7600-card"
           className="cursor-pointer transition-transform duration-200"
@@ -798,18 +766,6 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           onMouseEnter={() => setHoveredComponent('SIM7600')}
           onMouseLeave={() => setHoveredComponent(null)}
         >
-          {/* Solid Card Background */}
-          <rect
-            x="840"
-            y="260"
-            width="310"
-            height="270"
-            rx="16"
-            fill="#0F172A"
-            stroke={selectedComponent === 'SIM7600' || hoveredComponent === 'SIM7600' ? '#38bdf8' : '#0284c7'}
-            strokeWidth={selectedComponent === 'SIM7600' ? '2.5' : '2'}
-          />
-
           {/* Header */}
           <text x="995" y="295" textAnchor="middle" fill="#0284c7" fontSize="16" fontWeight="bold" fontFamily="monospace">
             4. 4G/LTE Module
@@ -878,7 +834,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             { pin: 'VCC', x: 910, col: '#ef4444' },
             { pin: 'GND', x: 960, col: '#94a3b8' },
             { pin: 'TX',  x: 1010, col: '#38bdf8' },
-            { pin: 'RX',  x: 1055, col: '#facc15' },
+            { pin: 'RX',  x: 1055, col: '#34d399' },
           ].map((p) => (
             <g
               key={`sim-pin-${p.pin}`}
@@ -896,23 +852,23 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
         </g>
 
         {/* ============================================================== */}
-        {/* INTERNET CLOUD LINK (IN BETWEEN 4G/LTE MODULE & BACKEND SERVER) */}
+        {/* INTERNET CLOUD LINK (IN THE MIDDLE / BICH ME) */}
         {/* ============================================================== */}
         <g id="internet-middle-link">
           {/* Stream Line 1: SIM7600 Antenna to Internet Capsule */}
           <path
-            d="M 1140 395 L 1167 395"
+            d="M 1102 345 Q 1140 345 1167 395"
             fill="none"
             stroke="#38bdf8"
-            strokeWidth="2.5"
-            strokeDasharray="3 3"
+            strokeWidth="2.0"
+            strokeDasharray="4 4"
           >
             {isRunning && lteEnabled && (
-              <animate attributeName="stroke-dashoffset" from="12" to="0" dur="0.6s" repeatCount="indefinite" />
+              <animate attributeName="stroke-dashoffset" from="16" to="0" dur="0.8s" repeatCount="indefinite" />
             )}
           </path>
 
-          {/* Central Internet / Cloud Capsule Badge (BICH ME / IN THE MIDDLE) */}
+          {/* Central Internet Capsule Badge */}
           <g
             transform="translate(1235, 395)"
             className="cursor-pointer transition-transform hover:scale-105"
@@ -923,10 +879,10 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             {/* Outer Capsule Frame */}
             <rect
               x="-68"
-              y="-14"
+              y="-16"
               width="136"
-              height="28"
-              rx="14"
+              height="32"
+              rx="16"
               fill="#0B0F17"
               stroke={selectedComponent === 'INTERNET' || hoveredComponent === 'INTERNET' ? '#AEF5F0' : '#0284c7'}
               strokeWidth="1.6"
@@ -935,14 +891,10 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
 
             {/* Internet Globe Symbol */}
             <g transform="translate(-48, 0)">
-              {/* Globe Outer Sphere */}
               <circle cx="0" cy="0" r="9" fill="#0369a1" fillOpacity="0.3" stroke="#38bdf8" strokeWidth="1.2" />
-              {/* Horizontal Equator Line */}
               <line x1="-9" y1="0" x2="9" y2="0" stroke="#38bdf8" strokeWidth="0.9" />
-              {/* Vertical Meridian Ellipse */}
               <ellipse cx="0" cy="0" rx="4.8" ry="9" fill="none" stroke="#38bdf8" strokeWidth="0.9" />
               <line x1="0" y1="-9" x2="0" y2="9" stroke="#38bdf8" strokeWidth="0.8" />
-              {/* Live Signal Pulse Ring */}
               {isRunning && lteEnabled && (
                 <circle cx="0" cy="0" r="9" fill="none" stroke="#22c55e" strokeWidth="1.2" opacity="0.8">
                   <animate attributeName="r" values="9;15;9" dur="1.8s" repeatCount="indefinite" />
@@ -952,11 +904,11 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
             </g>
 
             {/* Internet Typography Labels */}
-            <text x="-32" y="-1" fill="#38bdf8" fontSize="8.5" fontWeight="bold" fontFamily="sans-serif">
+            <text x="-32" y="-2" fill="#38bdf8" fontSize="8.5" fontWeight="bold" fontFamily="sans-serif">
               🌐 INTERNET
             </text>
-            <text x="-32" y="8" fill="#94a3b8" fontSize="6.5" fontFamily="monospace">
-              CLOUD / TCP-IP
+            <text x="-32" y="9" fill="#94a3b8" fontSize="6.5" fontFamily="monospace">
+              CELLULAR TCP-IP
             </text>
 
             {/* Live Link Green Status Dot */}
@@ -969,17 +921,17 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
 
           {/* Stream Line 2: Internet Capsule to Backend Server */}
           <path
-            d="M 1303 395 L 1335 395"
+            d="M 1303 395 L 1340 395"
             fill="none"
-            stroke="#38bdf8"
-            strokeWidth="2.5"
-            strokeDasharray="3 3"
+            stroke="#c084fc"
+            strokeWidth="2.0"
+            strokeDasharray="4 4"
           >
             {isRunning && lteEnabled && (
-              <animate attributeName="stroke-dashoffset" from="12" to="0" dur="0.6s" repeatCount="indefinite" />
+              <animate attributeName="stroke-dashoffset" from="16" to="0" dur="0.8s" repeatCount="indefinite" />
             )}
           </path>
-          <polygon points="1339,395 1331,390 1331,400" fill="#38bdf8" />
+          <polygon points="1340,395 1332,390 1332,400" fill="#c084fc" />
         </g>
 
         {/* ============================================================== */}
@@ -993,15 +945,6 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           onMouseLeave={() => setHoveredComponent(null)}
           className="cursor-pointer transition-transform hover:scale-[1.01]"
         >
-          {/* Main Card Frame */}
-          <rect
-            width="240"
-            height="270"
-            rx="14"
-            fill="#0F172A"
-            stroke={selectedComponent === 'CLOUD' || selectedComponent === 'BACKEND' || hoveredComponent === 'CLOUD' ? '#AEF5F0' : '#0284c7'}
-            strokeWidth="1.8"
-          />
           <text x="120" y="25" textAnchor="middle" fill="#38bdf8" fontSize="14" fontWeight="700" fontFamily="sans-serif">
             5. Backend Server
           </text>
@@ -1057,7 +1000,7 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
       </svg>
 
       {/* ============================================================== */}
-      {/* 4. BOTTOM INTERACTIVE STATUS & WIRE INSPECTOR HUD */}
+      {/* 5. BOTTOM INTERACTIVE STATUS & WIRE INSPECTOR HUD */}
       {/* ============================================================== */}
       <div className="w-full px-4 py-2 bg-[#161B22]/95 border-t border-[#30363D] flex items-center justify-between gap-3 text-xs shrink-0 backdrop-blur-md">
         {/* Wire & Pin Inspector */}
@@ -1065,18 +1008,20 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           {hoveredWire ? (
             <div className="flex items-center gap-2 font-mono text-[11px] animate-fadeIn">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: hoveredWire.color }} />
-              <span className={`font-bold ${hoveredWire.signalType.includes('WIRELESS') ? 'text-sky-400' : 'text-white'}`}>
-                {hoveredWire.signalType.includes('WIRELESS') ? 'WIRELESS LINK:' : 'WIRE:'}
+              <span className={`font-bold ${hoveredWire.signalType.startsWith('LOGICAL') ? 'text-sky-400' : 'text-white'}`}>
+                {hoveredWire.signalType.startsWith('LOGICAL') ? 'NETWORK LINK:' : 'WIRE:'}
               </span>
               <span className="text-slate-300">{hoveredWire.description}</span>
               <span className={`px-1.5 py-0.2 rounded border ${
-                hoveredWire.signalType.includes('WIRELESS')
+                hoveredWire.signalType.startsWith('LOGICAL')
                   ? 'bg-sky-950/60 text-sky-300 border-sky-800'
                   : 'bg-[#21262D] text-[#AEF5F0] border-[#30363D]'
               }`}>
                 {hoveredWire.voltage}
               </span>
-              <span className="text-slate-400">({hoveredWire.signalType})</span>
+              <span className="text-emerald-400 font-bold text-[10px]">
+                {hoveredWire.isElectricallyValid ? '✓ Electrically Valid' : '⚠ Electrical Error'}
+              </span>
             </div>
           ) : hoveredPin ? (
             <div className="flex items-center gap-2 font-mono text-[11px] animate-fadeIn">
@@ -1084,13 +1029,17 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
               <span className="font-bold text-white">TERMINAL:</span>
               <span className="text-amber-300 font-bold">{hoveredPin.comp} → {hoveredPin.pin}</span>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex items-center gap-2 text-slate-400 text-[11px] font-mono">
+              <span className="text-slate-500">⚡ Hover over any terminal or wire to audit voltage, logic level, and pin connections</span>
+            </div>
+          )}
         </div>
 
-        {/* Stage Pulse Badge */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] text-slate-500 hidden lg:inline">
-            Hover any wire or terminal to inspect connections
+        {/* Stage Pulse Badge & Simulated Label */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <span className="text-[10px] font-mono font-bold text-amber-400/90 bg-amber-950/40 border border-amber-800/60 px-2 py-0.5 rounded">
+            SIMULATED — NOT LIVE
           </span>
           <div className="px-2 py-0.5 rounded bg-[#21262D] border border-[#30363D] text-[11px] font-mono font-bold text-slate-300 flex items-center gap-1.5">
             <span

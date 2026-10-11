@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Compass, ExternalLink, MapPin, Pause, Play, Radio, RotateCcw, Sliders, Terminal } from 'lucide-react';
+import { Compass, Cpu, ExternalLink, MapPin, Pause, Play, Radio, RotateCcw, Sliders, Terminal } from 'lucide-react';
 import { SensorNode } from '../../../types';
 import { realtimeSync } from '../../../services/realtimeSync';
 import { hardwareSimEngine, HardwareSimState } from '../../../services/hardwareSimulationEngine';
@@ -513,6 +513,17 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
               >
                 <Sliders className="w-3.5 h-3.5" />
                 <span>Diagnostics</span>
+              </button>
+              <button
+                onClick={() => setRoadDrawer(roadDrawer === 'PINS' ? null : 'PINS')}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                  roadDrawer === 'PINS'
+                    ? 'bg-[#AEF5F0] text-slate-950 border-[#AEF5F0]'
+                    : 'bg-[#21262D] border-[#30363D] text-slate-300 hover:text-white hover:border-[#AEF5F0]'
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Pin Map</span>
               </button>
               {onNavigateToMap && (
                 <button

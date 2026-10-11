@@ -28,19 +28,29 @@ if (typeof window !== 'undefined') {
     (event) => {
       const msg = String(event?.message || '');
       if (
+        msg === 'Script error.' ||
+        msg.includes('Script error') ||
         msg.includes('ExpiredKeyMapError') ||
         msg.includes('expired-key-map-error') ||
         msg.includes('Maps Demo Key limit reached') ||
         msg.includes('daily quota') ||
         msg.includes('ApiTargetBlockedMapError') ||
         msg.includes('OverQuotaMapError') ||
+        msg.includes('InvalidKeyMapError') ||
+        msg.includes('RefererNotAllowedMapError') ||
         msg.includes('_leaflet_pos')
       ) {
         event.stopImmediatePropagation();
         event.preventDefault();
         try {
-          localStorage.setItem('routepilot_map_engine', 'osm');
-          localStorage.setItem('routepilot_key_expired', 'true');
+          if (
+            msg.includes('KeyMapError') ||
+            msg.includes('quota') ||
+            msg.includes('BlockedMap') ||
+            msg.includes('Script error')
+          ) {
+            localStorage.setItem('routepilot_map_engine', 'osm');
+          }
         } catch {
           // ignore
         }
