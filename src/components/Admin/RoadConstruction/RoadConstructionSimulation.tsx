@@ -484,19 +484,21 @@ export const RoadConstructionSimulation: React.FC<RoadConstructionSimulationProp
                       5. Internet
                     </text>
                     <text x="870" y="220" textAnchor="middle" fill="#bae6fd" fontSize="10">
-                      (4G / LTE)
+                      (Cellular IP Uplink)
                     </text>
 
                     {/* Globe / Network waves graphic */}
-                    <g transform="translate(870, 270)">
-                      <circle cx="0" cy="0" r="26" fill="none" stroke="#0ea5e9" strokeWidth="2.5" className={state.cellularLink.isTransmitting ? 'animate-pulse' : ''} />
-                      <ellipse cx="0" cy="0" rx="26" ry="12" fill="none" stroke="#0284c7" strokeWidth="1.5" />
-                      <line x1="-26" y1="0" x2="26" y2="0" stroke="#0284c7" strokeWidth="1.5" />
-                      <line x1="0" y1="-26" x2="0" y2="26" stroke="#0284c7" strokeWidth="1.5" />
-                      {/* Radiating Antenna waves */}
-                      <path d="M -35 -15 C -45 0, -45 0, -35 15" stroke="#38bdf8" strokeWidth="2" fill="none" />
-                      <path d="M 35 -15 C 45 0, 45 0, 35 15" stroke="#38bdf8" strokeWidth="2" fill="none" />
+                    <g transform="translate(870, 260)">
+                      <circle cx="0" cy="0" r="22" fill="#0369a1" fillOpacity="0.3" stroke="#0ea5e9" strokeWidth="2" className={state.cellularLink.isTransmitting ? 'animate-pulse' : ''} />
+                      <ellipse cx="0" cy="0" rx="12" ry="22" fill="none" stroke="#38bdf8" strokeWidth="1.2" />
+                      <line x1="-22" y1="0" x2="22" y2="0" stroke="#38bdf8" strokeWidth="1.2" />
                     </g>
+
+                    {/* Internet Capsule Badge */}
+                    <rect x="822" y="295" width="96" height="20" rx="10" fill="#0B0F17" stroke="#0284c7" strokeWidth="1" />
+                    <text x="870" y="308" textAnchor="middle" fill="#38bdf8" fontSize="7.5" fontWeight="bold">🌐 INTERNET</text>
+                    <circle cx="910" cy="305" r="2.5" fill="#22c55e" className="animate-pulse" />
+                    <text x="870" y="328" textAnchor="middle" fill="#bae6fd" fontSize="7" fontFamily="monospace">TCP-IP Online</text>
                   </g>
 
                   {/* ============================================================== */}
@@ -518,7 +520,7 @@ export const RoadConstructionSimulation: React.FC<RoadConstructionSimulationProp
                       6. Backend Server
                     </text>
                     <text x="1050" y="186" textAnchor="middle" fill="#e9d5ff" fontSize="10">
-                      (Cloud)
+                      (Analyze Data & Detect Hazard)
                     </text>
 
                     {/* Cloud Graphic */}
@@ -543,6 +545,17 @@ export const RoadConstructionSimulation: React.FC<RoadConstructionSimulationProp
                         </g>
                       ))}
                     </g>
+                    {/* RoutePilot Engine Sync Status Badge */}
+                    <rect x="980" y="325" width="140" height="20" rx="4" fill="#0B0F17" stroke="#334155" strokeWidth="1" />
+                    <text x="1050" y="338" textAnchor="middle" fill="#a7f3d0" fontSize="7.5" fontWeight="bold">
+                      ✓ Synchronized with A* Engine
+                    </text>
+                    <text x="1050" y="354" textAnchor="middle" fill="#38bdf8" fontSize="7" fontFamily="monospace">
+                      /api/v1/road-hazards • 200 OK
+                    </text>
+                    <text x="1050" y="367" textAnchor="middle" fill="#94a3b8" fontSize="6.5">
+                      {state.cloud.isConstructionActive ? '⚠️ Active Work Zone Ingested' : 'Nominal / Road Open'}
+                    </text>
                   </g>
                 </svg>
               </div>

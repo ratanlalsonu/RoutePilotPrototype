@@ -310,72 +310,27 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
                   </g>
                 )}
 
-                {/* 3. WIRELESS CLOUD (Internet -> Backend Cloud): Over-The-Air Ingestion Waves & Flying Directional Arrows */}
-                {isInternetToCloud && (
+                {/* 3. WIRELESS CLOUD (Internet -> Backend Cloud): Handled in vertical gateway-to-backend link */}
+                {isInternetToCloud && isInternetActive && (
                   <g>
-                    {/* Radiating Wireless Cloud Signal Arcs bridging Internet and Server */}
-                    <g opacity={isInternetActive ? 0.95 : 0.35}>
-                      <path d="M 1368 382 A 16 16 0 0 1 1368 408" fill="none" stroke="#c084fc" strokeWidth="2.4" strokeLinecap="round">
-                        {isInternetActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite" begin="0s" />}
-                      </path>
-                      <path d="M 1380 374 A 26 26 0 0 1 1380 416" fill="none" stroke="#c084fc" strokeWidth="2.2" strokeLinecap="round">
-                        {isInternetActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite" begin="0.35s" />}
-                      </path>
-                      <path d="M 1394 366 A 38 38 0 0 1 1394 424" fill="none" stroke="#c084fc" strokeWidth="1.8" strokeLinecap="round">
-                        {isInternetActive && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite" begin="0.7s" />}
-                      </path>
-                    </g>
-
-                    {/* Wireless Cloud OTA Badge floating in the air gap */}
-                    <g transform="translate(1382, 318)" className="pointer-events-none">
-                      <rect x="-38" y="-10" width="76" height="20" rx="10" fill="#3b0764" stroke="#7e22ce" strokeWidth="1.2" opacity="0.92" />
-                      <circle cx="-25" cy="0" r="3" fill={isInternetActive ? '#c084fc' : '#64748b'} className={isInternetActive ? 'animate-ping' : ''} />
-                      <circle cx="-25" cy="0" r="2.5" fill={isInternetActive ? '#c084fc' : '#64748b'} />
-                      <text x="5" y="3.5" textAnchor="middle" fill="#e9d5ff" fontSize="8" fontWeight="bold" fontFamily="monospace">
-                        OTA SYNC
-                      </text>
-                    </g>
-
-                    {/* Animated moving wireless arrows flying through air (no physical wire) */}
-                    {isInternetActive && (
-                      <g>
-                        {/* Wireless Packet Arrow 1 */}
-                        <path
-                          d="M -8 -5 L 0 0 L -8 5"
-                          fill="none"
-                          stroke="#c084fc"
-                          strokeWidth="2.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <animateMotion
-                            path={w.path}
-                            dur="1.1s"
-                            repeatCount="indefinite"
-                            rotate="auto"
-                          />
-                        </path>
-                        {/* Wireless Packet Arrow 2 (staggered) */}
-                        <path
-                          d="M -8 -5 L 0 0 L -8 5"
-                          fill="none"
-                          stroke="#f3e8ff"
-                          strokeWidth="2.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <animateMotion
-                            path={w.path}
-                            dur="1.1s"
-                            begin="0.55s"
-                            repeatCount="indefinite"
-                            rotate="auto"
-                          />
-                        </path>
-                      </g>
-                    )}
+                    {/* Directional packet indicator moving along path */}
+                    <path
+                      d="M -6 -4 L 0 0 L -6 4"
+                      fill="none"
+                      stroke="#38bdf8"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                    >
+                      <animateMotion
+                        path={w.path}
+                        dur="0.8s"
+                        repeatCount="indefinite"
+                        rotate="auto"
+                      />
+                    </path>
                   </g>
                 )}
+
               </g>
             );
           })}
@@ -940,132 +895,163 @@ export const RoadConstructionCircuitCanvas: React.FC<RoadConstructionCircuitCanv
           ))}
         </g>
 
-        {/* --- 5. INTERNET CONNECTION INDICATOR --- */}
-        <g
-          id="internet-card"
-          className="cursor-pointer transition-transform duration-200"
-          onClick={() => onSelectComponent(selectedComponent === 'INTERNET' ? null : 'INTERNET')}
-          onMouseEnter={() => setHoveredComponent('INTERNET')}
-          onMouseLeave={() => setHoveredComponent(null)}
-        >
-          {/* Card Background */}
-          <rect
-            x="1190"
-            y="290"
-            width="170"
-            height="210"
-            rx="16"
-            fill="#0F172A"
-            stroke={selectedComponent === 'INTERNET' || hoveredComponent === 'INTERNET' ? '#38bdf8' : '#0ea5e9'}
-            strokeWidth={selectedComponent === 'INTERNET' ? '2.5' : '2'}
-          />
+        {/* ============================================================== */}
+        {/* INTERNET CLOUD LINK (IN BETWEEN 4G/LTE MODULE & BACKEND SERVER) */}
+        {/* ============================================================== */}
+        <g id="internet-middle-link">
+          {/* Stream Line 1: SIM7600 Antenna to Internet Capsule */}
+          <path
+            d="M 1140 395 L 1167 395"
+            fill="none"
+            stroke="#38bdf8"
+            strokeWidth="2.5"
+            strokeDasharray="3 3"
+          >
+            {isRunning && lteEnabled && (
+              <animate attributeName="stroke-dashoffset" from="12" to="0" dur="0.6s" repeatCount="indefinite" />
+            )}
+          </path>
 
-          {/* Header */}
-          <text x="1275" y="322" textAnchor="middle" fill="#38bdf8" fontSize="15" fontWeight="bold" fontFamily="monospace">
-            5. Internet
-          </text>
-          <text x="1275" y="340" textAnchor="middle" fill="#7dd3fc" fontSize="11" fontFamily="sans-serif">
-            (Cellular IP Uplink)
-          </text>
-
-          {/* Radio Waves & Globe */}
-          <g transform="translate(1275, 410)">
-            <path
-              d="M-55 -25 A60 60 0 0 0 -55 25"
-              fill="none"
-              stroke="#38bdf8"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className={isInternetActive ? 'animate-pulse' : undefined}
-            />
-            <path
-              d="M-40 -18 A45 45 0 0 0 -40 18"
-              fill="none"
-              stroke="#38bdf8"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className={isInternetActive ? 'animate-pulse' : undefined}
-            />
-            <path
-              d="M55 -25 A60 60 0 0 1 55 25"
-              fill="none"
-              stroke="#38bdf8"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className={isInternetActive ? 'animate-pulse' : undefined}
-            />
-            <path
-              d="M40 -18 A45 45 0 0 1 40 18"
-              fill="none"
-              stroke="#38bdf8"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className={isInternetActive ? 'animate-pulse' : undefined}
+          {/* Central Internet / Cloud Capsule Badge (BICH ME / IN THE MIDDLE) */}
+          <g
+            transform="translate(1235, 395)"
+            className="cursor-pointer transition-transform hover:scale-105"
+            onClick={() => onSelectComponent(selectedComponent === 'INTERNET' ? null : 'INTERNET')}
+            onMouseEnter={() => setHoveredComponent('INTERNET')}
+            onMouseLeave={() => setHoveredComponent(null)}
+          >
+            {/* Outer Capsule Frame */}
+            <rect
+              x="-68"
+              y="-14"
+              width="136"
+              height="28"
+              rx="14"
+              fill="#0B0F17"
+              stroke={selectedComponent === 'INTERNET' || hoveredComponent === 'INTERNET' ? '#AEF5F0' : '#0284c7'}
+              strokeWidth="1.6"
+              filter="url(#wireGlow)"
             />
 
-            <circle cx="0" cy="0" r="26" fill="#0284c7" stroke="#38bdf8" strokeWidth="2" filter={isInternetActive ? 'url(#dataGlow)' : undefined} />
-            <ellipse cx="0" cy="0" rx="14" ry="26" fill="none" stroke="#7dd3fc" strokeWidth="1.5" />
-            <line x1="-26" y1="0" x2="26" y2="0" stroke="#7dd3fc" strokeWidth="1.5" />
-            <line x1="-22" y1="-12" x2="22" y2="-12" stroke="#7dd3fc" strokeWidth="1.2" />
-            <line x1="-22" y1="12" x2="22" y2="12" stroke="#7dd3fc" strokeWidth="1.2" />
+            {/* Internet Globe Symbol */}
+            <g transform="translate(-48, 0)">
+              {/* Globe Outer Sphere */}
+              <circle cx="0" cy="0" r="9" fill="#0369a1" fillOpacity="0.3" stroke="#38bdf8" strokeWidth="1.2" />
+              {/* Horizontal Equator Line */}
+              <line x1="-9" y1="0" x2="9" y2="0" stroke="#38bdf8" strokeWidth="0.9" />
+              {/* Vertical Meridian Ellipse */}
+              <ellipse cx="0" cy="0" rx="4.8" ry="9" fill="none" stroke="#38bdf8" strokeWidth="0.9" />
+              <line x1="0" y1="-9" x2="0" y2="9" stroke="#38bdf8" strokeWidth="0.8" />
+              {/* Live Signal Pulse Ring */}
+              {isRunning && lteEnabled && (
+                <circle cx="0" cy="0" r="9" fill="none" stroke="#22c55e" strokeWidth="1.2" opacity="0.8">
+                  <animate attributeName="r" values="9;15;9" dur="1.8s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.8;0;0.8" dur="1.8s" repeatCount="indefinite" />
+                </circle>
+              )}
+            </g>
+
+            {/* Internet Typography Labels */}
+            <text x="-32" y="-1" fill="#38bdf8" fontSize="8.5" fontWeight="bold" fontFamily="sans-serif">
+              🌐 INTERNET
+            </text>
+            <text x="-32" y="8" fill="#94a3b8" fontSize="6.5" fontFamily="monospace">
+              CLOUD / TCP-IP
+            </text>
+
+            {/* Live Link Green Status Dot */}
+            <circle cx="53" cy="0" r="3" fill={lteEnabled ? '#22c55e' : '#64748b'}>
+              {isRunning && lteEnabled && (
+                <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
+              )}
+            </circle>
           </g>
 
-          <text x="1275" y="475" textAnchor="middle" fill="#bae6fd" fontSize="10" fontFamily="sans-serif">
-            {lteEnabled ? 'Online (5G / 4G)' : 'Disconnected'}
-          </text>
+          {/* Stream Line 2: Internet Capsule to Backend Server */}
+          <path
+            d="M 1303 395 L 1335 395"
+            fill="none"
+            stroke="#38bdf8"
+            strokeWidth="2.5"
+            strokeDasharray="3 3"
+          >
+            {isRunning && lteEnabled && (
+              <animate attributeName="stroke-dashoffset" from="12" to="0" dur="0.6s" repeatCount="indefinite" />
+            )}
+          </path>
+          <polygon points="1339,395 1331,390 1331,400" fill="#38bdf8" />
         </g>
 
-        {/* --- 6. FAR RIGHT: BACKEND SERVER / CLOUD --- */}
+        {/* ============================================================== */}
+        {/* COMPONENT 5: Backend Server (Analyze Data & Detect Hazard) */}
+        {/* ============================================================== */}
         <g
-          id="cloud-backend-card"
-          className="cursor-pointer transition-transform duration-200"
-          onClick={() => onSelectComponent(selectedComponent === 'CLOUD' ? null : 'CLOUD')}
+          id="comp-backend-server"
+          transform="translate(1340, 260)"
+          onClick={() => onSelectComponent(selectedComponent === 'CLOUD' || selectedComponent === 'BACKEND' ? null : 'CLOUD')}
           onMouseEnter={() => setHoveredComponent('CLOUD')}
           onMouseLeave={() => setHoveredComponent(null)}
+          className="cursor-pointer transition-transform hover:scale-[1.01]"
         >
-          {/* Card Background */}
+          {/* Main Card Frame */}
           <rect
-            x="1405"
-            y="260"
-            width="180"
+            width="240"
             height="270"
-            rx="16"
+            rx="14"
             fill="#0F172A"
-            stroke={selectedComponent === 'CLOUD' || hoveredComponent === 'CLOUD' ? '#c084fc' : '#a855f7'}
-            strokeWidth={selectedComponent === 'CLOUD' ? '2.5' : '2'}
+            stroke={selectedComponent === 'CLOUD' || selectedComponent === 'BACKEND' || hoveredComponent === 'CLOUD' ? '#AEF5F0' : '#0284c7'}
+            strokeWidth="1.8"
           />
-
-          {/* Header */}
-          <text x="1495" y="295" textAnchor="middle" fill="#c084fc" fontSize="15" fontWeight="bold" fontFamily="monospace">
-            6. Backend Cloud
+          <text x="120" y="25" textAnchor="middle" fill="#38bdf8" fontSize="14" fontWeight="700" fontFamily="sans-serif">
+            5. Backend Server
           </text>
-          <text x="1495" y="315" textAnchor="middle" fill="#e9d5ff" fontSize="11" fontFamily="sans-serif">
-            (RoutePilot Server)
+          <text x="120" y="40" textAnchor="middle" fill="#94a3b8" fontSize="10" fontFamily="sans-serif">
+            (Analyze Data & Detect Hazard)
           </text>
 
-          {/* Server Rack Visualization */}
-          <g transform="translate(1425, 335)">
-            <rect x="0" y="0" width="140" height="135" rx="6" fill="#1e1b4b" stroke="#7e22ce" strokeWidth="1.5" />
-            {/* 3 Rack Units */}
-            {[0, 42, 84].map((ry, idx) => (
-              <g key={`rack-${idx}`} transform={`translate(8, ${ry + 8})`}>
-                <rect x="0" y="0" width="124" height="30" rx="3" fill="#0f172a" stroke="#4c1d95" strokeWidth="1" />
-                {/* Status LEDs */}
-                <circle cx="14" cy="15" r="3" fill={isCloudActive ? '#22c55e' : '#475569'} />
-                <circle cx="26" cy="15" r="3" fill={isRunning ? '#38bdf8' : '#1e3a8a'} />
-                <circle cx="38" cy="15" r="3" fill="#facc15" />
-                {/* Ventilation slots */}
-                <line x1="55" y1="12" x2="110" y2="12" stroke="#334155" strokeWidth="2" strokeDasharray="4 3" />
-                <line x1="55" y1="18" x2="110" y2="18" stroke="#334155" strokeWidth="2" strokeDasharray="4 3" />
-              </g>
-            ))}
-          </g>
+          {/* Rack Server Stack */}
+          {[0, 1, 2].map((idx) => (
+            <g key={`rack-unit-${idx}`} transform={`translate(15, ${56 + idx * 42})`}>
+              <rect width="210" height="34" rx="4" fill="#090D13" stroke="#1e293b" strokeWidth="1" />
+              {/* Green Healthy LED */}
+              <circle cx="14" cy="17" r="3" fill="#22c55e" />
+              {/* Pulsing Ingestion Activity LED */}
+              <circle cx="25" cy="17" r="3" fill={isInternetActive ? '#38bdf8' : '#1e3a8a'}>
+                {isInternetActive && (
+                  <animate
+                    attributeName="opacity"
+                    values="1;0.2;1"
+                    dur={`${0.6 + idx * 0.2}s`}
+                    repeatCount="indefinite"
+                  />
+                )}
+              </circle>
+              {/* Drive Bays */}
+              {[42, 68, 94, 120].map((bx) => (
+                <rect key={`drive-${idx}-${bx}`} x={bx} y="9" width="18" height="16" rx="2" fill="#1e293b" />
+              ))}
+              {/* Node Tag */}
+              <text x="198" y="21" textAnchor="end" fill="#94a3b8" fontSize="8" fontFamily="monospace">
+                NODE-{idx + 1}
+              </text>
+              {idx === 0 && constructionStatus === 'ACTIVE' && (
+                <text x="156" y="21" fill="#f97316" fontSize="7.5" fontWeight="bold" fontFamily="monospace">
+                  HAZARD TRIP
+                </text>
+              )}
+            </g>
+          ))}
 
-          <text x="1495" y="500" textAnchor="middle" fill="#c084fc" fontSize="10" fontWeight="bold" fontFamily="monospace">
-            /api/v1/road-hazards
+          {/* Telemetry Endpoint Info Pill */}
+          <rect x="15" y="196" width="210" height="20" rx="4" fill="#0B0F17" stroke="#334155" strokeWidth="1" />
+          <text x="120" y="210" textAnchor="middle" fill="#38bdf8" fontSize="8" fontWeight="bold" fontFamily="monospace">
+            /api/v1/road-hazards • HTTP 200 OK
           </text>
-          <text x="1495" y="516" textAnchor="middle" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">
-            HTTP 200 OK • Ingested
+
+          {/* RoutePilot Engine Sync Status Badge */}
+          <rect x="15" y="226" width="210" height="28" rx="5" fill="#0B0F17" stroke="#334155" strokeWidth="1" />
+          <text x="120" y="244" textAnchor="middle" fill="#a7f3d0" fontSize="8.5" fontWeight="bold" fontFamily="sans-serif">
+            ✓ Synchronized with RoutePilot A* Engine
           </text>
         </g>
       </svg>
