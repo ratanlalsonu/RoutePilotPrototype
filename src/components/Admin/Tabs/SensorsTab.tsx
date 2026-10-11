@@ -4,6 +4,7 @@ import { realtimeSync } from '../../../services/realtimeSync';
 import { hardwareSimEngine, HardwareSimState } from '../../../services/hardwareSimulationEngine';
 import { HardwareCircuitCanvas } from '../HardwareSimulation/HardwareCircuitCanvas';
 import { HardwareControlPanel } from '../HardwareSimulation/HardwareControlPanel';
+import { RoadConstructionSimulator } from '../HardwareSimulation/RoadConstructionSimulator';
 import { HardwareComponentId } from '../../../types/hardwareSimulation';
 
 interface SensorsTabProps {
@@ -11,6 +12,8 @@ interface SensorsTabProps {
   sensorMode: 'VIRTUAL' | 'HARDWARE';
   esp32Endpoint: string;
   onNavigateToMap?: () => void;
+  initialDevice?: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS';
+  onDeviceChange?: (dev: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS') => void;
 }
 
 export const SensorsTab: React.FC<SensorsTabProps> = ({
@@ -18,9 +21,27 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
   sensorMode: _initialMode,
   esp32Endpoint,
   onNavigateToMap,
+  initialDevice,
+  onDeviceChange,
 }) => {
   // Sub-view: 'SIMULATION' (Interactive circuit) or 'ROSTER' (Registered IoT nodes table)
   const [subView, setSubView] = useState<'SIMULATION' | 'ROSTER'>('SIMULATION');
+
+  // Active hardware simulation model: 'ROAD_CONSTRUCTION' (GPS + 4G/LTE) or 'BRIDGE_SENSORS' (Multi-sensor)
+  const [simDevice, setSimDevice] = useState<'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS'>(
+    initialDevice || 'ROAD_CONSTRUCTION'
+  );
+
+  useEffect(() => {
+    if (initialDevice && initialDevice !== simDevice) {
+      setSimDevice(initialDevice);
+    }
+  }, [initialDevice]);
+
+  const handleDeviceChange = (dev: 'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS') => {
+    setSimDevice(dev);
+    if (onDeviceChange) onDeviceChange(dev);
+  };
 
   // Simulation engine state
   const [simState, setSimState] = useState<HardwareSimState>(hardwareSimEngine.getState());
@@ -168,8 +189,45 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
             </button>
           </div>
 
-          {/* Mode Switch: Virtual Simulation vs External Hardware */}
+          {/* Hardware Model Switcher: Road Construction Alert Device vs Bridge Structural Node */}
           {subView === 'SIMULATION' && (
+            <div className="flex items-center gap-1.5 bg-[#090D13] p-1 rounded-xl border border-[#30363D] shadow-md">
+              <span className="text-[10px] font-mono uppercase text-slate-400 pl-1 pr-0.5 hidden xl:inline">Simulation Node:</span>
+              <button
+                onClick={() => handleDeviceChange('ROAD_CONSTRUCTION')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  simDevice === 'ROAD_CONSTRUCTION'
+                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md shadow-orange-600/30 border border-orange-400/50'
+                    : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                }`}
+                title="Road Construction IoT Alert Device (ESP32 + NEO-6M GPS + SIM7600 4G/LTE)"
+              >
+                <span>🚧</span>
+                <span>Road Mode</span>
+                {simDevice === 'ROAD_CONSTRUCTION' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-ping" />
+                )}
+              </button>
+              <button
+                onClick={() => handleDeviceChange('BRIDGE_SENSORS')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  simDevice === 'BRIDGE_SENSORS'
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/30 border border-cyan-400/50'
+                    : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+                }`}
+                title="Bridge Structural Multi-Sensor Monitoring (Vibration, Tilt, Strain, LoRa)"
+              >
+                <span>🌉</span>
+                <span>Bridge Mode</span>
+                {simDevice === 'BRIDGE_SENSORS' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Mode Switch: Virtual Simulation vs External Hardware (Bridge Sensors only) */}
+          {subView === 'SIMULATION' && simDevice === 'BRIDGE_SENSORS' && (
             <div className="flex items-center gap-1.5 pl-2 border-l border-[#30363D]">
               <span className="text-[11px] text-slate-400 font-semibold hidden sm:inline">Mode:</span>
               <button
@@ -196,8 +254,8 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
           )}
         </div>
 
-        {/* Center/Right: Simulation Controls, Presets & Inspection Drawers */}
-        {subView === 'SIMULATION' && (
+        {/* Center/Right: Simulation Controls (for Bridge Sensors Node) */}
+        {subView === 'SIMULATION' && simDevice === 'BRIDGE_SENSORS' && (
           <div className="flex items-center flex-wrap gap-2">
             {/* Run / Stop / Reset Buttons */}
             {simState.mode === 'VIRTUAL' && (
@@ -356,9 +414,9 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
       </header>
 
       {/* ============================================================== */}
-      {/* NOTIFICATION BANNER IF HAZARD ACTIVE */}
+      {/* NOTIFICATION BANNER IF HAZARD ACTIVE (Bridge Sensors only) */}
       {/* ============================================================== */}
-      {simState.overallStatus !== 'SAFE' && simState.activeTriggerReason && (
+      {subView === 'SIMULATION' && simDevice === 'BRIDGE_SENSORS' && simState.overallStatus !== 'SAFE' && simState.activeTriggerReason && (
         <div className="px-4 py-2 bg-red-950/70 border-b border-red-500/40 text-red-200 flex items-center justify-between gap-2 shrink-0 animate-fadeIn">
           <div className="flex items-center gap-2 font-mono text-xs">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
@@ -381,68 +439,74 @@ export const SensorsTab: React.FC<SensorsTabProps> = ({
       {/* MAIN VIEWPORT: SUBVIEW ROUTING */}
       {/* ============================================================== */}
       {subView === 'SIMULATION' ? (
-        <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden flex flex-col">
-          {/* External Hardware Banner if in Hardware mode */}
-          {simState.mode === 'HARDWARE' && (
-            <div className="p-3 bg-[#161B22] border-b border-[#30363D] flex items-center justify-between text-xs shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
-                <span className="text-white font-bold">External Hardware Mode:</span>
-                <span className="text-slate-300 font-mono">{simState.externalHardwareMessage}</span>
-              </div>
-              <button
-                onClick={handleTestPing}
-                className="px-3 py-1 rounded-lg bg-[#21262D] border border-[#30363D] text-slate-300 hover:text-white transition cursor-pointer"
-              >
-                Refresh Connection
-              </button>
-            </div>
-          )}
-
-          {/* Interactive Scalable Circuit Canvas (fills remaining height completely) */}
+        simDevice === 'ROAD_CONSTRUCTION' ? (
           <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden">
-            {/* Quick Fullscreen Floating Action in Canvas Corner */}
-            <button
-              onClick={toggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand Simulation to Fullscreen'}
-              className="absolute top-3 right-3 z-30 px-3 py-1.5 rounded-xl bg-[#161B22]/90 hover:bg-[#21262D] border border-[#30363D] hover:border-[#AEF5F0] text-slate-300 hover:text-[#AEF5F0] shadow-xl backdrop-blur-md transition cursor-pointer flex items-center gap-1.5"
-            >
-              {isFullscreen ? (
-                <>
-                  <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5-5m0 0v4m0-4h-4m-6 6l-5 5m0 0v-4m0 4h4m6-6l5 5m0 0v-4m0 4h-4" />
-                  </svg>
-                  <span className="text-[11px] font-bold text-slate-200">Exit Fullscreen</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                  </svg>
-                  <span className="text-[11px] font-bold text-slate-200">Fullscreen</span>
-                </>
-              )}
-            </button>
-
-            <HardwareCircuitCanvas
-              simState={simState}
-              onSelectComponent={(comp) => {
-                setSelectedComponent(comp);
-                if (comp) setActiveDrawer(null);
-              }}
-              selectedComponent={selectedComponent}
-            />
-
-            {/* Slide-in Control Panel / Inspector Drawer */}
-            <HardwareControlPanel
-              simState={simState}
-              activeDrawer={activeDrawer}
-              onCloseDrawer={() => setActiveDrawer(null)}
-              selectedComponent={selectedComponent}
-              onSelectComponent={setSelectedComponent}
-            />
+            <RoadConstructionSimulator onNavigateToMap={onNavigateToMap} />
           </div>
-        </div>
+        ) : (
+          <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden flex flex-col">
+            {/* External Hardware Banner if in Hardware mode */}
+            {simState.mode === 'HARDWARE' && (
+              <div className="p-3 bg-[#161B22] border-b border-[#30363D] flex items-center justify-between text-xs shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                  <span className="text-white font-bold">External Hardware Mode:</span>
+                  <span className="text-slate-300 font-mono">{simState.externalHardwareMessage}</span>
+                </div>
+                <button
+                  onClick={handleTestPing}
+                  className="px-3 py-1 rounded-lg bg-[#21262D] border border-[#30363D] text-slate-300 hover:text-white transition cursor-pointer"
+                >
+                  Refresh Connection
+                </button>
+              </div>
+            )}
+
+            {/* Interactive Scalable Circuit Canvas (fills remaining height completely) */}
+            <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden">
+              {/* Quick Fullscreen Floating Action in Canvas Corner */}
+              <button
+                onClick={toggleFullscreen}
+                title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand Simulation to Fullscreen'}
+                className="absolute top-3 right-3 z-30 px-3 py-1.5 rounded-xl bg-[#161B22]/90 hover:bg-[#21262D] border border-[#30363D] hover:border-[#AEF5F0] text-slate-300 hover:text-[#AEF5F0] shadow-xl backdrop-blur-md transition cursor-pointer flex items-center gap-1.5"
+              >
+                {isFullscreen ? (
+                  <>
+                    <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5-5m0 0v4m0-4h-4m-6 6l-5 5m0 0v-4m0 4h4m6-6l5 5m0 0v-4m0 4h-4" />
+                    </svg>
+                    <span className="text-[11px] font-bold text-slate-200">Exit Fullscreen</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 text-[#AEF5F0]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    <span className="text-[11px] font-bold text-slate-200">Fullscreen</span>
+                  </>
+                )}
+              </button>
+
+              <HardwareCircuitCanvas
+                simState={simState}
+                onSelectComponent={(comp) => {
+                  setSelectedComponent(comp);
+                  if (comp) setActiveDrawer(null);
+                }}
+                selectedComponent={selectedComponent}
+              />
+
+              {/* Slide-in Control Panel / Inspector Drawer */}
+              <HardwareControlPanel
+                simState={simState}
+                activeDrawer={activeDrawer}
+                onCloseDrawer={() => setActiveDrawer(null)}
+                selectedComponent={selectedComponent}
+                onSelectComponent={setSelectedComponent}
+              />
+            </div>
+          </div>
+        )
       ) : (
         /* ============================================================== */
         /* ROSTER VIEW: SENSOR NODES TABLE & REGISTRATION */

@@ -211,7 +211,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       maxZoom: 19,
       subdomains: ['a', 'b', 'c'],
       attribution: '&copy; OpenStreetMap contributors',
-      className: 'osm-dark-tiles',
+      className: mapStyle === 'dark' ? 'osm-dark-tiles' : 'osm-light-tiles',
     });
 
     const satelliteLayer = L.tileLayer(
@@ -232,6 +232,16 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       satelliteLayer.addTo(map);
     } else {
       standardLayer.addTo(map);
+      const container = standardLayer.getContainer();
+      if (container) {
+        if (mapStyle === 'dark') {
+          container.classList.add('osm-dark-tiles');
+          container.classList.remove('osm-light-tiles');
+        } else {
+          container.classList.add('osm-light-tiles');
+          container.classList.remove('osm-dark-tiles');
+        }
+      }
     }
 
     // Invalidate size on load & container resize

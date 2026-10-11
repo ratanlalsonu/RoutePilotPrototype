@@ -31,6 +31,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
+  const [sensorSubMode, setSensorSubMode] = useState<'ROAD_CONSTRUCTION' | 'BRIDGE_SENSORS'>('ROAD_CONSTRUCTION');
+  const [isSensorSubMenuOpen, setIsSensorSubMenuOpen] = useState(true);
 
   const lang = state.appSettings.language || 'en';
   const t = getTranslation(lang);
@@ -347,31 +349,110 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 { id: 'System Logs', label: t.tabSystemLogs, icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
                 { id: 'Analytics', label: t.tabAnalytics, icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
                 { id: 'Settings', label: t.tabSettings, icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    if (item.id === 'Settings') {
-                      setIsSettingsOpen(true);
-                    } else {
-                      setActiveTab(item.id);
-                    }
-                    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                      setIsSidebarOpen(false);
-                    }
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer ${
-                    activeTab === item.id
-                      ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
-                  }`}
-                >
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-                  </svg>
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              ].map((item) => {
+                if (item.id === 'Sensor Nodes') {
+                  const isSensorsActive = activeTab === 'Sensor Nodes';
+                  return (
+                    <div key={item.id} className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setActiveTab('Sensor Nodes');
+                          setIsSensorSubMenuOpen(true);
+                          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                            setIsSidebarOpen(false);
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer ${
+                          isSensorsActive
+                            ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                          </svg>
+                          <span>{item.label}</span>
+                        </div>
+                        <span className="text-[10px] opacity-75">{isSensorsActive || isSensorSubMenuOpen ? '▾' : '▸'}</span>
+                      </button>
+
+                      {/* TWO OPTIONS: ROAD MODE or BRIDGE MODE */}
+                      {(isSensorsActive || isSensorSubMenuOpen) && (
+                        <div className="pl-6 pr-1 py-1 space-y-1 bg-[#0D1117]/80 rounded-xl border border-[#30363D] animate-fadeIn">
+                          <button
+                            onClick={() => {
+                              setActiveTab('Sensor Nodes');
+                              setSensorSubMode('ROAD_CONSTRUCTION');
+                              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                                setIsSidebarOpen(false);
+                              }
+                            }}
+                            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                              isSensorsActive && sensorSubMode === 'ROAD_CONSTRUCTION'
+                                ? 'bg-amber-500/25 text-amber-300 border border-amber-500/50 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
+                            }`}
+                          >
+                            <span>🚧</span>
+                            <span>Road Mode</span>
+                            {isSensorsActive && sensorSubMode === 'ROAD_CONSTRUCTION' && (
+                              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setActiveTab('Sensor Nodes');
+                              setSensorSubMode('BRIDGE_SENSORS');
+                              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                                setIsSidebarOpen(false);
+                              }
+                            }}
+                            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                              isSensorsActive && sensorSubMode === 'BRIDGE_SENSORS'
+                                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
+                            }`}
+                          >
+                            <span>🌉</span>
+                            <span>Bridge Mode</span>
+                            {isSensorsActive && sensorSubMode === 'BRIDGE_SENSORS' && (
+                              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      if (item.id === 'Settings') {
+                        setIsSettingsOpen(true);
+                      } else {
+                        setActiveTab(item.id);
+                      }
+                      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                        setIsSidebarOpen(false);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer ${
+                      activeTab === item.id
+                        ? 'bg-[#AEF5F0] text-slate-950 font-bold shadow-md shadow-[#AEF5F0]/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-[#21262D]'
+                    }`}
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                    </svg>
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </nav>
 
             <div className="p-3 border-t border-[#30363D] dark:border-[#30363D]">
@@ -529,6 +610,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
                 sensorMode={state.appSettings.sensorMode}
                 esp32Endpoint={state.appSettings.esp32Endpoint}
                 onNavigateToMap={() => setActiveTab('Live Map')}
+                initialDevice={sensorSubMode}
+                onDeviceChange={setSensorSubMode}
               />
             </div>
           )}

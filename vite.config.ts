@@ -338,6 +338,10 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve('.'),
       },
+      dedupe: ['react', 'react-dom'],
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-dom/client'],
     },
     server: {
       host: '0.0.0.0',

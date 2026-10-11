@@ -373,9 +373,24 @@ html.light .hazard-desc-box,
   will-change: opacity, transform;
 }
 
-/* OpenStreetMap Dark Mode Tile Filter */
-.osm-dark-tiles {
-  filter: brightness(0.75) invert(1) contrast(2) hue-rotate(195deg) saturate(0.3) !important;
+/* OpenStreetMap Dark / Night Mode Tile Filter (matching Google Maps Night theme: #242f3e land & #17263c water) */
+.osm-dark-tiles,
+.osm-dark-tiles img.leaflet-tile,
+.osm-dark-tiles.leaflet-layer,
+img.leaflet-tile.osm-dark-tiles {
+  filter: invert(90%) hue-rotate(180deg) contrast(1.15) brightness(0.85) !important;
+  background-color: #242f3e !important;
+}
+
+/* Ensure Leaflet overlay pane, markers, popups, and controls retain pristine natural colors */
+.leaflet-overlay-pane,
+.leaflet-marker-pane,
+.leaflet-popup-pane,
+.leaflet-control-container,
+.hazard-marker-container,
+.driver-vehicle-marker,
+.alt-route-badge-pill {
+  filter: none !important;
 }
 
 /* Google Maps Dark Mode Styling - guarantees real dark mode in Google Maps */

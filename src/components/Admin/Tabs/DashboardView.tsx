@@ -190,6 +190,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span>Sim Node: Safe</span>
                 </button>
               )}
+
+              {/* Road Construction IoT Mode Link */}
+              <button
+                type="button"
+                onClick={() => onNavigateTab('Road Construction')}
+                className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-300 text-[10px] font-medium cursor-pointer transition"
+                title="Click to view 6-Stage Road Construction IoT Simulation (ESP32 + SIM7600 + NEO-6M)"
+              >
+                <span>🚧</span>
+                <span>{lang === 'hi' ? 'कंस्ट्रक्शन मोड' : 'Construction Mode'}</span>
+              </button>
             </div>
 
             {/* Demonstration & Hazard Creation Controls */}
