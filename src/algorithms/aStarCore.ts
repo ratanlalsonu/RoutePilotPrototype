@@ -180,28 +180,27 @@ export function calculateEdgeCost(
   // Restriction cost: 0 since vehicle is allowed
   const restrictionCost = edge.restrictionCost || 0;
 
-  // Edge cost formula
+  // 3-Parameter Edge cost formula: Distance + Time + Hazard
   const distanceCost = weights.distance * distanceNormalized;
   const timeCost = weights.time * timeNormalized;
-  const trafficCost = weights.traffic * trafficNormalized;
   const hazardCost = weights.hazard * hazardNormalized;
-  const restCost = weights.restriction * restrictionCost;
 
-  const edgeCost = distanceCost + timeCost + trafficCost + hazardCost + restCost;
+  // edgeCost strictly calculated from Distance, Time, and Hazard
+  const edgeCost = distanceCost + timeCost + hazardCost;
 
   return {
     edgeCost: Math.round(edgeCost * 1000) / 1000,
     distanceNormalized,
     timeNormalized,
-    trafficNormalized,
+    trafficNormalized: 0,
     hazardNormalized,
-    restrictionCost,
+    restrictionCost: 0,
     costBreakdown: {
       distanceCost: Math.round(distanceCost * 1000) / 1000,
       timeCost: Math.round(timeCost * 1000) / 1000,
-      trafficCost: Math.round(trafficCost * 1000) / 1000,
+      trafficCost: 0,
       hazardCost: Math.round(hazardCost * 1000) / 1000,
-      restrictionCost: Math.round(restCost * 1000) / 1000,
+      restrictionCost: 0,
     },
     isBlocked: false,
     vehicleAllowed: true,

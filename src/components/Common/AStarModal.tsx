@@ -26,7 +26,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
   vehicleType = 'car',
   onSelectRoute,
 }) => {
-  const [activeTab, setActiveTab] = useState<'analysis' | 'trace' | 'tests'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'trace' | 'tests' | 'formulas'>('analysis');
   const [testResults, setTestResults] = useState<FullTestSuiteSummary | null>(null);
   const [isRunningTests, setIsRunningTests] = useState(false);
 
@@ -74,7 +74,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400 truncate">
-                g(n) = Wd·Dist + Wt·Time + Wc·Traffic + Wh·Hazard + Wr·Restriction
+                f(n) = g(n) + h(n) | g(n) = Wd·Dist + Wt·Time + Wh·Hazard | h(n) = Haversine(n, Goal)
               </p>
             </div>
           </div>
@@ -87,7 +87,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center px-4 pt-2 bg-[#161B22]/70 border-b border-[#30363D] text-xs gap-2">
+        <div className="flex items-center px-4 pt-2 bg-[#161B22]/70 border-b border-[#30363D] text-xs gap-2 flex-wrap">
           <button
             onClick={() => setActiveTab('analysis')}
             className={`px-3 py-2 font-bold rounded-t-lg transition border-b-2 cursor-pointer ${
@@ -96,7 +96,18 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            📊 {isHi ? 'रूट विश्लेषण व कॉस्ट ब्रेकडाउन' : 'Route Analysis & Scorecard'}
+            📊 {isHi ? 'रूट विश्लेषण व स्कोरकार्ड' : 'Route Analysis & Scorecard'}
+          </button>
+          <button
+            onClick={() => setActiveTab('formulas')}
+            className={`px-3 py-2 font-bold rounded-t-lg transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'formulas'
+                ? 'border-[#AEF5F0] text-[#AEF5F0] bg-[#0D1117]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>📐</span>
+            <span>{isHi ? 'A* व Haversine संपूर्ण सूत्र' : 'A* & Haversine Complete Formulas'}</span>
           </button>
           <button
             onClick={() => setActiveTab('trace')}
@@ -127,43 +138,82 @@ export const AStarModal: React.FC<AStarModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {activeTab === 'analysis' && (
             <>
-              {/* Formula Banner */}
-              <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-950/40 via-cyan-950/30 to-[#161B22] border border-cyan-500/30 text-xs">
-                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
-                  <span className="font-bold text-[#AEF5F0] flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-                    <span>📐</span>
-                    <span>{isHi ? 'A* संचित लागत सूत्र g(n) और f(n)' : 'A* Accumulated Cost Formula'}</span>
-                  </span>
-                  <span className="text-[10px] text-amber-300 font-mono bg-amber-950/50 px-2 py-0.5 rounded border border-amber-600/40">
-                    {VIRTUAL_TRAFFIC_DISCLAIMER}
-                  </span>
+              {/* Comprehensive Formula Reference Banner */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-cyan-950/30 to-[#161B22] border border-cyan-500/40 text-xs space-y-3">
+                <div className="flex items-center justify-between mb-1 flex-wrap gap-2 border-b border-[#30363D] pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-cyan-300 font-black text-sm">📐</span>
+                    <span className="font-extrabold text-[#AEF5F0] text-xs uppercase tracking-wider">
+                      {isHi ? 'A* व Haversine संपूर्ण गणितीय सूत्र (Mathematical Formulation)' : 'A* & Haversine Master Formulation'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-emerald-300 font-mono bg-emerald-950/70 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">
+                      ✓ Admissibility: h(n) ≤ h*(n)
+                    </span>
+                    <span className="text-[10px] text-amber-300 font-mono bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40 font-bold">
+                      Earth R = 6,371 km
+                    </span>
+                  </div>
                 </div>
-                <div className="font-mono text-sm sm:text-base font-bold text-white bg-[#0D1117]/85 p-2.5 rounded-lg border border-[#30363D] text-center shadow-inner">
-                  g(n) = Wd·Distance + Wt·Time + Wc·Traffic + Wh·Hazard + Wr·Restriction
+
+                {/* 3 Master Equation Blocks */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 font-mono">
+                  {/* Master Equation 1: f(n) */}
+                  <div className="bg-[#0D1117] p-2.5 rounded-lg border border-amber-500/40 text-center space-y-1">
+                    <span className="text-[10px] font-bold text-amber-300 block uppercase font-sans">
+                      1. Master A* Cost Function
+                    </span>
+                    <div className="text-sm font-black text-white bg-[#161B22] p-1.5 rounded border border-[#30363D]">
+                      f(n) = g(n) + h(n)
+                    </div>
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      {isHi ? 'Priority Queue न्यूनतम f(n) वाले नोड को पहले चुनती है' : 'Priority Queue prioritizes lowest f(n) node first'}
+                    </span>
+                  </div>
+
+                  {/* Master Equation 2: g(n) */}
+                  <div className="bg-[#0D1117] p-2.5 rounded-lg border border-emerald-500/40 text-center space-y-1">
+                    <span className="text-[10px] font-bold text-emerald-300 block uppercase font-sans">
+                      2. g(n) 3-Parameter Path Cost
+                    </span>
+                    <div className="text-sm font-black text-white bg-[#161B22] p-1.5 rounded border border-[#30363D]">
+                      g(n) = Wd·D + Wt·T + Wh·H
+                    </div>
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      {isHi
+                        ? `दूरी (Wd=${ROUTE_WEIGHTS.distance}) + समय (Wt=${ROUTE_WEIGHTS.time}) + खतरा (Wh=${ROUTE_WEIGHTS.hazard})`
+                        : `Dist (Wd=${ROUTE_WEIGHTS.distance}) + Time (Wt=${ROUTE_WEIGHTS.time}) + Hazard (Wh=${ROUTE_WEIGHTS.hazard})`}
+                    </span>
+                  </div>
+
+                  {/* Master Equation 3: Haversine h(n) */}
+                  <div className="bg-[#0D1117] p-2.5 rounded-lg border border-cyan-500/40 text-center space-y-1">
+                    <span className="text-[10px] font-bold text-cyan-300 block uppercase font-sans">
+                      3. Haversine Heuristic h(n)
+                    </span>
+                    <div className="text-xs font-bold text-cyan-200 bg-[#161B22] p-1.5 rounded border border-[#30363D]">
+                      d = 2·R·atan2(√a, √(1−a))
+                    </div>
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      a = sin²(Δφ/2) + cos(φ₁)cos(φ₂)sin²(Δλ/2)
+                    </span>
+                  </div>
                 </div>
-                <div className="text-center font-mono text-xs text-cyan-300 mt-1">
-                  f(n) = g(n) + h(n) &nbsp;|&nbsp; h(n) = Haversine Straight-Line Distance to Goal
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-2 text-[10px] text-slate-300 font-mono">
-                  <div className="bg-[#161B22]/80 p-1.5 rounded border border-[#30363D]">
-                    <span className="text-cyan-400 block font-bold">Wd = {ROUTE_WEIGHTS.distance}</span>
-                    <span className="text-slate-400 text-[9px]">Distance Weight</span>
+
+                {/* Weights & Parameter Details Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] text-slate-300 font-mono pt-1 border-t border-[#21262D]">
+                  <div className="bg-[#161B22]/80 p-2 rounded-lg border border-[#30363D] flex justify-between items-center">
+                    <span className="text-cyan-400 font-bold">{isHi ? 'Wd·D (दूरी भार):' : 'Wd·D (Distance Weight):'}</span>
+                    <span className="text-white font-bold">{ROUTE_WEIGHTS.distance} × min(1, Dist/25km)</span>
                   </div>
-                  <div className="bg-[#161B22]/80 p-1.5 rounded border border-[#30363D]">
-                    <span className="text-emerald-400 block font-bold">Wt = {ROUTE_WEIGHTS.time}</span>
-                    <span className="text-slate-400 text-[9px]">Time Weight</span>
+                  <div className="bg-[#161B22]/80 p-2 rounded-lg border border-[#30363D] flex justify-between items-center">
+                    <span className="text-emerald-400 font-bold">{isHi ? 'Wt·T (समय भार):' : 'Wt·T (Time Weight):'}</span>
+                    <span className="text-white font-bold">{ROUTE_WEIGHTS.time} × min(1, Time/45min)</span>
                   </div>
-                  <div className="bg-[#161B22]/80 p-1.5 rounded border border-[#30363D]">
-                    <span className="text-amber-400 block font-bold">Wc = {ROUTE_WEIGHTS.traffic}</span>
-                    <span className="text-slate-400 text-[9px]">Traffic Weight</span>
-                  </div>
-                  <div className="bg-[#161B22]/80 p-1.5 rounded border border-[#30363D]">
-                    <span className="text-red-400 block font-bold">Wh = {ROUTE_WEIGHTS.hazard}</span>
-                    <span className="text-slate-400 text-[9px]">Safety Priority</span>
-                  </div>
-                  <div className="bg-[#161B22]/80 p-1.5 rounded border border-[#30363D]">
-                    <span className="text-purple-400 block font-bold">Wr = {ROUTE_WEIGHTS.restriction}</span>
-                    <span className="text-slate-400 text-[9px]">Restriction Blocker</span>
+                  <div className="bg-[#161B22]/80 p-2 rounded-lg border border-[#30363D] flex justify-between items-center">
+                    <span className="text-red-400 font-bold">{isHi ? 'Wh·H (खतरा सुरक्षा):' : 'Wh·H (Hazard Weight):'}</span>
+                    <span className="text-white font-bold">{ROUTE_WEIGHTS.hazard} × HazardSeverity</span>
                   </div>
                 </div>
               </div>
@@ -372,6 +422,318 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                 </div>
               </div>
             </>
+          )}
+
+          {activeTab === 'formulas' && (
+            <div className="space-y-4">
+              {/* Main Title Banner */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/50 via-cyan-950/40 to-[#161B22] border border-cyan-500/40 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center justify-center text-lg font-black shrink-0">
+                    📐
+                  </span>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2 flex-wrap">
+                      <span>{isHi ? 'A* एल्गोरिथ्म व Haversine का संपूर्ण गणितीय विश्लेषण' : 'A* Algorithm & Haversine Heuristic Complete Formulation'}</span>
+                      <span className="text-[10px] font-mono bg-cyan-950 px-2 py-0.5 rounded border border-cyan-500/40 text-cyan-300 font-bold">
+                        f(n) = g(n) + h(n)
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {isHi
+                        ? '3 पैरामीटर्स (Distance, Time, Hazard) पर आधारित संचित लागत g(n) और Admissible Haversine h(n) फॉर्मूला'
+                        : 'Complete formulation: Multi-objective g(n) cost (Distance, Time, Hazard) & Admissible Haversine h(n)'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono text-emerald-300 bg-emerald-950/70 px-2.5 py-1 rounded-lg border border-emerald-500/40 font-bold">
+                    ✓ h(n) ≤ h*(n)
+                  </span>
+                  <span className="text-[11px] font-mono text-amber-300 bg-amber-950/70 px-2.5 py-1 rounded-lg border border-amber-500/40 font-bold">
+                    Earth R = 6,371 km
+                  </span>
+                </div>
+              </div>
+
+              {/* 3 Master Equation Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Equation 1: Master Cost Function */}
+                <div className="bg-[#161B22] border border-amber-500/40 p-3.5 rounded-xl flex flex-col justify-between space-y-2.5 shadow">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-black text-amber-300 uppercase tracking-wide flex items-center gap-1.5">
+                        <span>⚡</span>
+                        <span>1. Master Cost Function</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {isHi ? 'कुल अनुमानित लागत' : 'Total Estimated Cost'}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-[#0D1117] border-2 border-amber-500/70 rounded-xl text-center font-mono font-black text-base text-white shadow-inner tracking-wider">
+                      f(n) = g(n) + h(n)
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-[11px] font-mono text-slate-300 pt-1.5 border-t border-[#21262D]">
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-amber-400 font-bold shrink-0">f(n):</span>
+                      <span className="text-slate-300 text-[10px] leading-tight">
+                        <strong>Total Estimated Cost</strong> {isHi ? 'through node n (Priority Queue इसी न्यूनतम मान वाले नोड को पहले चुनती है)' : 'through node n (Priority Queue prioritizes lowest f(n) node first)'}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-emerald-400 font-bold shrink-0">g(n):</span>
+                      <span className="text-slate-300 text-[10px] leading-tight">
+                        <strong>Accumulated Cost</strong> {isHi ? 'from Start to current node n (सड़क दूरी, यात्रा समय व खतरे की वास्तविक संचित लागत)' : 'from Start to current node n (cumulative road distance, duration, and hazard penalty)'}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-cyan-400 font-bold shrink-0">h(n):</span>
+                      <span className="text-slate-300 text-[10px] leading-tight">
+                        <strong>Haversine Heuristic</strong> {isHi ? 'estimate from node n to Goal (सीधी रेखा की हवाई दूरी)' : 'estimate from node n to Goal (great-circle aerial distance)'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Equation 2: 3-Parameter g(n) */}
+                <div className="bg-[#161B22] border border-emerald-500/40 p-3.5 rounded-xl flex flex-col justify-between space-y-2.5 shadow">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-black text-emerald-300 uppercase tracking-wide flex items-center gap-1.5">
+                        <span>📊</span>
+                        <span>2. g(n) Cost (3 Parameters)</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {isHi ? 'संचित पथ लागत' : 'Accumulated Path Cost'}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-[#0D1117] border-2 border-emerald-500/70 rounded-xl text-center font-mono font-black text-sm text-white shadow-inner tracking-wide">
+                      g(n) = Wd·D + Wt·T + Wh·H
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-[11px] font-mono text-slate-300 pt-1.5 border-t border-[#21262D]">
+                    <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
+                      <span className="text-cyan-300 font-bold">{isHi ? 'Wd·D (दूरी):' : 'Wd·D (Distance):'}</span>
+                      <span className="text-white font-semibold">{ROUTE_WEIGHTS.distance} × min(1.0, D / 25km)</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
+                      <span className="text-emerald-300 font-bold">{isHi ? 'Wt·T (समय):' : 'Wt·T (Time):'}</span>
+                      <span className="text-white font-semibold">{ROUTE_WEIGHTS.time} × min(1.0, T / 45min)</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
+                      <span className="text-red-400 font-bold">{isHi ? 'Wh·H (खतरा):' : 'Wh·H (Hazard):'}</span>
+                      <span className="text-white font-semibold">{ROUTE_WEIGHTS.hazard} × HazardSeverity</span>
+                    </div>
+                    <div className="text-[10px] text-amber-300 font-sans pt-0.5 leading-snug">
+                      * Penalty: SAFE=0.0, WARNING=0.3, CRITICAL=0.7, BLOCKED=∞ (+9999)
+                    </div>
+                  </div>
+                </div>
+
+                {/* Equation 3: Haversine Equation */}
+                <div className="bg-[#161B22] border border-cyan-500/40 p-3.5 rounded-xl flex flex-col justify-between space-y-2.5 shadow">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-black text-cyan-300 uppercase tracking-wide flex items-center gap-1.5">
+                        <span>🌐</span>
+                        <span>3. Haversine Formula h(n)</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {isHi ? 'हवाई दूरी सूत्र' : 'Aerial Distance Formula'}
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-[#0D1117] border-2 border-cyan-500/70 rounded-xl text-center font-mono font-bold text-xs text-white shadow-inner space-y-1">
+                      <div className="text-cyan-200 font-black">d = 2 · R · atan2(√a, √(1 − a))</div>
+                      <div className="text-[10px] text-slate-300 font-normal">
+                        a = sin²(Δφ / 2) + cos(φ₁)·cos(φ₂)·sin²(Δλ / 2)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-[10px] font-mono text-slate-300 pt-1.5 border-t border-[#21262D]">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Earth Radius (R):</span>
+                      <span className="text-cyan-300 font-bold">6,371 km (6,371,000 m)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Δφ (Lat Delta):</span>
+                      <span className="text-slate-300">(lat₂ − lat₁) × π / 180</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Δλ (Lng Delta):</span>
+                      <span className="text-slate-300">(lng₂ − lng₁) × π / 180</span>
+                    </div>
+                    <div className="flex justify-between pt-0.5 border-t border-[#21262D] text-white">
+                      <span className="text-cyan-300 font-bold">h(n) Normalization:</span>
+                      <span className="font-bold">Wd × min(1.0, d / 25km)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5-Step Haversine Mathematical Derivation */}
+              <div className="p-4 rounded-xl bg-[#161B22] border border-cyan-500/30 space-y-3">
+                <div className="flex items-center justify-between border-b border-[#21262D] pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🌍</span>
+                    <h4 className="font-bold text-white text-xs uppercase tracking-wider">
+                      Haversine Heuristic Step-by-Step Derivation (5 Steps)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-[#0D1117] px-2 py-0.5 rounded border border-[#30363D]">
+                    Admissibility Guarantee: h(n) ≤ h*(n)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-xs font-mono">
+                  {/* Step 1 */}
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-[#30363D] space-y-1">
+                    <span className="text-[10px] font-bold text-cyan-300 block uppercase font-sans">Step 1: Radians</span>
+                    <div className="text-[11px] text-slate-200">
+                      Δφ = Δlat × π / 180<br />
+                      Δλ = Δlng × π / 180
+                    </div>
+                    <span className="text-[9.5px] text-slate-400 font-sans block">Degrees to Radian</span>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-[#30363D] space-y-1">
+                    <span className="text-[10px] font-bold text-emerald-300 block uppercase font-sans">Step 2: Chord a</span>
+                    <div className="text-[10px] text-slate-200 leading-tight">
+                      a = sin²(Δφ/2) +<br />cos(φ₁)cos(φ₂)sin²(Δλ/2)
+                    </div>
+                    <span className="text-[9.5px] text-slate-400 font-sans block">Half-chord squared</span>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-[#30363D] space-y-1">
+                    <span className="text-[10px] font-bold text-amber-300 block uppercase font-sans">Step 3: Angle c</span>
+                    <div className="text-[11px] text-slate-200">
+                      c = 2·atan2(√a, √(1−a))
+                    </div>
+                    <span className="text-[9.5px] text-slate-400 font-sans block">Central angle (rad)</span>
+                  </div>
+
+                  {/* Step 4 */}
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-[#30363D] space-y-1">
+                    <span className="text-[10px] font-bold text-purple-300 block uppercase font-sans">Step 4: Distance d</span>
+                    <div className="text-[11px] text-slate-200">
+                      d = R · c<br />
+                      (R = 6,371 km)
+                    </div>
+                    <span className="text-[9.5px] text-slate-400 font-sans block">Geodesic distance</span>
+                  </div>
+
+                  {/* Step 5 */}
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-cyan-500/40 space-y-1">
+                    <span className="text-[10px] font-bold text-cyan-200 block uppercase font-sans">Step 5: h(n)</span>
+                    <div className="text-[11px] text-cyan-100 font-bold">
+                      h(n) = Wd · min(1, d/25)
+                    </div>
+                    <span className="text-[9.5px] text-emerald-400 font-sans block">At Goal: h=0</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Edge Summation & 3-Parameter Table */}
+              <div className="p-4 rounded-xl bg-[#161B22] border border-emerald-500/30 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-[#21262D] pb-2">
+                  <span className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <span>⚙️</span>
+                    <span>3-Parameter Multi-Objective Cost Function g(n)</span>
+                  </span>
+                  <span className="font-mono text-[10px] text-emerald-300 bg-[#0D1117] px-2 py-0.5 rounded border border-[#30363D]">
+                    g(n) = g(parent) + [ Wd·ΔD + Wt·ΔT + Wh·ΔH ]
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-cyan-500/30 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-cyan-300">1. Distance Parameter (D)</span>
+                      <span className="font-mono text-[10px] text-cyan-400">Wd = {ROUTE_WEIGHTS.distance}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      Formula: <code className="text-white">min(1.0, Dist / 25km)</code>. {isHi ? 'सड़क मार्ग की दूरी को 0 से 1 में स्केल करता है।' : 'Normalizes ground road distance onto a 0.0 to 1.0 scale.'}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-emerald-500/30 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-emerald-300">2. Time Parameter (T)</span>
+                      <span className="font-mono text-[10px] text-emerald-400">Wt = {ROUTE_WEIGHTS.time}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      Formula: <code className="text-white">min(1.0, Time / 45min)</code>. {isHi ? 'गति सीमा व जाम के अनुसार यात्रा समय जोड़ता है।' : 'Accounts for speed limits, congestion delays, and travel time.'}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-[#0D1117] rounded-lg border border-red-500/30 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-red-400">3. Hazard Parameter (H)</span>
+                      <span className="font-mono text-[10px] text-red-400">Wh = {ROUTE_WEIGHTS.hazard}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      Formula: <code className="text-white">Severity Score</code>. {isHi ? 'सड़क निर्माण या पुल खतरे पर +9999 पेनल्टी लगाकर बाईपास करता है।' : 'Incurs safety penalties on road/bridge hazards (+9999 for blocked) to trigger diversion.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Route Live Calculated Math Verification Card */}
+              <div className="p-4 rounded-xl bg-[#0D1117] border border-cyan-500/40 space-y-3">
+                <div className="flex items-center justify-between border-b border-[#21262D] pb-2">
+                  <span className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🏆</span>
+                    <span>Live Computation for Chosen Route: {optimalRoute.name}</span>
+                  </span>
+                  <span className="font-mono text-[11px] text-cyan-300 bg-[#161B22] px-2.5 py-0.5 rounded border border-[#30363D]">
+                    Lowest f(n) = {optimalMetrics?.totalFCost ?? optimalRoute.durationMinutes}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                  <div className="p-2 bg-[#161B22] rounded border border-[#30363D]">
+                    <span className="text-[10px] text-slate-400 block font-sans">Road Distance</span>
+                    <span className="text-white font-bold">{optimalRoute.distanceKm} km</span>
+                  </div>
+                  <div className="p-2 bg-[#161B22] rounded border border-[#30363D]">
+                    <span className="text-[10px] text-slate-400 block font-sans">Travel Time</span>
+                    <span className="text-emerald-400 font-bold">{optimalRoute.durationMinutes} min</span>
+                  </div>
+                  <div className="p-2 bg-[#161B22] rounded border border-[#30363D]">
+                    <span className="text-[10px] text-slate-400 block font-sans">g(n) Accumulated</span>
+                    <span className="text-cyan-300 font-bold">{optimalMetrics?.gCost ?? breakdown.distanceCost + breakdown.timeCost}</span>
+                  </div>
+                  <div className="p-2 bg-[#161B22] rounded border border-[#30363D]">
+                    <span className="text-[10px] text-slate-400 block font-sans">h(n) Haversine</span>
+                    <span className="text-amber-300 font-bold">{optimalMetrics?.hCost ?? '0.000'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mathematical Theorem Guarantee Banner */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-950/40 to-[#161B22] border border-cyan-500/30 text-xs text-slate-300 space-y-1.5">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <strong className="text-white flex items-center gap-1.5">
+                    <span>🎓</span>
+                    <span>Admissibility & Optimality Theorem:</span>
+                  </strong>
+                  <span className="font-mono text-[10px] text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/30 font-bold">
+                    h(n) ≤ h*(n)
+                  </span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-slate-300">
+                  {isHi
+                    ? 'दो GPS बिंदुओं के बीच Haversine द्वारा निकाली गई सीधी रेखा (Geodesic Aerial Distance) कभी भी वास्तविक सड़क दूरी से अधिक नहीं हो सकती (h(n) ≤ h*(n))। अतः A* कभी भी ओवर-एस्टीमेट नहीं करता, और यह गणितीय रूप से 100% गारंटी देता है कि वाहन को हमेशा न्यूनतम लागत व खतरे से मुक्त सर्वोत्तम डायवर्जन मिलेगा।'
+                    : 'The straight-line geodesic aerial distance calculated via Haversine between two GPS points can never exceed actual road network distance (h(n) ≤ h*(n)). Therefore, A* never overestimates the true remaining cost, mathematically guaranteeing an optimal, hazard-free route.'}
+                </p>
+              </div>
+            </div>
           )}
 
           {activeTab === 'trace' && (

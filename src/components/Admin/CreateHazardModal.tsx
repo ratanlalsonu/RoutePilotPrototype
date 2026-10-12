@@ -22,6 +22,7 @@ interface CreateHazardModalProps {
   onPickOnMap?: () => void;
   onNavigateToSensors?: () => void;
   initialHazardType?: HazardType;
+  hazardCategory?: 'ROAD' | 'BRIDGE';
 }
 
 export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
@@ -33,10 +34,22 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   onPickOnMap,
   onNavigateToSensors,
   initialHazardType,
+  hazardCategory,
 }) => {
+  const [category, setCategory] = useState<'ROAD' | 'BRIDGE'>(() => {
+    if (hazardCategory) return hazardCategory;
+    if (initialHazardType === 'Road Construction') return 'ROAD';
+    return 'ROAD';
+  });
   const [currentLat, setCurrentLat] = useState<number>(lat || 25.4585);
   const [currentLng, setCurrentLng] = useState<number>(lng || 78.5765);
-  const [type, setType] = useState<HazardType>('Bridge Damage');
+  const [type, setType] = useState<HazardType>(() => {
+    if (hazardCategory === 'ROAD' || initialHazardType === 'Road Construction') {
+      return 'Road Construction';
+    }
+    const currentHazard = hardwareSimEngine.getSimulationHazardData();
+    return currentHazard.isHazard ? currentHazard.type : 'Bridge Damage';
+  });
   const [severity, setSeverity] = useState<HazardSeverity>('CRITICAL');
   const [locationName, setLocationName] = useState('');
   const [roadName, setRoadName] = useState('');
@@ -54,9 +67,105 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const searchDebounceRef = useRef<any>(null);
 
+  const getBridgeHazardInfo = (hType: HazardType) => {
+    switch (hType) {
+      case 'High Water Level':
+        return {
+          englishName: 'High Water Level',
+          hindiName: 'जल भराव / बाढ़',
+          icon: '🌊',
+          sensorName: 'HC-SR04 Ultrasonic Telemetry • Water Level Rise Warning',
+          borderClass: 'border-blue-500/70 bg-gradient-to-r from-blue-950/80 via-blue-900/60 to-blue-950/80',
+          badgeClass: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+          badgeText: 'WATER LEVEL',
+        };
+      case 'Structural Vibration':
+        return {
+          englishName: 'Structural Vibration',
+          hindiName: 'पुल कंपन / दोलन',
+          icon: '💥',
+          sensorName: 'MPU-6050 Accelerometer • High Pier Oscillation Warning',
+          borderClass: 'border-red-500/70 bg-gradient-to-r from-red-950/80 via-red-900/60 to-red-950/80',
+          badgeClass: 'bg-red-500/20 text-red-300 border-red-500/40',
+          badgeText: 'VIBRATION',
+        };
+      case 'Excessive Tilt':
+        return {
+          englishName: 'Excessive Tilt',
+          hindiName: 'पुल झुकाव',
+          icon: '📐',
+          sensorName: 'SW-520D Tilt Sensor • Deck Inclination Anomaly',
+          borderClass: 'border-amber-500/70 bg-gradient-to-r from-amber-950/80 via-amber-900/60 to-amber-950/80',
+          badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+          badgeText: 'DECK TILT',
+        };
+      case 'Excessive Strain':
+        return {
+          englishName: 'Excessive Strain',
+          hindiName: 'अत्यधिक तनाव / भार',
+          icon: '⚖',
+          sensorName: 'HX-711 24-bit ADC Load Cell • Structural Overload',
+          borderClass: 'border-purple-500/70 bg-gradient-to-r from-purple-950/80 via-purple-900/60 to-purple-950/80',
+          badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+          badgeText: 'OVERLOAD',
+        };
+      case 'Excessive Displacement':
+        return {
+          englishName: 'Excessive Displacement',
+          hindiName: 'संरचनात्मक विस्थापन',
+          icon: '📏',
+          sensorName: 'Displacement Sensor • Structural Joint Shift Warning',
+          borderClass: 'border-rose-500/70 bg-gradient-to-r from-rose-950/80 via-rose-900/60 to-rose-950/80',
+          badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+          badgeText: 'DISPLACEMENT',
+        };
+      case 'Bridge Damage':
+      default:
+        return {
+          englishName: 'Bridge Damage',
+          hindiName: 'संरचनात्मक क्षति',
+          icon: '🌉',
+          sensorName: 'ESP32 Compound Multi-Sensor Alert • Bridge Span Alert',
+          borderClass: 'border-red-500/70 bg-gradient-to-r from-red-950/80 via-red-900/60 to-red-950/80',
+          badgeClass: 'bg-red-500/20 text-red-300 border-red-500/40',
+          badgeText: 'STRUCTURAL',
+        };
+    }
+  };
+
+  const handleSwitchToRoad = () => {
+    setCategory('ROAD');
+    setType('Road Construction');
+    setSeverity('WARNING');
+    setAffectedRadius(200);
+    setDescription('IoT Road Construction Beacon (ESP32 + SIM7600 + NEO-6M): Active road work zone and traffic diversion ahead.');
+    setSource('LIVE_HARDWARE');
+    setAutoFilledFromSim(true);
+  };
+
+  const handleSwitchToBridge = () => {
+    setCategory('BRIDGE');
+    const hazardData = hardwareSimEngine.getSimulationHazardData();
+    if (hazardData.isHazard) {
+      setType(hazardData.type);
+      setSeverity(hazardData.severity);
+      setAffectedRadius(hazardData.affectedRadius);
+      setDescription(hazardData.description);
+      setAutoFilledFromSim(true);
+    } else {
+      setType('Bridge Damage');
+      setSeverity('CRITICAL');
+      setAffectedRadius(180);
+      setDescription('ESP32 IoT Bridge Sensor Telemetry: Structural Bridge Damage alert on span.');
+      setAutoFilledFromSim(false);
+    }
+    setSource('LIVE_HARDWARE');
+  };
+
   const fillFromSimulation = () => {
     const hazardData = hardwareSimEngine.getSimulationHazardData();
     if (hazardData.isHazard) {
+      setCategory('BRIDGE');
       setType(hazardData.type);
       setSeverity(hazardData.severity);
       setAffectedRadius(hazardData.affectedRadius);
@@ -71,6 +180,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   const handleInjectAnomaly = (preset: 'FLOOD_ALERT' | 'VIBRATION_SPIKE' | 'PIER_TILT' | 'STRUCTURAL_STRAIN' | 'DISPLACEMENT_ANOMALY') => {
     hardwareSimEngine.applyPreset(preset);
     const updatedData = hardwareSimEngine.getSimulationHazardData();
+    setCategory('BRIDGE');
     setType(updatedData.type);
     setSeverity(updatedData.severity);
     setAffectedRadius(updatedData.affectedRadius);
@@ -96,7 +206,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
   useEffect(() => {
     const unsub = hardwareSimEngine.subscribe((newSim) => {
       setSimState({ ...newSim });
-      if (newSim.overallStatus !== 'SAFE') {
+      if (category === 'BRIDGE' && newSim.overallStatus !== 'SAFE') {
         const hazardData = hardwareSimEngine.getSimulationHazardData();
         if (hazardData.isHazard) {
           setType(hazardData.type);
@@ -109,11 +219,14 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
       }
     });
     return () => unsub();
-  }, []);
+  }, [category]);
 
-  // Sync coords and auto-fill from simulation when opened
+  // Sync coords and auto-fill when opened
   useEffect(() => {
     if (isOpen) {
+      const activeCat: 'ROAD' | 'BRIDGE' = hazardCategory || (initialHazardType === 'Road Construction' ? 'ROAD' : 'BRIDGE');
+      setCategory(activeCat);
+
       const targetLat = lat || 25.4585;
       const targetLng = lng || 78.5765;
       setCurrentLat(targetLat);
@@ -127,7 +240,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
         })
         .finally(() => setIsLoadingGeocode(false));
 
-      if (initialHazardType === 'Road Construction') {
+      if (activeCat === 'ROAD') {
         setType('Road Construction');
         setSeverity('WARNING');
         setAffectedRadius(200);
@@ -135,7 +248,6 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
         setSource('LIVE_HARDWARE');
         setAutoFilledFromSim(true);
       } else {
-        // Auto-fill hazard details from active simulation telemetry if a hazard exists
         const currentSim = hardwareSimEngine.getState();
         setSimState(currentSim);
         const hazardData = hardwareSimEngine.getSimulationHazardData();
@@ -147,11 +259,19 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
           setSource('LIVE_HARDWARE');
           setAutoFilledFromSim(true);
         } else {
+          const chosenType = (initialHazardType && initialHazardType !== 'Road Construction')
+            ? initialHazardType
+            : 'Bridge Damage';
+          setType(chosenType);
+          setSeverity('CRITICAL');
+          setAffectedRadius(180);
+          setDescription(`ESP32 IoT Bridge Sensor Telemetry: ${chosenType} alert reported on bridge span.`);
+          setSource('LIVE_HARDWARE');
           setAutoFilledFromSim(false);
         }
       }
     }
-  }, [isOpen, lat, lng, initialHazardType]);
+  }, [isOpen, lat, lng, initialHazardType, hazardCategory]);
 
   const handlePlaceSearch = (query: string) => {
     setSearchQuery(query);
@@ -214,14 +334,22 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-[#30363D] flex items-center justify-between bg-[#0D1117] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg border shadow shrink-0 ${
+              category === 'ROAD'
+                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                : 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+            }`}>
+              {category === 'ROAD' ? '🚧' : '🌉'}
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm sm:text-base">Create Infrastructure Hazard</h3>
-              <p className="text-[11px] text-slate-400">Set coordinates, affected radius & trigger dynamic routing</p>
+              <h3 className="font-bold text-white text-sm sm:text-base">
+                {category === 'ROAD' ? 'Create Road Hazard (सड़क निर्माण)' : 'Create Bridge Hazard (पुल खतरा)'}
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {category === 'ROAD'
+                  ? 'ESP32 Work Zone Beacon • Dynamic traffic diversion ahead'
+                  : 'IoT Bridge Sensor Telemetry • Real-time dynamic diversion'}
+              </p>
             </div>
           </div>
           <button
@@ -236,6 +364,34 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-3.5 text-xs">
+          {/* CATEGORY SELECTOR TABS: Road vs Bridge */}
+          <div className="bg-[#0D1117] p-1 rounded-xl border border-[#30363D] grid grid-cols-2 gap-1.5 shadow-sm">
+            <button
+              type="button"
+              onClick={handleSwitchToRoad}
+              className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                category === 'ROAD'
+                  ? 'bg-amber-500 text-black shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+              }`}
+            >
+              <span>🚧</span>
+              <span>Road Hazard (सड़क निर्माण)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSwitchToBridge}
+              className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                category === 'BRIDGE'
+                  ? 'bg-cyan-500 text-black shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-[#21262D]'
+              }`}
+            >
+              <span>🌉</span>
+              <span>Bridge Hazard (पुल सेंसर)</span>
+            </button>
+          </div>
+
           {/* Temporary Anomaly Toast Notification */}
           {anomalyToast && (
             <div className="p-2.5 rounded-xl bg-cyan-950/80 border border-cyan-500/50 text-cyan-200 text-[11px] font-semibold flex items-center justify-between animate-fade-in shadow-lg">
@@ -254,7 +410,7 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
           )}
 
           {/* SENSOR NODE & IOT SIMULATION SYNC SECTION */}
-          {initialHazardType === 'Road Construction' ? (
+          {category === 'ROAD' ? (
             <div className="rounded-xl overflow-hidden border-2 border-amber-500/80 shadow-2xl bg-gradient-to-br from-[#120e06] via-[#1a1307] to-[#0d0a04]">
               {/* Caution Barricade Top Strip */}
               <div
@@ -543,25 +699,77 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
             </div>
           </div>
 
-          {/* Hazard Type */}
+          {/* Hazard Type Display - Fixed/Written, NO Dropdown Selector */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Hazard Type</label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as HazardType)}
-              className="w-full bg-[#21262D] border border-[#30363D] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#AEF5F0] transition cursor-pointer"
-            >
-              <option value="Bridge Damage">Bridge Damage (संरचनात्मक क्षति)</option>
-              <option value="Road Blockage">Road Blockage (सड़क अवरोध)</option>
-              <option value="Road Construction">Road Construction (सड़क निर्माण)</option>
-              <option value="High Water Level">High Water Level (जल भराव)</option>
-              <option value="Structural Vibration">Structural Vibration (पुल कंपन)</option>
-              <option value="Excessive Tilt">Excessive Tilt (झुकाव)</option>
-              <option value="Excessive Displacement">Excessive Displacement (विस्थापन)</option>
-              <option value="Excessive Strain">Excessive Strain (तनाव)</option>
-              <option value="Accident">Accident (दुर्घटना)</option>
-              <option value="Other">Other (अन्य)</option>
-            </select>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Hazard Type (खतरे का प्रकार)
+              </label>
+              {category === 'ROAD' ? (
+                <span className="text-[10px] font-bold text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-500/40 flex items-center gap-1">
+                  <span>🚧</span>
+                  <span>सड़क निर्माण • Fixed</span>
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40 flex items-center gap-1">
+                  <span>📡</span>
+                  <span>ब्रिज सेंसर • Selected</span>
+                </span>
+              )}
+            </div>
+
+            {category === 'ROAD' ? (
+              /* Road Hazard: strictly "Road Construction (सड़क निर्माण)" */
+              <div className="w-full bg-gradient-to-r from-[#1f1606] via-[#291e0a] to-[#1f1606] border-2 border-amber-500/80 rounded-xl p-3 text-white flex items-center justify-between shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl shrink-0 shadow">
+                    🚧
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-amber-200 flex items-center gap-2">
+                      <span>Road Construction</span>
+                      <span className="text-xs text-amber-400 font-medium">(सड़क निर्माण)</span>
+                    </div>
+                    <div className="text-[10px] text-amber-300/80 font-medium mt-0.5">
+                      कार्य क्षेत्र चेतावनी • IoT Work Zone Beacon (ESP32 + SIM7600)
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500 text-black shadow">
+                    ROAD WORK
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* Bridge Hazard: Displays whichever bridge anomaly/hazard type was selected */
+              (() => {
+                const info = getBridgeHazardInfo(type);
+                return (
+                  <div className={`w-full ${info.borderClass} rounded-xl p-3 text-white flex items-center justify-between shadow-lg border`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-xl shrink-0 shadow">
+                        {info.icon}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          <span>{info.englishName}</span>
+                          <span className="text-xs text-slate-300 font-medium">({info.hindiName})</span>
+                        </div>
+                        <div className="text-[10px] text-slate-300/90 font-medium mt-0.5">
+                          {info.sensorName}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider ${info.badgeClass}`}>
+                        {info.badgeText}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
           </div>
 
           {/* Severity */}
@@ -666,9 +874,14 @@ export const CreateHazardModal: React.FC<CreateHazardModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-1.5 cursor-pointer"
+              className={`flex-1 py-2 px-3 rounded-xl text-white font-bold text-xs transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer ${
+                category === 'ROAD'
+                  ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30'
+                  : 'bg-red-600 hover:bg-red-500 shadow-red-600/30'
+              }`}
             >
-              <span>+ Create Hazard</span>
+              <span>+ Create {category === 'ROAD' ? 'Road Hazard' : 'Bridge Hazard'}</span>
+              <span className="font-normal opacity-90">({category === 'ROAD' ? 'Road Construction' : type})</span>
             </button>
           </div>
         </form>

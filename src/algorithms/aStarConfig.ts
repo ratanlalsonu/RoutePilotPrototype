@@ -31,11 +31,11 @@ export interface WeightPreset {
  * Safety (Wh = 5.0) has higher priority than shortest distance (Wd = 1.0).
  */
 export const ROUTE_WEIGHTS: RouteWeights = {
-  distance: 1.0,     // Wd
-  time: 1.5,         // Wt
-  traffic: 2.0,      // Wc
-  hazard: 5.0,       // Wh - Safety Priority
-  restriction: 1000, // Wr - Heavy penalty / blocker
+  distance: 1.0,     // Wd - Distance Weight
+  time: 1.5,         // Wt - Travel Time Weight
+  traffic: 0.0,      // Wc - Optional / Disabled
+  hazard: 5.0,       // Wh - Hazard Safety Priority
+  restriction: 1000, // Wr - Heavy blocker
 };
 
 /**
@@ -45,11 +45,11 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
   {
     id: 'safety_priority',
     name: 'Safety Priority (Default)',
-    description: 'Heavily penalizes hazards and high traffic. Diverts away from risks.',
+    description: 'Heavily penalizes hazards (Wh = 5.0). Prioritizes safety over distance.',
     weights: {
       distance: 1.0,
       time: 1.5,
-      traffic: 2.0,
+      traffic: 0.0,
       hazard: 5.0,
       restriction: 1000,
     },
@@ -57,11 +57,11 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
   {
     id: 'fastest_time',
     name: 'Fastest Travel Time',
-    description: 'Prioritizes travel duration and smooth highway flow.',
+    description: 'Prioritizes travel duration (Wt = 3.0) while avoiding hazards.',
     weights: {
       distance: 0.6,
       time: 3.0,
-      traffic: 2.5,
+      traffic: 0.0,
       hazard: 4.0,
       restriction: 1000,
     },
@@ -69,11 +69,11 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
   {
     id: 'shortest_distance',
     name: 'Shortest Distance',
-    description: 'Minimizes physical kilometers while respecting critical blockages.',
+    description: 'Prioritizes shortest kilometers (Wd = 3.0) while avoiding critical hazards.',
     weights: {
       distance: 3.0,
       time: 1.0,
-      traffic: 1.0,
+      traffic: 0.0,
       hazard: 3.5,
       restriction: 1000,
     },
@@ -81,11 +81,11 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
   {
     id: 'balanced',
     name: 'Balanced Multi-Objective',
-    description: 'Equally balances distance, time, traffic, and hazard avoidance.',
+    description: 'Equally balances distance, time, and hazard avoidance.',
     weights: {
-      distance: 1.2,
-      time: 1.6,
-      traffic: 1.8,
+      distance: 1.5,
+      time: 1.5,
+      traffic: 0.0,
       hazard: 4.5,
       restriction: 1000,
     },

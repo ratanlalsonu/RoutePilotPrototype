@@ -803,7 +803,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
 
           {activeTab === 'A* Algorithm' && (
             <div key="tab-astar" className="animate-tab-switch flex-1 flex flex-col">
-              <AStarAlgorithmTab journey={journey} hazards={hazards} appTheme={state.appSettings.appTheme} />
+              <AStarAlgorithmTab journey={journey} hazards={hazards} appTheme={state.appSettings.appTheme} language={lang} />
             </div>
           )}
 
@@ -842,7 +842,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ state, onSwitchM
           setIsModalOpen(false);
           setActiveTab('Sensor Nodes');
         }}
-        initialHazardType={sensorSubMode === 'ROAD_CONSTRUCTION' ? 'Road Construction' : undefined}
+        initialHazardType={
+          sensorSubMode === 'ROAD_CONSTRUCTION'
+            ? 'Road Construction'
+            : hardwareSimEngine.getSimulationHazardData().isHazard
+            ? hardwareSimEngine.getSimulationHazardData().type
+            : 'Bridge Damage'
+        }
+        hazardCategory={sensorSubMode === 'ROAD_CONSTRUCTION' ? 'ROAD' : 'BRIDGE'}
       />
 
       {/* Settings & API Key Modal */}

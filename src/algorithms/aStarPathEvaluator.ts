@@ -83,26 +83,11 @@ export function evaluateRoutesWithAStar(
 
   // 2. Evaluate each candidate path with A* Cost Function
   routes.forEach((route, index) => {
-    // g(n) = Path traversal cost (minutes + weighted km)
-    let gCost = Math.round((route.durationMinutes * 1.1 + route.distanceKm * 0.45) * 10) / 10;
-
-    // Vehicle agility adjustments
-    let vehicleModifier = 0;
-    if (vehicleType === 'truck' || vehicleType === 'bus') {
-      // Trucks face heavy traffic penalties in narrow city corridors (e.g. Route C)
-      if (route.name.includes('City') || route.name.includes('Arterial')) {
-        vehicleModifier += 18;
-      }
-      // Trucks favor wide open bypasses
-      if (route.name.includes('Bypass')) {
-        vehicleModifier -= 6;
-      }
-    } else if (vehicleType === 'bike') {
-      // Two-wheelers easily navigate urban corridors
-      vehicleModifier -= 4;
-    }
-
-    gCost = Math.max(1, gCost + vehicleModifier);
+    // 3 Parameters: Distance + Time + Hazard
+    const dNorm = Math.min(1.0, route.distanceKm / 25);
+    const tNorm = Math.min(1.0, route.durationMinutes / 45);
+    const distanceCost = Math.round(1.0 * dNorm * 1000) / 1000;
+    const timeCost = Math.round(1.5 * tNorm * 1000) / 1000;
 
     // Hazard collision penalty
     let hazardPenalty = 0;
@@ -124,6 +109,12 @@ export function evaluateRoutesWithAStar(
       }
     }
 
+    const hazardNormalized = isBlocked ? 1.0 : hazardPenalty > 0 ? 0.3 : 0.0;
+    const hazardCost = Math.round(5.0 * hazardNormalized * 1000) / 1000;
+
+    // g(n) = Wd·Distance + Wt·Time + Wh·Hazard
+    let gCost = isBlocked ? Infinity : Math.round((distanceCost + timeCost + hazardCost) * 1000) / 1000;
+
     // If this route was already evaluated by real A* road graph search, reuse its verified node-level metrics
     if (route.aStarMetrics && route.aStarMetrics.evaluatedNodesCount > 0) {
       gCost = route.aStarMetrics.gCost;
@@ -133,26 +124,26 @@ export function evaluateRoutesWithAStar(
     }
 
     const hCost = baseHeuristicCost;
-    const totalFCost = Math.round((gCost + hCost + hazardPenalty) * 10) / 10;
+    const totalFCost = isBlocked ? Infinity : Math.round((gCost + hCost) * 1000) / 1000;
 
     let status: 'OPTIMAL' | 'ALTERNATIVE' | 'HAZARD_BLOCKED' | 'CAUTION' = 'ALTERNATIVE';
     let explanation = '';
 
     if (isBlocked) {
       status = 'HAZARD_BLOCKED';
-      explanation = `Blocked by ${cautionHazard?.type || 'Hazard'}! A* assigned infinite cost (f=${totalFCost}).`;
+      explanation = `Blocked by ${cautionHazard?.type || 'Hazard'}! A* assigned infinite cost (g=∞, f=∞).`;
     } else if (hazardPenalty > 0) {
       status = 'CAUTION';
-      explanation = `Caution: Warning hazard nearby (+${hazardPenalty} penalty). Total f(n)=${totalFCost}.`;
+      explanation = `Caution: Warning hazard nearby (Wh·H=${hazardCost}). Total g(n)=${gCost}, f(n)=${totalFCost}.`;
     } else {
-      explanation = `Clear road network. g(n)=${gCost}, h(n)=${hCost} → f(n)=${totalFCost}.`;
+      explanation = `Clear road network. g(n)=${gCost} (Dist:${distanceCost} + Time:${timeCost} + Haz:${hazardCost}), h(n)=${hCost} → f(n)=${totalFCost}.`;
     }
 
     const costBreakdown = route.aStarMetrics?.costBreakdown || {
-      distanceCost: Math.round((1.0 * Math.min(1.0, route.distanceKm / 25)) * 1000) / 1000,
-      timeCost: Math.round((1.5 * Math.min(1.0, route.durationMinutes / 45)) * 1000) / 1000,
-      trafficCost: Math.round((2.0 * (route.name.includes('City') || route.name.includes('Arterial') ? 0.5 : 0.0)) * 1000) / 1000,
-      hazardCost: Math.round((5.0 * (isBlocked ? 1.0 : hazardPenalty > 0 ? 0.3 : 0.0)) * 1000) / 1000,
+      distanceCost,
+      timeCost,
+      trafficCost: 0,
+      hazardCost,
       restrictionCost: isBlocked ? Infinity : 0,
     };
 
