@@ -87,9 +87,22 @@ export const HardwareCircuitCanvas: React.FC<HardwareCircuitCanvasProps> = ({
         <g id="wires-layer">
           {WIRE_CONNECTIONS.map((w) => {
             const isHighlighted = hoveredWire?.id === w.id ||
-              hoveredPin?.pin === w.sourcePin ||
-              hoveredPin?.pin === w.targetPin;
+              (hoveredPin && (
+                (hoveredPin.comp === w.sourceComponent && hoveredPin.pin === w.sourcePin) ||
+                (hoveredPin.comp === w.targetComponent && hoveredPin.pin === w.targetPin) ||
+                hoveredPin.pin === w.sourcePin ||
+                hoveredPin.pin === w.targetPin
+              ));
             const isDimmed = hoveredWire && !isHighlighted;
+
+            // Flow direction:
+            // For sensor VCC connected to ESP32 3V3, flow animates strictly from 3V3 towards VCC
+            const is3v3Target = w.targetPin === '3V3';
+            const animFrom = is3v3Target
+              ? '-120'
+              : (w.direction === 'DEST_TO_SRC' ? '-120' : '120');
+
+            const isPower3v3 = w.signalType === 'POWER_3V3';
 
             return (
               <g
@@ -108,7 +121,7 @@ export const HardwareCircuitCanvas: React.FC<HardwareCircuitCanvasProps> = ({
                     d={w.path}
                     fill="none"
                     stroke={w.color}
-                    strokeWidth="8"
+                    strokeWidth={8}
                     strokeOpacity="0.4"
                     filter="url(#wireGlow)"
                   />
@@ -123,22 +136,34 @@ export const HardwareCircuitCanvas: React.FC<HardwareCircuitCanvasProps> = ({
                   strokeLinecap="round"
                 />
 
-                {/* Signal packet animation dots moving along active wires */}
+                {/* Signal & Power packet animation dots moving along active wires (Flow: 3V3 -> VCC for power rails) */}
                 {isRunning && (
                   <path
                     d={w.path}
                     fill="none"
-                    stroke={w.color === '#1e293b' ? '#64748b' : '#ffffff'}
-                    strokeWidth={isHighlighted ? 3 : 2}
-                    strokeDasharray="6 24"
+                    stroke={
+                      isPower3v3
+                        ? '#fef08a' // Bright luminous amber-gold for 3.3V power packets flowing into sensors
+                        : w.color === '#1e293b'
+                        ? '#64748b'
+                        : '#ffffff'
+                    }
+                    strokeWidth={isHighlighted ? 3.5 : (isPower3v3 ? 2.5 : 2)}
+                    strokeDasharray={isPower3v3 ? '8 20' : '6 24'}
                     strokeDashoffset="0"
                     strokeLinecap="round"
                   >
                     <animate
                       attributeName="stroke-dashoffset"
-                      from="120"
+                      from={animFrom}
                       to="0"
-                      dur={w.signalType === 'I2C' || w.signalType === 'SPI' ? '1.2s' : '2.2s'}
+                      dur={
+                        isPower3v3
+                          ? '1.8s'
+                          : w.signalType === 'I2C' || w.signalType === 'SPI'
+                          ? '1.2s'
+                          : '2.2s'
+                      }
                       repeatCount="indefinite"
                     />
                   </path>
@@ -1038,6 +1063,14 @@ export const HardwareCircuitCanvas: React.FC<HardwareCircuitCanvasProps> = ({
               <span className="text-slate-400">Destination:</span>
               <span className="text-[#AEF5F0] font-bold">{hoveredWire.targetComponent.toUpperCase()} [{hoveredWire.targetPin}]</span>
             </div>
+            {hoveredWire.signalType === 'POWER_3V3' && (
+              <div className="mt-1 pt-1 border-t border-[#30363D] flex items-center gap-1.5 text-[10px] text-amber-300 font-bold">
+                <span>⚡ Power Flow:</span>
+                <span className="text-white">ESP32 [3V3]</span>
+                <span>➔</span>
+                <span className="text-amber-200">{hoveredWire.targetComponent.toUpperCase()} [{hoveredWire.targetPin}]</span>
+              </div>
+            )}
           </div>
           <p className="mt-1.5 text-[11px] text-slate-300 font-sans">{hoveredWire.description}</p>
         </div>

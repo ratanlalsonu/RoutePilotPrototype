@@ -38,6 +38,7 @@ export interface WireConnection {
   color: string;
   path: string; // SVG path 'd' string
   status: 'CONNECTED' | 'ACTIVE' | 'ERROR';
+  direction?: 'SRC_TO_DEST' | 'DEST_TO_SRC';
   description: string;
 }
 
