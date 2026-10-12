@@ -618,7 +618,8 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
               ]}
             />
             {/* Active Route Midpoint Badge (Optimal Route - Half-length compact pill) */}
-            {(() => {
+            {/* Disappears immediately once route is selected, navigation starts, or alternatives cleared */}
+            {!journey.isRouteSelected && !journey.isNavigating && journey.alternativeRoutes && journey.alternativeRoutes.length > 0 && (() => {
               const activeMidIdx = Math.floor(activeRoutePath.length * 0.42);
               const activeMidPt = activeRoutePath[activeMidIdx] || activeRoutePath[Math.floor(activeRoutePath.length / 2)];
               if (!activeMidPt || !journey.activeRoute) return null;
@@ -725,69 +726,71 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                   ]}
                 />
                 {/* Clickable Route Commitment Badge - Zero-size anchor centered over route midpoint (Half-length compact pill) */}
-                <AdvancedMarker
-                  position={{ lat: midPt[0], lng: midPt[1] }}
-                  onClick={() => onCommitRoute && onCommitRoute(route.id)}
-                  title={`Click to select ${route.name}`}
-                >
-                  <div style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}>
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        transform: 'translate(-50%, -50%)',
-                      }}
-                    >
-                      {(() => {
-                        const fullTranslatedName = translateText(route.name, activeLang);
-                        const badgeBg = isLight ? '#ffffff' : '#161B22';
-                        const titleColor = isLight ? '#0f172a' : '#ffffff';
-                        const metricsColor = isLight ? '#1e293b' : '#94a3b8';
-                        const boxShadow = isLight
-                          ? '0 3px 12px rgba(0, 0, 0, 0.16)'
-                          : '0 4px 20px rgba(0, 0, 0, 0.7)';
-                        const distUnit = activeLang === 'hi' ? 'किमी' : 'km';
-                        const minUnit = activeLang === 'hi' ? 'मि.' : 'min';
+                {!journey.isRouteSelected && !journey.isNavigating && (
+                  <AdvancedMarker
+                    position={{ lat: midPt[0], lng: midPt[1] }}
+                    onClick={() => onCommitRoute && onCommitRoute(route.id)}
+                    title={`Click to select ${route.name}`}
+                  >
+                    <div style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      >
+                        {(() => {
+                          const fullTranslatedName = translateText(route.name, activeLang);
+                          const badgeBg = isLight ? '#ffffff' : '#161B22';
+                          const titleColor = isLight ? '#0f172a' : '#ffffff';
+                          const metricsColor = isLight ? '#1e293b' : '#94a3b8';
+                          const boxShadow = isLight
+                            ? '0 3px 12px rgba(0, 0, 0, 0.16)'
+                            : '0 4px 20px rgba(0, 0, 0, 0.7)';
+                          const distUnit = activeLang === 'hi' ? 'किमी' : 'km';
+                          const minUnit = activeLang === 'hi' ? 'मि.' : 'min';
 
-                        let icon = '⚡';
-                        let title = activeLang === 'hi' ? 'औसत' : 'Average';
-                        if (isBlocked) {
-                          icon = '🛑';
-                          title = activeLang === 'hi' ? 'अवरुद्ध' : 'Blocked';
-                        } else if (route.category === 'WORST') {
-                          icon = '⚠️';
-                          title = activeLang === 'hi' ? 'धीमा' : 'Worst';
-                        } else if (route.category === 'OPTIMAL' || route.aStarMetrics?.isOptimal) {
-                          icon = '⭐';
-                          title = activeLang === 'hi' ? 'इष्टतम' : 'Optimal';
-                        }
+                          let icon = '⚡';
+                          let title = activeLang === 'hi' ? 'औसत' : 'Average';
+                          if (isBlocked) {
+                            icon = '🛑';
+                            title = activeLang === 'hi' ? 'अवरुद्ध' : 'Blocked';
+                          } else if (route.category === 'WORST') {
+                            icon = '⚠️';
+                            title = activeLang === 'hi' ? 'धीमा' : 'Worst';
+                          } else if (route.category === 'OPTIMAL' || route.aStarMetrics?.isOptimal) {
+                            icon = '⭐';
+                            title = activeLang === 'hi' ? 'इष्टतम' : 'Optimal';
+                          }
 
-                        return (
-                          <div
-                            className="alt-route-badge-pill flex flex-col items-center justify-center px-2 py-0.5 rounded-lg text-center border-[1.5px] shadow-lg cursor-pointer whitespace-nowrap active:scale-95 transition-all select-none"
-                            style={{
-                              backgroundColor: badgeBg,
-                              borderColor: dotColor,
-                              boxShadow: boxShadow,
-                              minWidth: '80px',
-                              maxWidth: '125px',
-                            }}
-                            title={fullTranslatedName}
-                          >
-                            <div className="flex items-center justify-center gap-1 leading-tight text-[10px] font-bold">
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                              <span className="alt-route-title font-bold" style={{ color: titleColor }}>{icon} ${title}</span>
+                          return (
+                            <div
+                              className="alt-route-badge-pill flex flex-col items-center justify-center px-2 py-0.5 rounded-lg text-center border-[1.5px] shadow-lg cursor-pointer whitespace-nowrap active:scale-95 transition-all select-none"
+                              style={{
+                                backgroundColor: badgeBg,
+                                borderColor: dotColor,
+                                boxShadow: boxShadow,
+                                minWidth: '80px',
+                                maxWidth: '125px',
+                              }}
+                              title={fullTranslatedName}
+                            >
+                              <div className="flex items-center justify-center gap-1 leading-tight text-[10px] font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                                <span className="alt-route-title font-bold" style={{ color: titleColor }}>{icon} {title}</span>
+                              </div>
+                              <div className="alt-route-metrics text-[9px] font-mono leading-tight mt-0.5 whitespace-nowrap font-medium" style={{ color: metricsColor }}>
+                                {route.distanceKm} {distUnit} • {route.durationMinutes} {minUnit}
+                              </div>
                             </div>
-                            <div className="alt-route-metrics text-[9px] font-mono leading-tight mt-0.5 whitespace-nowrap font-medium" style={{ color: metricsColor }}>
-                              {route.distanceKm} ${distUnit} • {route.durationMinutes} ${minUnit}
-                            </div>
-                          </div>
-                        );
-                      })()}
+                          );
+                        })()}
+                      </div>
                     </div>
-                  </div>
-                </AdvancedMarker>
+                  </AdvancedMarker>
+                )}
               </React.Fragment>
             );
           })}

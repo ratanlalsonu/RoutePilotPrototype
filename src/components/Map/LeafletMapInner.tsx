@@ -520,6 +520,14 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       L.marker([journey.destination.lat, journey.destination.lng], { icon: destIcon }).addTo(routesLayer);
     }
 
+    // Check if route badges should be visible:
+    // Only display when comparing alternatives before selection! Disappears once selected or navigating!
+    const shouldShowBadges =
+      !journey.isRouteSelected &&
+      !journey.isNavigating &&
+      journey.alternativeRoutes &&
+      journey.alternativeRoutes.length > 0;
+
     // 3. Active Route Polylines (Dotted Point Road Path from Source to Destination)
     // Note: interactive: false ensures road clicks pass through to map for hazard placement!
     if (journey.activeRoute && journey.activeRoute.coordinates.length > 1) {
@@ -582,7 +590,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
       // Midpoint badge for Active / Optimal Route (Half-length compact pill)
       const activeMidIdx = Math.floor(coords.length * 0.42);
       const activeMidPt = coords[activeMidIdx] || coords[Math.floor(coords.length / 2)];
-      if (activeMidPt) {
+      if (shouldShowBadges && activeMidPt) {
         const fullTranslatedName = translateText(journey.activeRoute.name, activeLang);
         const badgeBg = isLight ? '#ffffff' : '#161B22';
         const titleColor = isLight ? '#0f172a' : '#ffffff';
@@ -684,7 +692,7 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         const altRatio = altIdx === 0 ? 0.50 : 0.58;
         const midIdx = Math.floor(coords.length * altRatio);
         const midPt = coords[midIdx] || coords[Math.floor(coords.length / 2)];
-        if (midPt) {
+        if (shouldShowBadges && midPt) {
           const fullTranslatedName = translateText(altRoute.name, activeLang);
           const badgeBg = isLight ? '#ffffff' : '#161B22';
           const titleColor = isLight ? '#0f172a' : '#ffffff';
@@ -776,6 +784,8 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
   }, [
     journey.activeRoute?.id,
     journey.alternativeRoutes?.length,
+    journey.isRouteSelected,
+    journey.isNavigating,
     journey.origin?.name,
     journey.destination?.name,
     activeLang,

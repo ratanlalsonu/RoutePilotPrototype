@@ -101,6 +101,7 @@ const INITIAL_JOURNEY: Journey = {
   eta: '--:--',
   status: 'IDLE',
   isNavigating: false,
+  isRouteSelected: false,
   isSimulating: false,
   simulationSpeed: 1,
   startedAt: '',
@@ -1006,6 +1007,8 @@ class RealtimeSyncManager {
       }
       const isResuming = (this.state.journey.progressMeters || 0) > 0 || (this.state.journey.currentLocation.pointIndex || 0) > 0;
       this.state.journey.isNavigating = true;
+      this.state.journey.isRouteSelected = true;
+      this.state.journey.alternativeRoutes = [];
       this.state.journey.status = 'ON_ROUTE';
       this.state.journey.diversionState = 'ROUTE_ACTIVE';
       this.state.journey.isSimulating = true;
@@ -1260,6 +1263,7 @@ class RealtimeSyncManager {
 
       const etaDate = new Date(Date.now() + optimal.durationMinutes * 60000);
       this.state.journey.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.state.journey.isRouteSelected = false;
       this.state.journey.diversionState = 'ALTERNATIVES_DISPLAYED';
 
       const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1357,6 +1361,7 @@ class RealtimeSyncManager {
     j.totalDistanceKm = newOptimal.distanceKm;
     j.remainingDistanceKm = newOptimal.distanceKm;
     j.remainingDurationMinutes = newOptimal.durationMinutes;
+    j.isRouteSelected = false;
     j.diversionState = 'ALTERNATIVES_DISPLAYED';
     j.diversionCount += 1;
     if (!j.handledHazardIds.includes(hazard.hazardId)) {
@@ -1400,7 +1405,9 @@ class RealtimeSyncManager {
 
     // 2. CRITICAL USER REQUIREMENT:
     // "uske baad other route disapear ho jaye"
+    // "is black patti jispe likha hai optimal select karne ke baad disapear ho jana chahiye aise hi average and worst valo ke liye bhi"
     j.alternativeRoutes = []; // ALL OTHER ALTERNATIVE ROUTES DISAPPEAR!
+    j.isRouteSelected = true; // ROUTE CHOSEN -> ALL ROUTE BADGES/BLACK PATTIS DISAPPEAR!
 
     // 3. CRITICAL USER REQUIREMENT:
     // "uske baad hazard ka notification bhi gayab ho jaye"
@@ -1461,6 +1468,7 @@ class RealtimeSyncManager {
    * Re-display optimal route alternatives if user wants to change route
    */
   public async showOptimalRoutesAgain() {
+    this.state.journey.isRouteSelected = false;
     await this.generateAndDisplayOptimalRoutes(this.state.journey.vehicleType);
   }
 

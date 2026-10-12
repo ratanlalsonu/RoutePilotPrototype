@@ -159,6 +159,7 @@ export interface Journey {
   eta: string;
   status: 'IDLE' | 'ON_ROUTE' | 'DIVERTED' | 'ARRIVED' | 'PAUSED';
   isNavigating: boolean;
+  isRouteSelected?: boolean;
   isSimulating: boolean;
   simulationSpeed: number; // multiplier e.g. 1x, 2x, 4x
   progressMeters?: number; // cumulative distance traveled in meters along active route
