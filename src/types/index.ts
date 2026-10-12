@@ -143,6 +143,7 @@ export interface Journey {
     pointIndex: number;
   };
   currentSpeedKmh: number;
+  configuredSpeedKmh?: number;
   activeRouteId: string;
   activeRoute: RouteOption | null;
   alternativeRoutes: RouteOption[];

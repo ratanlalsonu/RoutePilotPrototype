@@ -617,20 +617,83 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                 },
               ]}
             />
+            {/* Active Route Midpoint Badge (Optimal Route - Half-length compact pill) */}
+            {(() => {
+              const activeMidIdx = Math.floor(activeRoutePath.length * 0.42);
+              const activeMidPt = activeRoutePath[activeMidIdx] || activeRoutePath[Math.floor(activeRoutePath.length / 2)];
+              if (!activeMidPt || !journey.activeRoute) return null;
+
+              const fullTranslatedName = translateText(journey.activeRoute.name, activeLang);
+              const badgeBg = isLight ? '#ffffff' : '#161B22';
+              const titleColor = isLight ? '#0f172a' : '#ffffff';
+              const metricsColor = isLight ? '#1e293b' : '#94a3b8';
+              const dotColor = journey.activeRoute.color || '#10b981';
+              const boxShadow = isLight
+                ? '0 3px 12px rgba(0, 0, 0, 0.16)'
+                : '0 4px 20px rgba(0, 0, 0, 0.7)';
+              const distUnit = activeLang === 'hi' ? 'किमी' : 'km';
+              const minUnit = activeLang === 'hi' ? 'मि.' : 'min';
+
+              const isOptimal = journey.activeRoute.category === 'OPTIMAL' || journey.activeRoute.isRecommended || journey.activeRoute.aStarMetrics?.isOptimal;
+              const badgeTitle = (isOptimal || !journey.activeRoute.category)
+                ? `⭐ ${activeLang === 'hi' ? 'इष्टतम' : 'Optimal'}`
+                : journey.activeRoute.category === 'AVERAGE'
+                ? `⚡ ${activeLang === 'hi' ? 'औसत' : 'Average'}`
+                : `⚠️ ${activeLang === 'hi' ? 'धीमा' : 'Worst'}`;
+
+              return (
+                <AdvancedMarker
+                  position={{ lat: activeMidPt.lat, lng: activeMidPt.lng }}
+                  onClick={() => onCommitRoute && onCommitRoute(journey.activeRoute!.id)}
+                  title={`Active Route: ${journey.activeRoute.name}`}
+                >
+                  <div style={{ width: 0, height: 0, position: 'relative', overflow: 'visible' }}>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    >
+                      <div
+                        className="alt-route-badge-pill flex flex-col items-center justify-center px-2 py-0.5 rounded-lg text-center border-[1.5px] shadow-lg cursor-pointer whitespace-nowrap active:scale-95 transition-all select-none"
+                        style={{
+                          backgroundColor: badgeBg,
+                          borderColor: dotColor,
+                          boxShadow: boxShadow,
+                          minWidth: '80px',
+                          maxWidth: '125px',
+                        }}
+                        title={fullTranslatedName}
+                      >
+                        <div className="flex items-center justify-center gap-1 leading-tight text-[10px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                          <span className="alt-route-title font-bold" style={{ color: titleColor }}>{badgeTitle}</span>
+                          <span className="text-[8px] bg-emerald-500/20 text-emerald-400 font-bold px-1 rounded shrink-0">✓</span>
+                        </div>
+                        <div className="alt-route-metrics text-[9px] font-mono leading-tight mt-0.5 whitespace-nowrap font-medium" style={{ color: metricsColor }}>
+                          {journey.activeRoute.distanceKm} {distUnit} • {journey.activeRoute.durationMinutes} {minUnit}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </AdvancedMarker>
+              );
+            })()}
           </>
         )}
 
         {/* Alternative Routes Polylines (Dotted Point Paths) */}
         {journey.alternativeRoutes &&
-          journey.alternativeRoutes.map((route) => {
+          journey.alternativeRoutes.map((route, altIdx) => {
             if (!route.coordinates || route.coordinates.length < 2) return null;
             const path = route.coordinates.map(([lat, lng]) => ({ lat, lng }));
-            const midIndex = Math.floor(route.coordinates.length / 2);
-            const midPt = route.coordinates[midIndex];
+            const altRatio = altIdx === 0 ? 0.50 : 0.58;
+            const midIndex = Math.floor(route.coordinates.length * altRatio);
+            const midPt = route.coordinates[midIndex] || route.coordinates[Math.floor(route.coordinates.length / 2)];
             const isBlocked = route.aStarMetrics?.status === 'HAZARD_BLOCKED';
             const dotColor = isBlocked ? '#ef4444' : route.color;
-            const aStarScore = route.aStarMetrics?.totalFCost;
-            const isOptimal = route.aStarMetrics?.isOptimal;
 
             return (
               <React.Fragment key={route.id}>
@@ -661,7 +724,7 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     },
                   ]}
                 />
-                {/* Clickable Route Commitment Badge - Zero-size anchor centered over route midpoint */}
+                {/* Clickable Route Commitment Badge - Zero-size anchor centered over route midpoint (Half-length compact pill) */}
                 <AdvancedMarker
                   position={{ lat: midPt[0], lng: midPt[1] }}
                   onClick={() => onCommitRoute && onCommitRoute(route.id)}
@@ -678,54 +741,47 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
                     >
                       {(() => {
                         const fullTranslatedName = translateText(route.name, activeLang);
-                        const compactName = fullTranslatedName.includes(' — ')
-                          ? fullTranslatedName.split(' — ')[0].trim()
-                          : fullTranslatedName;
-
                         const badgeBg = isLight ? '#ffffff' : '#161B22';
                         const titleColor = isLight ? '#0f172a' : '#ffffff';
-                        const metricsColor = isLight ? '#1e293b' : '#cbd5e1';
-                        const scoreColor = isLight ? '#0284c7' : '#22d3ee';
+                        const metricsColor = isLight ? '#1e293b' : '#94a3b8';
                         const boxShadow = isLight
                           ? '0 3px 12px rgba(0, 0, 0, 0.16)'
                           : '0 4px 20px rgba(0, 0, 0, 0.7)';
+                        const distUnit = activeLang === 'hi' ? 'किमी' : 'km';
+                        const minUnit = activeLang === 'hi' ? 'मि.' : 'min';
+
+                        let icon = '⚡';
+                        let title = activeLang === 'hi' ? 'औसत' : 'Average';
+                        if (isBlocked) {
+                          icon = '🛑';
+                          title = activeLang === 'hi' ? 'अवरुद्ध' : 'Blocked';
+                        } else if (route.category === 'WORST') {
+                          icon = '⚠️';
+                          title = activeLang === 'hi' ? 'धीमा' : 'Worst';
+                        } else if (route.category === 'OPTIMAL' || route.aStarMetrics?.isOptimal) {
+                          icon = '⭐';
+                          title = activeLang === 'hi' ? 'इष्टतम' : 'Optimal';
+                        }
 
                         return (
                           <div
-                            className="alt-route-badge-pill w-max inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border-2 shadow-md cursor-pointer whitespace-nowrap active:scale-95 transition select-none"
+                            className="alt-route-badge-pill flex flex-col items-center justify-center px-2 py-0.5 rounded-lg text-center border-[1.5px] shadow-lg cursor-pointer whitespace-nowrap active:scale-95 transition-all select-none"
                             style={{
                               backgroundColor: badgeBg,
                               borderColor: dotColor,
                               boxShadow: boxShadow,
+                              minWidth: '80px',
+                              maxWidth: '125px',
                             }}
                             title={fullTranslatedName}
                           >
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }}></span>
-                            <span className="alt-route-title font-bold" style={{ color: titleColor }}>{compactName}</span>
-                            {isBlocked && (
-                              <span className={`text-red-600 font-mono font-bold text-[9px] ${isLight ? 'bg-red-50 border-red-200' : 'bg-red-950/80 border-red-500/40 text-red-400'} px-1 py-0.2 rounded border shrink-0`}>
-                                🛑 {activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}
-                              </span>
-                            )}
-                            {!isBlocked && (route.category === 'OPTIMAL' || isOptimal) && (
-                              <span className={`text-emerald-500 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0`}>
-                                ⭐ {activeLang === 'hi' ? 'इष्टतम' : 'Optimal'}
-                              </span>
-                            )}
-                            {!isBlocked && route.category === 'AVERAGE' && (
-                              <span className={`text-sky-500 font-mono font-bold text-[9px] ${isLight ? 'bg-sky-50 border-sky-200' : 'bg-sky-950/80 border-sky-500/40 text-sky-400'} px-1 py-0.2 rounded border shrink-0`}>
-                                ⚡ {activeLang === 'hi' ? 'औसत' : 'Average'}
-                              </span>
-                            )}
-                            {!isBlocked && route.category === 'WORST' && (
-                              <span className={`text-amber-500 font-mono font-bold text-[9px] ${isLight ? 'bg-amber-50 border-amber-200' : 'bg-amber-950/80 border-amber-500/40 text-amber-400'} px-1 py-0.2 rounded border shrink-0`}>
-                                ⚠️ {activeLang === 'hi' ? 'धीमा' : 'Worst'}
-                              </span>
-                            )}
-                            <span className="alt-route-metrics font-medium shrink-0" style={{ color: metricsColor }}>
-                              • {route.distanceKm} {activeLang === 'hi' ? 'किमी' : 'km'} • {route.durationMinutes} {activeLang === 'hi' ? 'मिनट' : 'min'}
-                              {aStarScore ? <span className="alt-route-score font-mono ml-0.5 font-bold" style={{ color: scoreColor }}>[f={aStarScore}]</span> : null}
-                            </span>
+                            <div className="flex items-center justify-center gap-1 leading-tight text-[10px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                              <span className="alt-route-title font-bold" style={{ color: titleColor }}>{icon} ${title}</span>
+                            </div>
+                            <div className="alt-route-metrics text-[9px] font-mono leading-tight mt-0.5 whitespace-nowrap font-medium" style={{ color: metricsColor }}>
+                              {route.distanceKm} ${distUnit} • {route.durationMinutes} ${minUnit}
+                            </div>
                           </div>
                         );
                       })()}

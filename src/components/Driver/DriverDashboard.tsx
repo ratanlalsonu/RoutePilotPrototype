@@ -48,6 +48,10 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   }, [state.appSettings.language]);
 
   const { journey, hazards, sensorNodes } = state;
+  const currentVehicleProfile = getVehicleSpeedProfile(journey.vehicleType || 'car');
+  const currentSpeedDisplay =
+    journey.configuredSpeedKmh ||
+    (journey.currentSpeedKmh > 0 ? journey.currentSpeedKmh : currentVehicleProfile.averageSpeedKmh);
 
   // Gather all 3 candidate paths (or detours) for presentation
   const candidateRoutesList: RouteOption[] = useMemo(() => {
@@ -274,6 +278,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   const handleVehicleSelect = async (type: VehicleType) => {
     setIsCalculatingRoutes(true);
     try {
+      const profile = getVehicleSpeedProfile(type);
+      realtimeSync.setSpeedKmh(profile.averageSpeedKmh);
       await realtimeSync.generateAndDisplayOptimalRoutes(type);
     } finally {
       setIsCalculatingRoutes(false);
@@ -319,7 +325,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
   };
 
   const handleSpeedChange = (speed: number) => {
-    realtimeSync.setSimulationSpeed(speed);
+    realtimeSync.setSpeedKmh(speed);
+  };
+
+  const handleSpeedDelta = (delta: number) => {
+    realtimeSync.adjustSpeedKmh(delta);
   };
 
   const handleToggleLanguage = (lang: 'en' | 'hi') => {
@@ -861,8 +871,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                             </div>
                             <div className="text-[10px] text-slate-400">
                               {language === 'hi'
-                                ? 'वाहन प्रकार चुनें — गति और सड़क प्रतिबंधों के आधार पर 3 मार्ग विश्लेषित होंगे'
-                                : 'Select vehicle — 3 paths will be analyzed based on speed and road limits'}
+                                ? 'वाहन चुनते ही इसकी औसत गति (Average Speed) सेट होगी, जिसे बाद में 1-1 यूनिट बढ़ा-घटा सकते हैं'
+                                : 'Selecting vehicle sets its base average speed, which you can adjust by 1 unit (+1 / -1 km/h)'}
                             </div>
                           </div>
                           {isCalculatingRoutes && (
@@ -872,11 +882,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
 
                         <div className="grid grid-cols-5 gap-1.5">
                           {[
-                            { id: 'car', label: t.vehicleCar, icon: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z', speed: language === 'hi' ? '~54 किमी/घं' : '~54 km/h' },
-                            { id: 'bike', label: t.vehicleBike, icon: 'M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 6H6m6 11.5l3.5-7 3.5 2', speed: language === 'hi' ? '~42 किमी/घं' : '~42 km/h' },
-                            { id: 'van', label: t.vehicleVan, icon: 'M1 5h16v12H1zM17 9l4 2v6h-4', speed: language === 'hi' ? '~48 किमी/घं' : '~48 km/h' },
-                            { id: 'bus', label: t.vehicleBus, icon: 'M4 3h16v16H4zM4 11h16', speed: language === 'hi' ? '~36 किमी/घं' : '~36 km/h' },
-                            { id: 'truck', label: t.vehicleTruck, icon: 'M1 3h15v13H1zM16 8h4l3 3v5h-7z', speed: language === 'hi' ? '~32 किमी/घं' : '~32 km/h' },
+                            { id: 'car', label: t.vehicleCar, icon: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z', speed: language === 'hi' ? 'औसत 54 किमी/घं' : 'Avg 54 km/h' },
+                            { id: 'bike', label: t.vehicleBike, icon: 'M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 6H6m6 11.5l3.5-7 3.5 2', speed: language === 'hi' ? 'औसत 42 किमी/घं' : 'Avg 42 km/h' },
+                            { id: 'van', label: t.vehicleVan, icon: 'M1 5h16v12H1zM17 9l4 2v6h-4', speed: language === 'hi' ? 'औसत 48 किमी/घं' : 'Avg 48 km/h' },
+                            { id: 'bus', label: t.vehicleBus, icon: 'M4 3h16v16H4zM4 11h16', speed: language === 'hi' ? 'औसत 36 किमी/घं' : 'Avg 36 km/h' },
+                            { id: 'truck', label: t.vehicleTruck, icon: 'M1 3h15v13H1zM16 8h4l3 3v5h-7z', speed: language === 'hi' ? 'औसत 32 किमी/घं' : 'Avg 32 km/h' },
                           ].map((v) => (
                             <button
                               key={v.id}
@@ -1182,73 +1192,109 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-1.5 font-bold text-white">
                             <span className="text-sm">⚡</span>
-                            <span>Vehicle Speed Control</span>
+                            <span>{language === 'hi' ? 'वाहन गति नियंत्रण' : 'Vehicle Speed Control'}</span>
                           </div>
-                          <span className="text-xs font-mono font-bold text-[#AEF5F0] bg-[#AEF5F0]/10 px-2 py-0.5 rounded border border-[#AEF5F0]/30">
-                            {journey.simulationSpeed || 1}x Speed
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-mono font-extrabold text-[#AEF5F0] bg-[#AEF5F0]/10 px-2 py-0.5 rounded border border-[#AEF5F0]/30 shadow-sm">
+                              {currentSpeedDisplay} {language === 'hi' ? 'किमी/घं' : 'km/h'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ({currentVehicleProfile.averageSpeedKmh} {language === 'hi' ? 'औसत' : 'avg'})
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Interactive Minus, Plus & Presets */}
+                        {/* Interactive Minus, Plus (+1 / -1 Unit) */}
                         <div className="flex items-center justify-between gap-1.5">
                           <button
                             type="button"
-                            onClick={() => {
-                              const cur = journey.simulationSpeed || 1;
-                              const next = Math.max(0.25, parseFloat((cur - 0.5).toFixed(2)));
-                              handleSpeedChange(next);
-                            }}
-                            title="Decrease Speed (-0.5x)"
-                            className="flex-1 py-1.5 rounded-lg bg-[#161B22] hover:bg-[#30363D] active:scale-95 border border-[#30363D] text-slate-200 font-bold text-xs flex items-center justify-center transition cursor-pointer"
+                            onClick={() => handleSpeedDelta(-1)}
+                            title={language === 'hi' ? '1 यूनिट घटाएँ (-1 किमी/घं)' : 'Decrease Speed (-1 km/h)'}
+                            className="flex-1 py-1.5 rounded-lg bg-[#161B22] hover:bg-[#30363D] active:scale-95 border border-[#30363D] text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer"
                           >
-                            − Slower (-0.5x)
+                            <span className="text-sm font-extrabold">−</span>
+                            <span>{language === 'hi' ? '-1 यूनिट कम' : '-1 Unit (-1 km/h)'}</span>
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => {
-                              const cur = journey.simulationSpeed || 1;
-                              const next = Math.min(10, parseFloat((cur + 0.5).toFixed(2)));
-                              handleSpeedChange(next);
-                            }}
-                            title="Increase Speed (+0.5x)"
-                            className="flex-1 py-1.5 rounded-lg bg-[#161B22] hover:bg-[#30363D] active:scale-95 border border-[#30363D] text-[#AEF5F0] font-bold text-xs flex items-center justify-center transition cursor-pointer"
+                            onClick={() => handleSpeedDelta(+1)}
+                            title={language === 'hi' ? '1 यूनिट बढ़ाएँ (+1 किमी/घं)' : 'Increase Speed (+1 km/h)'}
+                            className="flex-1 py-1.5 rounded-lg bg-[#161B22] hover:bg-[#30363D] active:scale-95 border border-[#AEF5F0]/40 text-[#AEF5F0] font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer shadow-sm shadow-[#AEF5F0]/10"
                           >
-                            + Faster (+0.5x)
+                            <span className="text-sm font-extrabold">+</span>
+                            <span>{language === 'hi' ? '+1 यूनिट तेज' : '+1 Unit (+1 km/h)'}</span>
                           </button>
                         </div>
 
-                        {/* Granular Slider */}
-                        <div className="flex items-center gap-2 px-1">
-                          <span className="text-[10px] text-slate-400 font-mono">0.25x</span>
-                          <input
-                            type="range"
-                            min="0.25"
-                            max="8"
-                            step="0.25"
-                            value={journey.simulationSpeed || 1}
-                            onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
-                            className="flex-1 accent-[#AEF5F0] h-1.5 bg-[#161B22] rounded-lg cursor-pointer"
-                          />
-                          <span className="text-[10px] text-slate-400 font-mono">8x</span>
+                        {/* Granular Slider for km/h */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono px-0.5">
+                            <span>15 km/h</span>
+                            <span className="text-slate-300 font-semibold">
+                              {language === 'hi' ? '1 इकाई प्रति क्लिक' : '±1 unit per click'}
+                            </span>
+                            <span>120 km/h</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-1">
+                            <input
+                              type="range"
+                              min="15"
+                              max="120"
+                              step="1"
+                              value={currentSpeedDisplay}
+                              onChange={(e) => handleSpeedChange(parseInt(e.target.value, 10))}
+                              className="flex-1 accent-[#AEF5F0] h-1.5 bg-[#161B22] rounded-lg cursor-pointer"
+                            />
+                          </div>
                         </div>
 
-                        {/* Speed Preset Quick Pills */}
+                        {/* Speed Quick Step Pills */}
                         <div className="grid grid-cols-5 gap-1">
-                          {[0.5, 1, 2, 4, 8].map((spd) => (
-                            <button
-                              key={spd}
-                              type="button"
-                              onClick={() => handleSpeedChange(spd)}
-                              className={`py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
-                                (journey.simulationSpeed || 1) === spd
-                                  ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 shadow-sm font-extrabold'
-                                  : 'bg-[#161B22] border-[#30363D] text-slate-400 hover:text-white'
-                              }`}
-                            >
-                              {spd}x
-                            </button>
-                          ))}
+                          <button
+                            type="button"
+                            onClick={() => handleSpeedDelta(-5)}
+                            className="py-1 rounded-lg text-[10px] font-bold bg-[#161B22] border border-[#30363D] text-slate-400 hover:text-white transition cursor-pointer"
+                            title="-5 km/h"
+                          >
+                            -5
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSpeedDelta(-1)}
+                            className="py-1 rounded-lg text-[10px] font-bold bg-[#161B22] border border-[#30363D] text-slate-300 hover:text-white transition cursor-pointer"
+                            title="-1 km/h"
+                          >
+                            -1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSpeedChange(currentVehicleProfile.averageSpeedKmh)}
+                            className={`py-1 rounded-lg text-[9px] font-bold border transition cursor-pointer truncate px-0.5 ${
+                              currentSpeedDisplay === currentVehicleProfile.averageSpeedKmh
+                                ? 'bg-[#AEF5F0] border-[#AEF5F0] text-slate-950 font-extrabold shadow-sm'
+                                : 'bg-[#AEF5F0]/15 border-[#AEF5F0]/40 text-[#AEF5F0] hover:bg-[#AEF5F0]/25'
+                            }`}
+                            title={`Reset to ${journey.vehicleType} average speed (${currentVehicleProfile.averageSpeedKmh} km/h)`}
+                          >
+                            {language === 'hi' ? `औसत (${currentVehicleProfile.averageSpeedKmh})` : `Avg (${currentVehicleProfile.averageSpeedKmh})`}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSpeedDelta(+1)}
+                            className="py-1 rounded-lg text-[10px] font-bold bg-[#161B22] border border-[#30363D] text-[#AEF5F0] hover:text-white transition cursor-pointer"
+                            title="+1 km/h"
+                          >
+                            +1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSpeedDelta(+5)}
+                            className="py-1 rounded-lg text-[10px] font-bold bg-[#161B22] border border-[#30363D] text-[#AEF5F0] hover:text-white transition cursor-pointer"
+                            title="+5 km/h"
+                          >
+                            +5
+                          </button>
                         </div>
 
                         {/* Simulation Actions: Step & Report */}
@@ -1984,32 +2030,31 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ state, onSwitc
                   </div>
                 )}
 
-                {/* ZONE 3: BOTTOM-CENTER — Streamlined Cockpit Drive Bar (Current Speed Dial Removed, Speed Multiplier + Actions Retained) */}
+                {/* ZONE 3: BOTTOM-CENTER — Streamlined Cockpit Drive Bar (Speed in km/h with ±1 Unit Increment) */}
                 <div className="absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 z-[995] bg-[#161B22]/95 backdrop-blur-md border border-[#30363D] rounded-2xl shadow-2xl px-3 py-1.5 sm:py-2 flex items-center justify-center gap-2.5 sm:gap-3.5 select-none max-w-[calc(100vw-24px)] pointer-events-auto whitespace-nowrap flex-nowrap shrink-0">
-                  {/* Speed Increase & Decrease Multiplier Controls */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* Speed Increase & Decrease by 1 Unit (+1 / -1 km/h) */}
+                  <div className="flex items-center gap-1 shrink-0 bg-[#0D1117]/80 px-1.5 py-0.5 rounded-xl border border-[#30363D]">
                     <button
                       type="button"
-                      onClick={() => {
-                        const cur = journey.simulationSpeed || 1;
-                        handleSpeedChange(Math.max(0.25, parseFloat((cur - 0.5).toFixed(2))));
-                      }}
-                      title={t.slowerBtn}
-                      className="w-7 h-7 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-95 text-slate-200 font-bold text-sm flex items-center justify-center border border-[#30363D] cursor-pointer shrink-0"
+                      onClick={() => handleSpeedDelta(-1)}
+                      title={language === 'hi' ? '1 यूनिट गति घटाएँ (-1 किमी/घं)' : 'Decrease speed (-1 km/h unit)'}
+                      className="w-7 h-7 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-90 text-slate-200 font-extrabold text-sm flex items-center justify-center border border-[#30363D] cursor-pointer shrink-0 transition"
                     >
                       −
                     </button>
-                    <span className="font-mono text-xs font-bold text-[#AEF5F0] px-1.5 min-w-[32px] text-center select-none shrink-0">
-                      {journey.simulationSpeed || 1}x
-                    </span>
+                    <div className="flex flex-col items-center px-1.5 min-w-[56px] select-none shrink-0 text-center">
+                      <span className="font-mono text-xs font-bold text-[#AEF5F0] leading-none">
+                        {currentSpeedDisplay} {language === 'hi' ? 'किमी/घं' : 'km/h'}
+                      </span>
+                      <span className="text-[8px] text-slate-400 font-mono mt-0.5 leading-none">
+                        ±1 unit
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        const cur = journey.simulationSpeed || 1;
-                        handleSpeedChange(Math.min(10, parseFloat((cur + 0.5).toFixed(2))));
-                      }}
-                      title={t.fasterBtn}
-                      className="w-7 h-7 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-95 text-[#AEF5F0] font-bold text-sm flex items-center justify-center border border-[#30363D] cursor-pointer shrink-0"
+                      onClick={() => handleSpeedDelta(+1)}
+                      title={language === 'hi' ? '1 यूनिट गति बढ़ाएँ (+1 किमी/घं)' : 'Increase speed (+1 km/h unit)'}
+                      className="w-7 h-7 rounded-lg bg-[#21262D] hover:bg-[#30363D] active:scale-90 text-[#AEF5F0] font-extrabold text-sm flex items-center justify-center border border-[#AEF5F0]/30 cursor-pointer shrink-0 transition shadow-sm shadow-[#AEF5F0]/10"
                     >
                       +
                     </button>

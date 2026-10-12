@@ -84,7 +84,8 @@ const INITIAL_JOURNEY: Journey = {
     heading: 0,
     pointIndex: 0,
   },
-  currentSpeedKmh: 0,
+  currentSpeedKmh: 54,
+  configuredSpeedKmh: 54,
   activeRouteId: '',
   activeRoute: null,
   alternativeRoutes: [],
@@ -771,10 +772,10 @@ class RealtimeSyncManager {
       metersToAdvance = 80 * deltaSecondsOrStep;
     } else {
       // Continuous smooth interpolation frame (runs at screen refresh rate ~60-120fps)
-      const mult = Math.max(0.25, Math.min(10, j.simulationSpeed || 1));
       const profile = getVehicleSpeedProfile(j.vehicleType);
-      // Realistic speed adjusted by simulation speed multiplier
-      const speedKmh = Math.max(15, Math.round(profile.averageSpeedKmh * mult));
+      const speedKmh = j.configuredSpeedKmh && j.configuredSpeedKmh > 0
+        ? j.configuredSpeedKmh
+        : (j.currentSpeedKmh > 0 ? j.currentSpeedKmh : profile.averageSpeedKmh);
       j.currentSpeedKmh = speedKmh;
       // Convert km/h to m/s with natural visual pacing multiplier (~1.65x)
       const metersPerSecond = (speedKmh / 3.6) * 1.65;
@@ -853,7 +854,12 @@ class RealtimeSyncManager {
     const remainingMeters = Math.max(0, totalMeters - nextProgress);
     const remainingKm = parseFloat((remainingMeters / 1000).toFixed(1));
     j.remainingDistanceKm = remainingKm;
-    j.remainingDurationMinutes = calculateVehicleDuration(remainingKm, j.vehicleType);
+    j.remainingDurationMinutes = calculateVehicleDuration(
+      remainingKm,
+      j.vehicleType,
+      undefined,
+      j.configuredSpeedKmh || j.currentSpeedKmh
+    );
 
     // Dynamic progress percent based on real distance
     j.progressPercent = Math.min(99, Math.max(0, Math.round((nextProgress / totalMeters) * 100)));
@@ -935,11 +941,53 @@ class RealtimeSyncManager {
     }
   }
 
+  public setSpeedKmh(speedKmh: number) {
+    const profile = getVehicleSpeedProfile(this.state.journey.vehicleType);
+    const clamped = Math.max(10, Math.min(150, Math.round(speedKmh)));
+    this.state.journey.configuredSpeedKmh = clamped;
+    this.state.journey.currentSpeedKmh = clamped;
+    this.state.journey.simulationSpeed = parseFloat((clamped / profile.averageSpeedKmh).toFixed(2));
+
+    if (this.state.journey.remainingDistanceKm > 0) {
+      this.state.journey.remainingDurationMinutes = calculateVehicleDuration(
+        this.state.journey.remainingDistanceKm,
+        this.state.journey.vehicleType,
+        undefined,
+        clamped
+      );
+      const etaDate = new Date(Date.now() + this.state.journey.remainingDurationMinutes * 60000);
+      this.state.journey.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    this.vehicleListeners.forEach((cb) => cb(this.state.journey.currentLocation, this.state.journey.currentSpeedKmh));
+    this.notify(false);
+  }
+
+  public adjustSpeedKmh(delta: number) {
+    const profile = getVehicleSpeedProfile(this.state.journey.vehicleType);
+    const current = this.state.journey.configuredSpeedKmh || this.state.journey.currentSpeedKmh || profile.averageSpeedKmh;
+    this.setSpeedKmh(current + delta);
+  }
+
   public setSimulationSpeed(speed: number) {
     const clamped = Math.max(0.25, Math.min(10, parseFloat(speed.toFixed(2))));
     this.state.journey.simulationSpeed = clamped;
     const profile = getVehicleSpeedProfile(this.state.journey.vehicleType);
-    this.state.journey.currentSpeedKmh = Math.max(15, Math.round(profile.averageSpeedKmh * clamped));
+    const speedKmh = Math.max(10, Math.round(profile.averageSpeedKmh * clamped));
+    this.state.journey.configuredSpeedKmh = speedKmh;
+    this.state.journey.currentSpeedKmh = speedKmh;
+
+    if (this.state.journey.remainingDistanceKm > 0) {
+      this.state.journey.remainingDurationMinutes = calculateVehicleDuration(
+        this.state.journey.remainingDistanceKm,
+        this.state.journey.vehicleType,
+        undefined,
+        speedKmh
+      );
+      const etaDate = new Date(Date.now() + this.state.journey.remainingDurationMinutes * 60000);
+      this.state.journey.eta = etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
     this.vehicleListeners.forEach((cb) => cb(this.state.journey.currentLocation, this.state.journey.currentSpeedKmh));
     this.notify(false);
   }
@@ -965,8 +1013,10 @@ class RealtimeSyncManager {
         this.state.journey.progressMeters = 0;
       }
       const profile = getVehicleSpeedProfile(this.state.journey.vehicleType);
-      const mult = Math.max(0.25, Math.min(10, this.state.journey.simulationSpeed || 1));
-      this.state.journey.currentSpeedKmh = Math.max(15, Math.round(profile.averageSpeedKmh * mult));
+      const targetSpeed = this.state.journey.configuredSpeedKmh || profile.averageSpeedKmh;
+      this.state.journey.configuredSpeedKmh = targetSpeed;
+      this.state.journey.currentSpeedKmh = targetSpeed;
+      this.state.journey.simulationSpeed = parseFloat((targetSpeed / profile.averageSpeedKmh).toFixed(2));
       if (!this.state.journey.startedAt) {
         this.state.journey.startedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
@@ -1067,6 +1117,12 @@ class RealtimeSyncManager {
 
   public setVehicleType(vehicleType: Journey['vehicleType']) {
     this.state.journey.vehicleType = vehicleType;
+    const profile = getVehicleSpeedProfile(vehicleType);
+    this.state.journey.configuredSpeedKmh = profile.averageSpeedKmh;
+    this.state.journey.currentSpeedKmh = profile.averageSpeedKmh;
+    this.state.journey.simulationSpeed = 1;
+    this.vehicleListeners.forEach((cb) => cb(this.state.journey.currentLocation, this.state.journey.currentSpeedKmh));
+
     // If destination is already picked, recalculate optimal routes for this vehicle type!
     if (this.state.journey.destination && this.state.journey.destination.name && this.state.journey.destination.lat !== 0) {
       this.generateAndDisplayOptimalRoutes(vehicleType);
@@ -1103,7 +1159,11 @@ class RealtimeSyncManager {
     this.state.journey.status = 'IDLE';
     this.state.journey.diversionState = 'CALCULATING_ALTERNATIVES';
     this.state.journey.progressPercent = 0;
-    this.state.journey.currentSpeedKmh = 0;
+    const profile = getVehicleSpeedProfile(this.state.journey.vehicleType || 'car');
+    if (!this.state.journey.configuredSpeedKmh) {
+      this.state.journey.configuredSpeedKmh = profile.averageSpeedKmh;
+      this.state.journey.currentSpeedKmh = profile.averageSpeedKmh;
+    }
 
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     this.addRouteEvent({
@@ -1137,6 +1197,13 @@ class RealtimeSyncManager {
   public async generateAndDisplayOptimalRoutes(vehicleType?: Journey['vehicleType']) {
     const vType = vehicleType || this.state.journey.vehicleType || 'car';
     this.state.journey.vehicleType = vType;
+    const profile = getVehicleSpeedProfile(vType);
+
+    if (vehicleType || !this.state.journey.configuredSpeedKmh) {
+      this.state.journey.configuredSpeedKmh = profile.averageSpeedKmh;
+      this.state.journey.currentSpeedKmh = profile.averageSpeedKmh;
+      this.state.journey.simulationSpeed = 1;
+    }
 
     const currentLoc = this.state.journey.currentLocation;
     const isMidTrip =

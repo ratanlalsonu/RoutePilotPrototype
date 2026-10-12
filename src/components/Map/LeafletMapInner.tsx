@@ -567,11 +567,71 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
         lineJoin: 'round',
         interactive: false,
       }).addTo(routesLayer);
+
+      // Clickable hit zone for the active route
+      const activeHitZone = L.polyline(coords, {
+        weight: 28,
+        opacity: 0,
+        interactive: true,
+      }).addTo(routesLayer);
+
+      activeHitZone.on('click', () => {
+        if (onCommitRoute && journey.activeRoute) onCommitRoute(journey.activeRoute.id);
+      });
+
+      // Midpoint badge for Active / Optimal Route (Half-length compact pill)
+      const activeMidIdx = Math.floor(coords.length * 0.42);
+      const activeMidPt = coords[activeMidIdx] || coords[Math.floor(coords.length / 2)];
+      if (activeMidPt) {
+        const fullTranslatedName = translateText(journey.activeRoute.name, activeLang);
+        const badgeBg = isLight ? '#ffffff' : '#161B22';
+        const titleColor = isLight ? '#0f172a' : '#ffffff';
+        const metricsColor = isLight ? '#1e293b' : '#94a3b8';
+        const dotColor = journey.activeRoute.color || '#10b981';
+        const boxShadow = isLight
+          ? '0 3px 12px rgba(0, 0, 0, 0.16)'
+          : '0 4px 20px rgba(0, 0, 0, 0.7)';
+        const distUnit = activeLang === 'hi' ? 'किमी' : 'km';
+        const minUnit = activeLang === 'hi' ? 'मि.' : 'min';
+
+        const isOptimal = journey.activeRoute.category === 'OPTIMAL' || journey.activeRoute.isRecommended || journey.activeRoute.aStarMetrics?.isOptimal;
+        const badgeTitle = (isOptimal || !journey.activeRoute.category)
+          ? `⭐ ${activeLang === 'hi' ? 'इष्टतम' : 'Optimal'}`
+          : journey.activeRoute.category === 'AVERAGE'
+          ? `⚡ ${activeLang === 'hi' ? 'औसत' : 'Average'}`
+          : `⚠️ ${activeLang === 'hi' ? 'धीमा' : 'Worst'}`;
+
+        const activeBadgeIcon = L.divIcon({
+          className: 'alt-route-badge-container',
+          html: `
+            <div
+              class="alt-route-badge-pill flex flex-col items-center justify-center px-2 py-0.5 rounded-lg text-center border-[1.5px] shadow-lg cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition-all select-none"
+              style="background-color: ${badgeBg}; border-color: ${dotColor}; box-shadow: ${boxShadow}; min-width: 80px; max-width: 125px;"
+              title="${fullTranslatedName}"
+            >
+              <div class="flex items-center justify-center gap-1 leading-tight text-[10px] font-bold">
+                <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${dotColor};"></span>
+                <span class="alt-route-title font-bold" style="color: ${titleColor};">${badgeTitle}</span>
+                <span class="text-[8px] bg-emerald-500/20 text-emerald-400 font-bold px-1 rounded shrink-0">✓</span>
+              </div>
+              <div class="alt-route-metrics text-[9px] font-mono leading-tight mt-0.5 whitespace-nowrap font-medium" style="color: ${metricsColor};">
+                ${journey.activeRoute.distanceKm} ${distUnit} • ${journey.activeRoute.durationMinutes} ${minUnit}
+              </div>
+            </div>
+          `,
+          iconAnchor: [0, 0],
+        });
+
+        const activeBadgeMarker = L.marker(activeMidPt, { icon: activeBadgeIcon }).addTo(routesLayer);
+        activeBadgeMarker.on('click', () => {
+          if (onCommitRoute && journey.activeRoute) onCommitRoute(journey.activeRoute.id);
+        });
+      }
     }
 
     // 4. Alternative Routes Polylines + Badges (Dotted Point Paths along roads)
     if (journey.alternativeRoutes && journey.alternativeRoutes.length > 0) {
-      journey.alternativeRoutes.forEach((altRoute) => {
+      journey.alternativeRoutes.forEach((altRoute, altIdx) => {
         if (!altRoute.coordinates || altRoute.coordinates.length < 2) return;
         const coords: [number, number][] = altRoute.coordinates.map(([lat, lng]) => [lat, lng]);
         const isBlocked = altRoute.aStarMetrics?.status === 'HAZARD_BLOCKED';
@@ -620,45 +680,49 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
           if (onCommitRoute) onCommitRoute(altRoute.id);
         });
 
-        // Midpoint badge
-        const midIdx = Math.floor(coords.length / 2);
-        const midPt = coords[midIdx];
+        // Midpoint badge (Half-length compact pill)
+        const altRatio = altIdx === 0 ? 0.50 : 0.58;
+        const midIdx = Math.floor(coords.length * altRatio);
+        const midPt = coords[midIdx] || coords[Math.floor(coords.length / 2)];
         if (midPt) {
-          const aStarScore = altRoute.aStarMetrics?.totalFCost;
-          const isOptimal = altRoute.aStarMetrics?.isOptimal;
-
-          // Format compact route name (e.g. "Route B — Outer Bypass" -> "Route B")
           const fullTranslatedName = translateText(altRoute.name, activeLang);
-          const compactName = fullTranslatedName.includes(' — ')
-            ? fullTranslatedName.split(' — ')[0].trim()
-            : fullTranslatedName;
-
           const badgeBg = isLight ? '#ffffff' : '#161B22';
           const titleColor = isLight ? '#0f172a' : '#ffffff';
-          const metricsColor = isLight ? '#1e293b' : '#cbd5e1';
-          const scoreColor = isLight ? '#0284c7' : '#22d3ee';
+          const metricsColor = isLight ? '#1e293b' : '#94a3b8';
           const boxShadow = isLight
             ? '0 3px 12px rgba(0, 0, 0, 0.16)'
             : '0 4px 20px rgba(0, 0, 0, 0.7)';
+          const distUnit = activeLang === 'hi' ? 'किमी' : 'km';
+          const minUnit = activeLang === 'hi' ? 'मि.' : 'min';
+
+          let icon = '⚡';
+          let title = activeLang === 'hi' ? 'औसत' : 'Average';
+          if (isBlocked) {
+            icon = '🛑';
+            title = activeLang === 'hi' ? 'अवरुद्ध' : 'Blocked';
+          } else if (altRoute.category === 'WORST') {
+            icon = '⚠️';
+            title = activeLang === 'hi' ? 'धीमा' : 'Worst';
+          } else if (altRoute.category === 'OPTIMAL' || altRoute.aStarMetrics?.isOptimal) {
+            icon = '⭐';
+            title = activeLang === 'hi' ? 'इष्टतम' : 'Optimal';
+          }
 
           const badgeIcon = L.divIcon({
             className: 'alt-route-badge-container',
             html: `
               <div
-                class="alt-route-badge-pill w-max inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border-2 shadow-md cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition select-none"
-                style="background-color: ${badgeBg}; border-color: ${dotColor}; box-shadow: ${boxShadow};"
+                class="alt-route-badge-pill flex flex-col items-center justify-center px-2 py-0.5 rounded-lg text-center border-[1.5px] shadow-lg cursor-pointer transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition-all select-none"
+                style="background-color: ${badgeBg}; border-color: ${dotColor}; box-shadow: ${boxShadow}; min-width: 80px; max-width: 125px;"
                 title="${fullTranslatedName}"
               >
-                <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${dotColor};"></span>
-                <span class="alt-route-title font-bold" style="color: ${titleColor};">${compactName}</span>
-                ${isBlocked ? `<span class="text-red-600 font-mono font-bold text-[9px] ${isLight ? 'bg-red-50 border-red-200' : 'bg-red-950/80 border-red-500/40 text-red-400'} px-1 py-0.2 rounded border shrink-0">🛑 ${activeLang === 'hi' ? 'अवरुद्ध' : 'BLOCKED'}</span>` : ''}
-                ${!isBlocked && (altRoute.category === 'OPTIMAL' || isOptimal) ? `<span class="text-emerald-500 font-mono font-bold text-[9px] ${isLight ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'} px-1 py-0.2 rounded border shrink-0">⭐ ${activeLang === 'hi' ? 'इष्टतम' : 'Optimal'}</span>` : ''}
-                ${!isBlocked && altRoute.category === 'AVERAGE' ? `<span class="text-sky-500 font-mono font-bold text-[9px] ${isLight ? 'bg-sky-50 border-sky-200' : 'bg-sky-950/80 border-sky-500/40 text-sky-400'} px-1 py-0.2 rounded border shrink-0">⚡ ${activeLang === 'hi' ? 'औसत' : 'Average'}</span>` : ''}
-                ${!isBlocked && altRoute.category === 'WORST' ? `<span class="text-amber-500 font-mono font-bold text-[9px] ${isLight ? 'bg-amber-50 border-amber-200' : 'bg-amber-950/80 border-amber-500/40 text-amber-400'} px-1 py-0.2 rounded border shrink-0">⚠️ ${activeLang === 'hi' ? 'धीमा' : 'Worst'}</span>` : ''}
-                <span class="alt-route-metrics font-medium shrink-0" style="color: ${metricsColor};">
-                  • ${altRoute.distanceKm} ${activeLang === 'hi' ? 'किमी' : 'km'} • ${altRoute.durationMinutes} ${activeLang === 'hi' ? 'मिनट' : 'min'}
-                  ${aStarScore ? `<span class="alt-route-score font-mono ml-0.5 font-bold" style="color: ${scoreColor};">[f=${aStarScore}]</span>` : ''}
-                </span>
+                <div class="flex items-center justify-center gap-1 leading-tight text-[10px] font-bold">
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${dotColor};"></span>
+                  <span class="alt-route-title font-bold" style="color: ${titleColor};">${icon} ${title}</span>
+                </div>
+                <div class="alt-route-metrics text-[9px] font-mono leading-tight mt-0.5 whitespace-nowrap font-medium" style="color: ${metricsColor};">
+                  ${altRoute.distanceKm} ${distUnit} • ${altRoute.durationMinutes} ${minUnit}
+                </div>
               </div>
             `,
             iconAnchor: [0, 0],

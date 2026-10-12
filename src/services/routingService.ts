@@ -87,21 +87,23 @@ export function getVehicleSpeedProfile(type: VehicleType): VehicleSpeedProfile {
 export function calculateVehicleDuration(
   distanceKm: number,
   vehicleType: VehicleType,
-  baseCarMinutes?: number
+  baseCarMinutes?: number,
+  customSpeedKmh?: number
 ): number {
   if (distanceKm <= 0.05) return 0;
 
   const profile = getVehicleSpeedProfile(vehicleType);
 
-  if (baseCarMinutes && baseCarMinutes > 0) {
+  if (baseCarMinutes && baseCarMinutes > 0 && (!customSpeedKmh || customSpeedKmh === profile.averageSpeedKmh)) {
     return Math.max(1, Math.round(baseCarMinutes * profile.timeMultiplierVsCar));
   }
 
-  // Weight speed according to distance (longer distances spend more time on highways)
-  const isHighway = distanceKm > 15;
-  const speed = isHighway
-    ? profile.citySpeedKmh * 0.25 + profile.highwaySpeedKmh * 0.75
-    : profile.averageSpeedKmh;
+  // Weight speed according to driver custom speed or highway/city profile
+  const speed = customSpeedKmh && customSpeedKmh > 0
+    ? customSpeedKmh
+    : (distanceKm > 15
+      ? profile.citySpeedKmh * 0.25 + profile.highwaySpeedKmh * 0.75
+      : profile.averageSpeedKmh);
 
   const rawMinutes = (distanceKm / speed) * 60;
   // Add traffic buffer of 1-2 minutes for city driving
