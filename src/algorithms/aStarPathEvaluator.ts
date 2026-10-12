@@ -1,5 +1,10 @@
 import { RouteOption, Hazard, VehicleType, AStarMetrics } from '../types';
 import { getDistanceMeters, hazardAffectsRoute, getSymmetricRouteOverlap } from './hazardRouteIntersection';
+import {
+  DEFAULT_NORMALIZATION_BOUNDS,
+  getAdaptiveDistanceBound,
+  getAdaptiveTimeBound,
+} from './aStarConfig';
 
 export interface AStarEvaluationResult {
   routes: RouteOption[];
@@ -82,10 +87,20 @@ export function evaluateRoutesWithAStar(
   });
 
   // 2. Evaluate each candidate path with A* Cost Function
+  // Normalization scale: 1000 km & 1440 min (24 hrs) baseline, adaptively scaled if any route exceeds bounds
+  let maxCandidateDist = 0;
+  let maxCandidateTime = 0;
+  for (const r of routes) {
+    if (r.distanceKm > maxCandidateDist) maxCandidateDist = r.distanceKm;
+    if (r.durationMinutes > maxCandidateTime) maxCandidateTime = r.durationMinutes;
+  }
+  const normDistKm = getAdaptiveDistanceBound(maxCandidateDist);
+  const normTimeMin = getAdaptiveTimeBound(maxCandidateTime);
+
   routes.forEach((route, index) => {
-    // 3 Parameters: Distance + Time + Hazard
-    const dNorm = Math.min(1.0, route.distanceKm / 25);
-    const tNorm = Math.min(1.0, route.durationMinutes / 45);
+    // 3 Parameters: Distance + Time + Hazard (scaled to 1000km / 1440min bounds to prevent saturation on large routes)
+    const dNorm = Math.min(1.0, Math.max(0, route.distanceKm / normDistKm));
+    const tNorm = Math.min(1.0, Math.max(0, route.durationMinutes / normTimeMin));
     const distanceCost = Math.round(1.0 * dNorm * 1000) / 1000;
     const timeCost = Math.round(1.5 * tNorm * 1000) / 1000;
 

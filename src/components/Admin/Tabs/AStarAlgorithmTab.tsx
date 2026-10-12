@@ -6,6 +6,7 @@ import {
   RouteWeights,
   StandardVehicleType,
   VIRTUAL_TRAFFIC_DISCLAIMER,
+  DEFAULT_NORMALIZATION_BOUNDS,
 } from '../../../algorithms/aStarConfig';
 import { runAllAStarTests, FullTestSuiteSummary } from '../../../algorithms/aStarTestSuite';
 import { realtimeSync } from '../../../services/realtimeSync';
@@ -803,11 +804,11 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                 <div className="space-y-1 text-[10px] font-mono text-slate-300 pt-1 border-t border-[#21262D]">
                   <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                     <span className="text-cyan-300 font-bold">{isHi ? 'Wd·D (दूरी):' : 'Wd·D (Distance):'}</span>
-                    <span className="text-slate-300">Wd={customWeights.distance} × min(1.0, Distance / 25km)</span>
+                    <span className="text-slate-300">Wd={customWeights.distance} × min(1.0, Distance / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</span>
                   </div>
                   <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                     <span className="text-emerald-300 font-bold">{isHi ? 'Wt·T (समय):' : 'Wt·T (Time):'}</span>
-                    <span className="text-slate-300">Wt={customWeights.time} × min(1.0, Time / 45min)</span>
+                    <span className="text-slate-300">Wt={customWeights.time} × min(1.0, Time / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin}min)</span>
                   </div>
                   <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                     <span className="text-red-300 font-bold">{isHi ? 'Wh·H (खतरा):' : 'Wh·H (Hazard):'}</span>
@@ -854,7 +855,7 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                   </div>
                   <div className="flex justify-between pt-1 border-t border-[#21262D] text-white">
                     <span className="text-cyan-300 font-bold">h(n) Normalization:</span>
-                    <span className="font-bold">Wd × min(1.0, d / 25km)</span>
+                    <span className="font-bold">Wd × min(1.0, d / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</span>
                   </div>
                 </div>
               </div>
@@ -1232,11 +1233,11 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
               <div className="space-y-1.5 text-xs font-mono text-slate-300 pt-2 border-t border-[#21262D]">
                 <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                   <span className="text-cyan-300 font-bold">{isHi ? 'Wd·D (दूरी):' : 'Wd·D (Distance):'}</span>
-                  <span className="text-slate-300 font-semibold">{customWeights.distance} × min(1.0, D / 25km)</span>
+                  <span className="text-slate-300 font-semibold">{customWeights.distance} × min(1.0, D / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                   <span className="text-emerald-300 font-bold">{isHi ? 'Wt·T (समय):' : 'Wt·T (Time):'}</span>
-                  <span className="text-slate-300 font-semibold">{customWeights.time} × min(1.0, T / 45min)</span>
+                  <span className="text-slate-300 font-semibold">{customWeights.time} × min(1.0, T / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin}min)</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                   <span className="text-red-400 font-bold">{isHi ? 'Wh·H (खतरा):' : 'Wh·H (Hazard):'}</span>
@@ -1283,7 +1284,7 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                 </div>
                 <div className="flex justify-between pt-1 border-t border-[#21262D] text-white text-[11px]">
                   <span className="text-cyan-300 font-bold">h(n) Normalization:</span>
-                  <span className="font-bold">Wd × min(1.0, d / 25km)</span>
+                  <span className="font-bold">Wd × min(1.0, d / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</span>
                 </div>
               </div>
             </div>
@@ -1371,7 +1372,7 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                     <span className="text-[10px] text-emerald-400 font-bold">h(n) ≤ h*(n)</span>
                   </div>
                   <div className="text-cyan-100 bg-[#0D1117] p-2 rounded border border-[#21262D]">
-                    h(n) = Wd · min(1.0, d / 25km)
+                    h(n) = Wd · min(1.0, d / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)
                   </div>
                   <p className="text-[10px] font-sans text-slate-400 pt-0.5">
                     {isHi ? <span>लक्ष्य बिंदु पर d = 0 होने पर <strong className="text-amber-300">h(Goal) = 0</strong> हो जाता है।</span> : <span>At destination node d = 0, mathematically ensuring <strong className="text-amber-300">h(Goal) = 0</strong>.</span>}
@@ -1429,12 +1430,12 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                     </span>
                   </div>
                   <div className="font-mono text-[11px] text-slate-300 bg-[#0D1117] p-1.5 rounded">
-                    D(n) = min(1.0, ActualDistanceKm / 25.0)
+                    D(n) = min(1.0, ActualDistanceKm / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}.0)
                   </div>
                   <p className="text-[11px] text-slate-400">
                     {isHi
-                      ? 'मार्ग की वास्तविक सड़क दूरी को 0.0 से 1.0 के स्केल पर नॉर्मलाइज करता है ताकि बड़ी संख्याएँ एल्गोरिदम को विचलित न करें।'
-                      : 'Normalizes ground road distance onto a [0.0, 1.0] scale so large kilometer values do not distort search priority.'}
+                      ? 'मार्ग की वास्तविक सड़क दूरी को 0.0 से 1.0 के स्केल पर नॉर्मलाइज करता है (1000km तक लंबी दूरियों व राष्ट्रीय राजमार्गों के लिए भी सुरक्षित, बिना किसी सैचुरेशन के)।'
+                      : 'Normalizes ground road distance onto a [0.0, 1.0] scale (scaled up to 1000km for large intercity & national highway routes without premature saturation).'}
                   </p>
                 </div>
 
@@ -1450,12 +1451,12 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                     </span>
                   </div>
                   <div className="font-mono text-[11px] text-slate-300 bg-[#0D1117] p-1.5 rounded">
-                    T(n) = min(1.0, DurationMinutes / 45.0)
+                    T(n) = min(1.0, DurationMinutes / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin}.0)
                   </div>
                   <p className="text-[11px] text-slate-400">
                     {isHi
-                      ? 'स्पीड लिमिट, ट्रैफिक और सिग्नल के आधार पर अनुमानित समय। यदि छोटी दूरी पर भी भारी जाम है, तो Wt उस मार्ग की लागत बढ़ा देता है।'
-                      : 'Estimated duration based on speed limits, traffic congestion, and delays. Heavy jams elevate cost even on physically shorter segments.'}
+                      ? 'स्पीड लिमिट, ट्रैफिक और सिग्नल के आधार पर अनुमानित समय (24 घंटे / 1440 मिनट तक स्केल किया गया है ताकि बड़ी समयावधि पर भी कोई समस्या न हो)।'
+                      : 'Estimated duration based on speed limits, traffic congestion, and delays (scaled up to 24h / 1440 min so long travel times never cause distortion).'}
                   </p>
                 </div>
 
@@ -1594,7 +1595,7 @@ export const AStarAlgorithmTab: React.FC<AStarAlgorithmTabProps> = ({ journey, h
                   <span>Step 5</span>
                 </div>
                 <div className="text-[11px] font-mono text-slate-300 space-y-0.5">
-                  <div>h(n) = Wd · min(1, d / 25)</div>
+                  <div>h(n) = Wd · min(1, d / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm})</div>
                   <div className="text-base font-black text-cyan-300 pt-1">
                     h({calcBreakdown.fromNode.id}) = {calcBreakdown.normH.toFixed(3)}
                   </div>

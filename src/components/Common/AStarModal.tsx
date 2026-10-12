@@ -6,6 +6,9 @@ import {
   TRAFFIC_LEVEL_COST,
   HAZARD_SEVERITY_COST,
   VIRTUAL_TRAFFIC_DISCLAIMER,
+  DEFAULT_NORMALIZATION_BOUNDS,
+  getAdaptiveDistanceBound,
+  getAdaptiveTimeBound,
 } from '../../algorithms/aStarConfig';
 import { runAllAStarTests, FullTestSuiteSummary } from '../../algorithms/aStarTestSuite';
 
@@ -45,10 +48,13 @@ export const AStarModal: React.FC<AStarModalProps> = ({
     }, 150);
   };
 
+  const maxNormDist = getAdaptiveDistanceBound(optimalRoute.distanceKm);
+  const maxNormTime = getAdaptiveTimeBound(optimalRoute.durationMinutes);
+
   const optimalMetrics = optimalRoute.aStarMetrics;
   const breakdown = optimalMetrics?.costBreakdown || {
-    distanceCost: Math.round(1.0 * Math.min(1.0, optimalRoute.distanceKm / 25) * 1000) / 1000,
-    timeCost: Math.round(1.5 * Math.min(1.0, optimalRoute.durationMinutes / 45) * 1000) / 1000,
+    distanceCost: Math.round(1.0 * Math.min(1.0, optimalRoute.distanceKm / maxNormDist) * 1000) / 1000,
+    timeCost: Math.round(1.5 * Math.min(1.0, optimalRoute.durationMinutes / maxNormTime) * 1000) / 1000,
     trafficCost: 0,
     hazardCost: 0,
     restrictionCost: 0,
@@ -205,11 +211,11 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] text-slate-300 font-mono pt-1 border-t border-[#21262D]">
                   <div className="bg-[#161B22]/80 p-2 rounded-lg border border-[#30363D] flex justify-between items-center">
                     <span className="text-cyan-400 font-bold">{isHi ? 'Wd·D (दूरी भार):' : 'Wd·D (Distance Weight):'}</span>
-                    <span className="text-white font-bold">{ROUTE_WEIGHTS.distance} × min(1, Dist/25km)</span>
+                    <span className="text-white font-bold">{ROUTE_WEIGHTS.distance} × min(1, Dist/{DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</span>
                   </div>
                   <div className="bg-[#161B22]/80 p-2 rounded-lg border border-[#30363D] flex justify-between items-center">
                     <span className="text-emerald-400 font-bold">{isHi ? 'Wt·T (समय भार):' : 'Wt·T (Time Weight):'}</span>
-                    <span className="text-white font-bold">{ROUTE_WEIGHTS.time} × min(1, Time/45min)</span>
+                    <span className="text-white font-bold">{ROUTE_WEIGHTS.time} × min(1, Time/{DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin}min)</span>
                   </div>
                   <div className="bg-[#161B22]/80 p-2 rounded-lg border border-[#30363D] flex justify-between items-center">
                     <span className="text-red-400 font-bold">{isHi ? 'Wh·H (खतरा सुरक्षा):' : 'Wh·H (Hazard Weight):'}</span>
@@ -518,11 +524,11 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                   <div className="space-y-1 text-[11px] font-mono text-slate-300 pt-1.5 border-t border-[#21262D]">
                     <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                       <span className="text-cyan-300 font-bold">{isHi ? 'Wd·D (दूरी):' : 'Wd·D (Distance):'}</span>
-                      <span className="text-white font-semibold">{ROUTE_WEIGHTS.distance} × min(1.0, D / 25km)</span>
+                      <span className="text-white font-semibold">{ROUTE_WEIGHTS.distance} × min(1.0, D / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</span>
                     </div>
                     <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                       <span className="text-emerald-300 font-bold">{isHi ? 'Wt·T (समय):' : 'Wt·T (Time):'}</span>
-                      <span className="text-white font-semibold">{ROUTE_WEIGHTS.time} × min(1.0, T / 45min)</span>
+                      <span className="text-white font-semibold">{ROUTE_WEIGHTS.time} × min(1.0, T / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin}min)</span>
                     </div>
                     <div className="flex justify-between items-center py-0.5 border-b border-[#21262D]">
                       <span className="text-red-400 font-bold">{isHi ? 'Wh·H (खतरा):' : 'Wh·H (Hazard):'}</span>
@@ -569,7 +575,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                     </div>
                     <div className="flex justify-between pt-0.5 border-t border-[#21262D] text-white">
                       <span className="text-cyan-300 font-bold">h(n) Normalization:</span>
-                      <span className="font-bold">Wd × min(1.0, d / 25km)</span>
+                      <span className="font-bold">Wd × min(1.0, d / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</span>
                     </div>
                   </div>
                 </div>
@@ -632,7 +638,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                   <div className="p-2.5 bg-[#0D1117] rounded-lg border border-cyan-500/40 space-y-1">
                     <span className="text-[10px] font-bold text-cyan-200 block uppercase font-sans">Step 5: h(n)</span>
                     <div className="text-[11px] text-cyan-100 font-bold">
-                      h(n) = Wd · min(1, d/25)
+                      h(n) = Wd · min(1, d / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm})
                     </div>
                     <span className="text-[9.5px] text-emerald-400 font-sans block">At Goal: h=0</span>
                   </div>
@@ -658,7 +664,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                       <span className="font-mono text-[10px] text-cyan-400">Wd = {ROUTE_WEIGHTS.distance}</span>
                     </div>
                     <p className="text-[11px] text-slate-300">
-                      Formula: <code className="text-white">min(1.0, Dist / 25km)</code>. {isHi ? 'सड़क मार्ग की दूरी को 0 से 1 में स्केल करता है।' : 'Normalizes ground road distance onto a 0.0 to 1.0 scale.'}
+                      Formula: <code className="text-white">min(1.0, Dist / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm}km)</code>. {isHi ? 'सड़क मार्ग की दूरी को 0 से 1 में स्केल करता है (बड़ी दूरियों व राष्ट्रीय राजमार्गों के लिए भी 1000km तक सुरक्षित)।' : 'Normalizes ground road distance onto a 0.0 to 1.0 scale (scaled up to 1000km for large intercity corridors).'}
                     </p>
                   </div>
 
@@ -668,7 +674,7 @@ export const AStarModal: React.FC<AStarModalProps> = ({
                       <span className="font-mono text-[10px] text-emerald-400">Wt = {ROUTE_WEIGHTS.time}</span>
                     </div>
                     <p className="text-[11px] text-slate-300">
-                      Formula: <code className="text-white">min(1.0, Time / 45min)</code>. {isHi ? 'गति सीमा व जाम के अनुसार यात्रा समय जोड़ता है।' : 'Accounts for speed limits, congestion delays, and travel time.'}
+                      Formula: <code className="text-white">min(1.0, Time / {DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin}min)</code>. {isHi ? 'गति सीमा व जाम के अनुसार यात्रा समय जोड़ता है (24 घंटे / 1440 मिनट तक सुरक्षित)।' : 'Accounts for speed limits, congestion delays, and travel time (scaled up to 24h / 1440 min).'}
                     </p>
                   </div>
 

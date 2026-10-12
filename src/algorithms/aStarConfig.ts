@@ -115,9 +115,43 @@ export interface NormalizationBounds {
 }
 
 export const DEFAULT_NORMALIZATION_BOUNDS: NormalizationBounds = {
-  maxRelevantDistanceKm: 25.0,  // Standard local/regional segment corridor max
-  maxRelevantTravelTimeMin: 45.0, // Standard segment corridor max minutes
+  maxRelevantDistanceKm: 1000.0, // National / intercity highway corridor scale (1000 km)
+  maxRelevantTravelTimeMin: 1440.0, // Full 24-hour travel time scale (1440 minutes = 24 hours)
 };
+
+/**
+ * Dynamic normalization bound calculator
+ * Ensures that even for ultra-long trips (e.g., 2000+ km or >24 hrs), values scale smoothly without saturation.
+ */
+export function getAdaptiveDistanceBound(distanceKm: number = 0): number {
+  return Math.max(DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm, Math.ceil(distanceKm || 0));
+}
+
+export function getAdaptiveTimeBound(durationMinutes: number = 0): number {
+  return Math.max(DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin, Math.ceil(durationMinutes || 0));
+}
+
+/**
+ * Normalizes distance onto [0.0, 1.0] scale without premature saturation
+ */
+export function normalizeDistance(
+  distanceKm: number,
+  maxDistKm: number = DEFAULT_NORMALIZATION_BOUNDS.maxRelevantDistanceKm
+): number {
+  const safeBound = Math.max(0.1, maxDistKm);
+  return Math.min(1.0, Math.max(0, distanceKm / safeBound));
+}
+
+/**
+ * Normalizes travel time onto [0.0, 1.0] scale without premature saturation
+ */
+export function normalizeTravelTime(
+  travelTimeMin: number,
+  maxTimeMin: number = DEFAULT_NORMALIZATION_BOUNDS.maxRelevantTravelTimeMin
+): number {
+  const safeBound = Math.max(0.1, maxTimeMin);
+  return Math.min(1.0, Math.max(0, travelTimeMin / safeBound));
+}
 
 /**
  * Normalizes vehicle type casing and aliases
