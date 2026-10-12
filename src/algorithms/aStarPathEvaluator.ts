@@ -1,5 +1,5 @@
 import { RouteOption, Hazard, VehicleType, AStarMetrics } from '../types';
-import { getDistanceMeters, hazardAffectsRoute, getSymmetricRouteOverlap } from './hazardRouteIntersection';
+import { getDistanceMeters, hazardAffectsRoute, getSymmetricRouteOverlap, doesRouteIntersectHazard } from './hazardRouteIntersection';
 import {
   DEFAULT_NORMALIZATION_BOUNDS,
   getAdaptiveDistanceBound,
@@ -110,17 +110,12 @@ export function evaluateRoutesWithAStar(
     let cautionHazard: Hazard | null = null;
 
     for (const h of activeHazards) {
-      const check = hazardAffectsRoute(h, route.coordinates);
-      if (check.affects) {
-        if (h.severity === 'BLOCKED' || h.severity === 'CRITICAL') {
-          // Infinite penalty for impassable obstruction
-          hazardPenalty += 9999;
-          isBlocked = true;
-          break;
-        } else {
-          hazardPenalty += 180;
-          cautionHazard = h;
-        }
+      if (doesRouteIntersectHazard(route.coordinates, h, 40)) {
+        // Infinite penalty for active hazard obstruction
+        hazardPenalty += 999999;
+        isBlocked = true;
+        cautionHazard = h;
+        break;
       }
     }
 
@@ -202,18 +197,27 @@ export function evaluateRoutesWithAStar(
     return (a.aStarMetrics?.totalFCost || 0) - (b.aStarMetrics?.totalFCost || 0);
   });
 
+  // If active hazards exist, prioritize safe candidates and exclude blocked candidates from selection
+  const safeEvaluatedRoutes = evaluatedRoutes.filter(
+    (r) => r.aStarMetrics?.status !== 'HAZARD_BLOCKED' && !activeHazards.some((h) => doesRouteIntersectHazard(r.coordinates, h, 40))
+  );
+
+  const poolForSelection = (activeHazards.length > 0 && safeEvaluatedRoutes.length > 0)
+    ? safeEvaluatedRoutes
+    : evaluatedRoutes;
+
   // STRICT ZERO-OVERLAP FILTERING:
   // When candidates are presented, filter them so that no routes overlap.
   // Overlap threshold: max 15% intermediate road corridor.
   // If >3 routes exist, select the 3 best non-overlapping routes based on A* cost and travel time.
   const MAX_ALLOWED_OVERLAP = 0.15;
   const nonOverlappingRoutes: RouteOption[] = [];
-  if (evaluatedRoutes.length > 0) {
-    nonOverlappingRoutes.push(evaluatedRoutes[0]);
+  if (poolForSelection.length > 0) {
+    nonOverlappingRoutes.push(poolForSelection[0]);
   }
 
-  for (let i = 1; i < evaluatedRoutes.length && nonOverlappingRoutes.length < 3; i++) {
-    const cand = evaluatedRoutes[i];
+  for (let i = 1; i < poolForSelection.length && nonOverlappingRoutes.length < 3; i++) {
+    const cand = poolForSelection[i];
     if (nonOverlappingRoutes.some((sel) => sel.id === cand.id)) continue;
 
     const hasOverlap = nonOverlappingRoutes.some((sel) => {
@@ -231,7 +235,7 @@ export function evaluateRoutesWithAStar(
   // - 2 routes: Optimal Route (#10b981) & Average Route (#38bdf8)
   // - 3 routes (or >3 found): Optimal Route (#10b981), Average Route (#38bdf8) & Worst Route (#f59e0b)
   // In all 4 cases: routes must be completely distinct without overlapping paths.
-  const finalDiverseRoutes = nonOverlappingRoutes.length > 0 ? nonOverlappingRoutes : evaluatedRoutes.slice(0, 1);
+  const finalDiverseRoutes = nonOverlappingRoutes.length > 0 ? nonOverlappingRoutes : poolForSelection.slice(0, 1);
   const totalCount = finalDiverseRoutes.length;
   finalDiverseRoutes.forEach((route, idx) => {
     let cat: 'OPTIMAL' | 'AVERAGE' | 'WORST' = 'OPTIMAL';

@@ -23,6 +23,7 @@ import {
   hazardAffectsRoute,
   calculateBearing,
   getDistanceMeters,
+  doesRouteIntersectHazard,
 } from '../algorithms/hazardRouteIntersection';
 import { evaluateRoutesWithAStar, AStarEvaluationResult } from '../algorithms/aStarPathEvaluator';
 import { VoiceService } from './voiceService';
@@ -658,10 +659,14 @@ class RealtimeSyncManager {
 
     if (alternatives && alternatives.length > 0) {
       // Find the unblocked optimal route (lowest cost, safe from hazard)
-      const optimalDetour = alternatives.find((r) => r.aStarMetrics?.status !== 'HAZARD_BLOCKED') || alternatives[0];
-      const otherDetours = alternatives.filter((r) => r.id !== optimalDetour.id).slice(0, 2);
+      const safeAlternatives = alternatives.filter((r) => this.isRouteSafeFromActiveHazards(r));
+      const pool = safeAlternatives.length > 0 ? safeAlternatives : alternatives;
 
-      // Re-evaluate candidate routes with A* including the previous obstructed route for visual comparison
+      const optimalDetour = pool.find((r) => r.aStarMetrics?.status !== 'HAZARD_BLOCKED' && this.isRouteSafeFromActiveHazards(r)) || pool[0];
+      // CRITICAL: NEVER include the old route or any route that has/intersects an active hazard!
+      const otherDetours = pool.filter((r) => r.id !== optimalDetour.id && this.isRouteSafeFromActiveHazards(r)).slice(0, 2);
+
+      // Re-evaluate candidate routes with A*
       const candidateList = [optimalDetour, ...otherDetours].slice(0, 3);
       try {
         const aStarResult = evaluateRoutesWithAStar(
@@ -676,7 +681,8 @@ class RealtimeSyncManager {
         console.warn('A* Evaluation note:', err);
       }
 
-      // CRITICAL: The new safe optimal route becomes activeRoute, with other detours as alternatives!
+      // CRITICAL: The new safe optimal route becomes activeRoute, with ONLY safe detours as alternatives!
+      // The old route with the hazard is completely eliminated and never displayed!
       j.activeRoute = optimalDetour;
       j.activeRouteId = optimalDetour.id;
       j.alternativeRoutes = otherDetours;
@@ -743,6 +749,14 @@ class RealtimeSyncManager {
    */
   public commitToAlternateRoute(selectedRouteId: string) {
     this.selectOptimalRoute(selectedRouteId);
+  }
+
+  public isRouteSafeFromActiveHazards(route: RouteOption | null | undefined): boolean {
+    if (!route || !route.coordinates || route.coordinates.length < 2) return false;
+    if (route.aStarMetrics?.status === 'HAZARD_BLOCKED') return false;
+    const activeHazards = this.state.hazards.filter((h) => h.status === 'ACTIVE');
+    if (activeHazards.length === 0) return true;
+    return !activeHazards.some((h) => doesRouteIntersectHazard(route.coordinates, h));
   }
 
   private getRouteCumulativeDistances(coords: [number, number][]): number[] {
@@ -1356,7 +1370,9 @@ class RealtimeSyncManager {
     const newOptimal = aStarResult.optimalRoute;
     j.activeRoute = newOptimal;
     j.activeRouteId = newOptimal.id;
-    j.alternativeRoutes = aStarResult.routes.filter((r) => r.id !== newOptimal.id);
+    j.alternativeRoutes = aStarResult.routes.filter(
+      (r) => r.id !== newOptimal.id && r.id !== 'blocked_prev_route' && this.isRouteSafeFromActiveHazards(r)
+    );
 
     j.totalDistanceKm = newOptimal.distanceKm;
     j.remainingDistanceKm = newOptimal.distanceKm;

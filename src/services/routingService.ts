@@ -1,5 +1,5 @@
 import { RouteOption, Hazard, RouteStep, VehicleType } from '../types';
-import { getDistanceMeters } from '../algorithms/hazardRouteIntersection';
+import { getDistanceMeters, doesRouteIntersectHazard } from '../algorithms/hazardRouteIntersection';
 import {
   snapToNearestRoad as snapToRoadNetwork,
   buildRoadGraphAndSearchRoutes,
@@ -518,9 +518,19 @@ export async function calculateAlternativeRoutes(
   );
 
   if (result && result.routes && result.routes.length > 0) {
-    realtimeSync.setAStarEvaluation(result.aStarEvaluation);
-    // Return routes (safe bypasses that cleared the hazard)
-    return result.routes;
+    // Strictly filter out any candidate route that intersects active hazards
+    const safeRoutes = result.routes.filter((route) => {
+      if (route.aStarMetrics?.status === 'HAZARD_BLOCKED') return false;
+      return !activeHazardsList.some((h) => doesRouteIntersectHazard(route.coordinates, h));
+    });
+
+    const finalRoutes = safeRoutes.length > 0 ? safeRoutes : result.routes;
+    realtimeSync.setAStarEvaluation({
+      ...result.aStarEvaluation,
+      routes: finalRoutes,
+      alternativeRoutes: finalRoutes.slice(1),
+    });
+    return finalRoutes;
   }
 
   return [];

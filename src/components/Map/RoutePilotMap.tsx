@@ -17,6 +17,7 @@ import { hardwareSimEngine } from '../../services/hardwareSimulationEngine';
 import { getTranslation, translateText } from '../../services/i18n';
 import { getVehicleTopDownSvg, getVehicleDimensions } from '../../services/vehicleModels';
 import { getHazardVisual, HazardIconComponent } from '../../services/hazardVisuals';
+import { doesRouteIntersectHazard } from '../../algorithms/hazardRouteIntersection';
 import { LeafletMapInner } from './LeafletMapInner';
 
 interface RoutePilotMapProps {
@@ -687,7 +688,12 @@ const GoogleMapInner: React.FC<RoutePilotMapProps> = ({
 
         {/* Alternative Routes Polylines (Dotted Point Paths) */}
         {journey.alternativeRoutes &&
-          journey.alternativeRoutes.map((route, altIdx) => {
+          journey.alternativeRoutes
+            .filter((route) => {
+              if (route.aStarMetrics?.status === 'HAZARD_BLOCKED') return false;
+              return !hazards.some((h) => doesRouteIntersectHazard(route.coordinates, h));
+            })
+            .map((route, altIdx) => {
             if (!route.coordinates || route.coordinates.length < 2) return null;
             const path = route.coordinates.map(([lat, lng]) => ({ lat, lng }));
             const altRatio = altIdx === 0 ? 0.50 : 0.58;

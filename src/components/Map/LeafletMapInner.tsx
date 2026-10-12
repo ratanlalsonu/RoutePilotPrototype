@@ -6,6 +6,7 @@ import { hardwareSimEngine } from '../../services/hardwareSimulationEngine';
 import { getTranslation, translateText } from '../../services/i18n';
 import { getVehicleTopDownSvg, getVehicleDimensions } from '../../services/vehicleModels';
 import { getHazardVisual } from '../../services/hazardVisuals';
+import { doesRouteIntersectHazard } from '../../algorithms/hazardRouteIntersection';
 
 // Defensive patch against internal Leaflet TypeError: Cannot read properties of undefined (reading '_leaflet_pos')
 if (typeof window !== 'undefined' && L && L.DomUtil) {
@@ -639,7 +640,12 @@ export const LeafletMapInner: React.FC<LeafletMapInnerProps> = ({
 
     // 4. Alternative Routes Polylines + Badges (Dotted Point Paths along roads)
     if (journey.alternativeRoutes && journey.alternativeRoutes.length > 0) {
-      journey.alternativeRoutes.forEach((altRoute, altIdx) => {
+      const safeAlternatives = journey.alternativeRoutes.filter((altRoute) => {
+        if (altRoute.aStarMetrics?.status === 'HAZARD_BLOCKED') return false;
+        return !hazards.some((h) => doesRouteIntersectHazard(altRoute.coordinates, h));
+      });
+
+      safeAlternatives.forEach((altRoute, altIdx) => {
         if (!altRoute.coordinates || altRoute.coordinates.length < 2) return;
         const coords: [number, number][] = altRoute.coordinates.map(([lat, lng]) => [lat, lng]);
         const isBlocked = altRoute.aStarMetrics?.status === 'HAZARD_BLOCKED';

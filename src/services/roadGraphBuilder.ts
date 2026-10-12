@@ -5,6 +5,7 @@ import {
   getDistanceMeters,
   distanceToSegmentMeters,
   getSymmetricRouteOverlap,
+  doesRouteIntersectHazard,
 } from '../algorithms/hazardRouteIntersection';
 import { calculateVehicleDuration, getVehicleSpeedProfile } from './routingService';
 import { AStarEvaluationResult } from '../algorithms/aStarPathEvaluator';
@@ -538,17 +539,10 @@ export async function buildRoadGraphAndSearchRoutes(
     let hazardPen = 0;
     let isBlocked = false;
     for (const h of activeHazards) {
-      const rad = (h.affectedRadius || 180) + 40;
-      const hit = coords.some(
-        (pt) => getDistanceMeters(pt[0], pt[1], h.latitude, h.longitude) < rad
-      );
-      if (hit) {
-        if (h.severity === 'BLOCKED' || h.severity === 'CRITICAL') {
-          hazardPen += 999999;
-          isBlocked = true;
-        } else {
-          hazardPen += 500;
-        }
+      if (doesRouteIntersectHazard(coords, h, 40)) {
+        hazardPen += 999999;
+        isBlocked = true;
+        break;
       }
     }
 
@@ -733,8 +727,20 @@ export async function buildRoadGraphAndSearchRoutes(
     (c) => c.coordinates && c.coordinates.length >= 3 && c.distanceKm > 0
   );
 
+  // If active hazards exist, separate candidates that are completely safe from hazards
+  const safeCandidates = validCandidates.filter((c) => {
+    if (c.aStarMetrics?.status === 'HAZARD_BLOCKED') return false;
+    return !activeHazards.some((h) => doesRouteIntersectHazard(c.coordinates, h, 40));
+  });
+
+  // When active hazards are present and we have safe candidates, ONLY pick from safe candidates!
+  // The hazardous/blocked corridor must NEVER be chosen as an alternative!
+  const poolForSelection = (activeHazards.length > 0 && safeCandidates.length > 0)
+    ? safeCandidates
+    : validCandidates;
+
   // Sort candidates so lowest travel cost and unblocked routes come first
-  validCandidates.sort((a, b) => {
+  poolForSelection.sort((a, b) => {
     const aBlocked = a.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
     const bBlocked = b.aStarMetrics?.status === 'HAZARD_BLOCKED' ? 1 : 0;
     if (aBlocked !== bBlocked) return aBlocked - bBlocked;
@@ -749,14 +755,14 @@ export async function buildRoadGraphAndSearchRoutes(
   const MAX_ALLOWED_OVERLAP = 0.15;
   const selectedDiverseRoutes: RouteOption[] = [];
 
-  if (validCandidates.length > 0) {
+  if (poolForSelection.length > 0) {
     // 1. First route: The #1 lowest-cost safe candidate (Optimal Route)
-    selectedDiverseRoutes.push(validCandidates[0]);
+    selectedDiverseRoutes.push(poolForSelection[0]);
   }
 
   // 2. Select up to 2 additional non-overlapping routes (Average Route and Worst Route)
-  for (let i = 1; i < validCandidates.length && selectedDiverseRoutes.length < 3; i++) {
-    const cand = validCandidates[i];
+  for (let i = 1; i < poolForSelection.length && selectedDiverseRoutes.length < 3; i++) {
+    const cand = poolForSelection[i];
     if (selectedDiverseRoutes.some((sel) => sel.id === cand.id)) continue;
 
     // Must not overlap with ANY already selected route

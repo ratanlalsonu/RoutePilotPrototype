@@ -257,3 +257,45 @@ export function getSymmetricRouteOverlap(
   const overlapAInB = calculateRoutesOverlapRatio(coordsB, coordsA, bufferMeters);
   return Math.max(overlapBInA, overlapAInB);
 }
+
+/**
+ * Checks whether a given route geometry intersects or is obstructed by an active hazard
+ */
+export function doesRouteIntersectHazard(
+  routeCoordinates: [number, number][],
+  hazard: Hazard,
+  bufferMeters: number = 50
+): boolean {
+  if (!routeCoordinates || routeCoordinates.length < 2 || hazard.status !== 'ACTIVE') {
+    return false;
+  }
+  const radius = (hazard.affectedRadius || 180) + bufferMeters;
+
+  // 1. Quick vertex distance check
+  for (let i = 0; i < routeCoordinates.length; i++) {
+    const pt = routeCoordinates[i];
+    if (getDistanceMeters(pt[0], pt[1], hazard.latitude, hazard.longitude) <= radius) {
+      return true;
+    }
+  }
+
+  // 2. Continuous segment distance check
+  for (let i = 0; i < routeCoordinates.length - 1; i++) {
+    const a = routeCoordinates[i];
+    const b = routeCoordinates[i + 1];
+    const dist = distanceToSegmentMeters(
+      hazard.latitude,
+      hazard.longitude,
+      a[0],
+      a[1],
+      b[0],
+      b[1]
+    );
+    if (dist <= radius) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
