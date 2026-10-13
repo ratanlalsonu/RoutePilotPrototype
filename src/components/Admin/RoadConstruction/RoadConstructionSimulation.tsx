@@ -217,14 +217,14 @@ export const RoadConstructionSimulation: React.FC<RoadConstructionSimulationProp
                     fill="none"
                     filter="url(#wireGlowYellow)"
                   />
-                  {/* Wire: Buck GND to ESP32 GND */}
-                  <path d="M 235 270 L 285 270 L 285 415 L 350 415" stroke="#475569" strokeWidth="3" fill="none" />
+                  {/* Wire: ESP32 GND to Buck GND */}
+                  <path d="M 350 415 L 285 415 L 285 270 L 235 270" stroke="#475569" strokeWidth="3" fill="none" />
 
                   {/* Wire: ESP32 to GPS Module (NEO-6M) */}
                   {/* VCC (Red) */}
                   <path d="M 370 230 L 370 170 L 380 170 L 380 145" stroke="#ef4444" strokeWidth="3" fill="none" filter="url(#wireGlowRed)" />
-                  {/* GND (Black) */}
-                  <path d="M 405 230 L 405 170 L 415 170 L 415 145" stroke="#475569" strokeWidth="3" fill="none" />
+                  {/* GND (Black: GPS GND -> ESP32 GND) */}
+                  <path d="M 415 145 L 415 170 L 405 170 L 405 230" stroke="#475569" strokeWidth="3" fill="none" />
                   {/* GPS TX to ESP32 RX2 (Blue) */}
                   <path d="M 445 145 L 445 180 L 440 180 L 440 230" stroke="#0ea5e9" strokeWidth="3" fill="none" filter="url(#wireGlowBlue)" />
                   {/* GPS RX from ESP32 TX2 (Yellow) */}
@@ -233,8 +233,8 @@ export const RoadConstructionSimulation: React.FC<RoadConstructionSimulationProp
                   {/* Wire: ESP32 to SIM7600 4G LTE Module */}
                   {/* VCC 5V to SIM7600 (Red) */}
                   <path d="M 525 280 L 555 280 L 555 365 L 595 365" stroke="#ef4444" strokeWidth="3" fill="none" filter="url(#wireGlowRed)" />
-                  {/* GND (Black) */}
-                  <path d="M 525 380 L 565 380 L 565 385 L 640 385 L 640 365" stroke="#475569" strokeWidth="3" fill="none" />
+                  {/* GND (Black: SIM7600 GND -> ESP32 GND) */}
+                  <path d="M 640 365 L 640 385 L 565 385 L 565 380 L 525 380" stroke="#475569" strokeWidth="3" fill="none" />
                   {/* SIM7600 TX to ESP32 RX (Blue) */}
                   <path d="M 525 305 L 685 305 L 685 365" stroke="#0ea5e9" strokeWidth="3" fill="none" filter="url(#wireGlowBlue)" />
                   {/* SIM7600 RX to ESP32 TX (Yellow) */}
